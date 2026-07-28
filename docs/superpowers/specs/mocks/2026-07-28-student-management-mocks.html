@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>student-management mocks</title>
+<!-- HAS_UI_SURFACE: yes -->
+<style>
+  :root {
+    --color-bg: #f6f4f0; --color-fg: #1a1917;
+    --color-surface: #ffffff; --color-surface-muted: #f2efe9;
+    --color-border: #e4e0d8; --color-primary: #9c3417;
+    --color-primary-fg: #ffffff; --color-muted: #79736a;
+    --color-muted-fg: #a09a90; --color-danger: #b3261e;
+    --color-danger-fg: #ffffff; --color-success: #4c8a63;
+  }
+  body { font-family: "Noto Sans SC", -apple-system, sans-serif; margin: 0; padding: 24px; background: #ddd7cc; color: var(--color-fg); }
+  section { margin-bottom: 48px; }
+  h1, h2 { margin-top: 0; }
+  .note { color: var(--color-muted); font-size: 13px; margin-bottom: 16px; }
+  .frame { border: 1px solid var(--color-border); border-radius: 8px; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,.12); }
+  table { width: 100%; border-collapse: collapse; background: var(--color-surface); font-size: 12.5px; }
+  th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--color-border); }
+  th { background: var(--color-surface-muted); color: var(--color-muted); font-weight: 500; font-size: 11px; }
+  .badge { display: inline-flex; align-items: center; border-radius: 8px; padding: 2px 8px; font-size: 11px; font-weight: 500; }
+  .badge-danger { background: var(--color-danger); color: var(--color-danger-fg); }
+  .badge-muted { background: var(--color-surface-muted); color: var(--color-muted); border: 1px solid var(--color-border); }
+  .header { display: flex; justify-content: space-between; align-items: flex-end; padding: 16px 22px; background: var(--color-surface); border-bottom: 1px solid var(--color-border); }
+  .btn { display: inline-flex; align-items: center; height: 32px; padding: 0 12px; border-radius: 8px; font-size: 13px; font-weight: 500; border: 0; }
+  .btn-primary { background: var(--color-primary); color: var(--color-primary-fg); }
+  .panel { width: 280px; flex: none; border-left: 1px solid var(--color-border); background: var(--color-surface); padding: 14px 18px; font-size: 12.5px; }
+  .row-flex { display: flex; }
+</style>
+</head>
+<body>
+
+<section id="student-list-desktop">
+  <h2>学员列表 · 详情面板（desktop）</h2>
+  <p class="note">
+    真实实现见 <code>frontend/app/students/</code>（本 change 把数据源从硬编码
+    mock 换成真实 API，页面结构/视觉不变）。原始设计来源是 claude.ai/design
+    项目「讲武堂学员管理系统」（<code>ClaudeAI课程学员管理页.dc.html</code>）。
+    这里只截取本 change 涉及的只读部分作为视觉参照，不是从零重新设计。
+  </p>
+  <div class="frame row-flex">
+    <div style="flex:1">
+      <div class="header">
+        <div>
+          <div style="font-size:19px;font-weight:600">学员</div>
+          <div class="note" style="margin:4px 0 0">邮箱为唯一标识；微信号用于催作业，需人工对齐。</div>
+        </div>
+        <button class="btn btn-primary" disabled>新增学员（本 change 不接后端）</button>
+      </div>
+      <table>
+        <thead><tr><th>姓名</th><th>邮箱</th><th>微信号</th><th>区域</th><th>基础</th><th>标签</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>林敏</td><td>lin.min@example.com</td>
+            <td><span class="badge badge-danger">未对齐微信</span></td>
+            <td>美西</td><td>小白</td><td><span class="badge badge-muted">新报名</span></td>
+          </tr>
+          <tr>
+            <td>陈嘉禾</td><td>chen.jiahe@example.com</td>
+            <td>wx_chenjh</td><td>美西</td><td>有基础</td><td><span class="badge badge-muted">活跃</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="panel">
+      <div style="font-weight:600;font-size:15px;margin-bottom:4px">陈嘉禾</div>
+      <div class="note" style="margin-bottom:12px">chen.jiahe@example.com · 只读</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <div>微信号：wx_chenjh</div>
+        <div>区域：美西 · UTC-8</div>
+        <div>基础：有基础</div>
+        <div>来源：讲武堂</div>
+        <div>备注：第 2 期老学员，主动帮同学答疑。</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="student-list-mobile">
+  <h2>学员列表（mobile）</h2>
+  <p class="note">窄屏下详情面板改为点击行后覆盖全屏展示（沿用原型既有的响应式约定，本 change 不改变）。</p>
+  <div class="frame" style="max-width:393px">
+    <div class="header" style="padding:12px 16px">
+      <div style="font-size:16px;font-weight:600">学员</div>
+    </div>
+    <table>
+      <thead><tr><th>姓名</th><th>微信</th></tr></thead>
+      <tbody>
+        <tr><td>林敏</td><td><span class="badge badge-danger">未对齐</span></td></tr>
+        <tr><td>陈嘉禾</td><td>wx_chenjh</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+</body>
+</html>
