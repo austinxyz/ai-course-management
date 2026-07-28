@@ -1,0 +1,48 @@
+schema: superpowers-driven
+
+project:
+  # C1 apply 阶段建好启动脚本后回填
+  dev_stack_command: ""
+  test_commands:
+    - "cd backend && pytest"
+    - "cd frontend && npm run test"
+  e2e_command: ""
+  design_system: "linear"
+  custom_verification_checks:
+    - "grep -rn 'console.log' frontend/app frontend/lib || true"
+    - "grep -rnE 'SUPABASE_SERVICE|DATABASE_URL|SMTP_|NEXT_PUBLIC_(DATABASE|SUPABASE|SMTP)' frontend/ && exit 1 || true"
+
+context: |
+  学员管理系统 —— 北美华人 Claude AI 课程的学员档案、报课、作业与互动管理。
+  使用者是讲师与合作伙伴，不面向学员。需求见 docs/requirements.md。
+
+  技术栈：
+  - frontend/  Next.js 15 App Router + TypeScript + Tailwind（Node 20+）
+  - backend/   FastAPI + Python 3.12 + SQLModel
+  - supabase/migrations/  唯一 migration 来源（.sql，不用 Alembic）
+  - DB: Supabase 托管 Postgres（仅作托管 Postgres，不用 RLS 和自动 REST API）
+
+  架构纪律（不可违反）：
+  - 浏览器只与 Next.js 通信，不直连 FastAPI，不直连 Supabase
+  - 前端通过 Server Component 内的 server-side fetch 调用 FastAPI，统一封装于 frontend/lib/api.ts
+  - 只有 FastAPI 可以访问数据库
+
+  认证：不做多用户隔离，讲师与合作伙伴共享同一份数据。
+  不要在表上预留 user_id 列。只需一层访问控制防止公网裸奔。
+
+  领域约束：
+  - 邮箱是学员的唯一主键；微信昵称会变，不可作为标识（详见 docs/requirements.md §5）
+  - 各课作业评分维度无交集，新增课程不得要求改表结构
+
+  隐私：处理真实学员姓名/邮箱/微信号。仓库不得提交真实学员数据，
+  测试一律使用虚构姓名与 @example.com 邮箱。
+
+rules:
+  specs:
+    - "Scenario（Given/When/Then）由人工手写，agent 不得代笔生成 Scenario 内容。"
+  design:
+    - "涉及数据库变更时必须说明 migration 策略与回滚方案。"
+    - "任何以微信昵称作为标识或关联键的设计，直接 BLOCK。"
+  tasks:
+    - "涉及外部 API 调用的任务，必须包含超时与异常路径的 RED 测试。"
+    - "涉及发送邮件的任务，测试必须验证不会真实发信。"

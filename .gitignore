@@ -1,0 +1,14 @@
+.superpowers/
+.env
+.env.*
+!.env.example
+node_modules/
+__pycache__/
+.venv/
+.next/
+.pytest_cache/
+.DS_Store
+
+# 隐私：真实学员数据一律不入库
+data/private/
+*-real.csv
