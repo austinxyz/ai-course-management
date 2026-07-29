@@ -1,0 +1,11 @@
+{
+  "projectId": "ea9f49ce-5e52-44c8-a330-bcbd975e4bc1",
+  "shape": "package",
+  "pkg": "ai-course-frontend-ui",
+  "globalName": "AiCourseUI",
+  "entry": "frontend/.ds-entry-anchor.js",
+  "srcDir": "components/ui",
+  "tsconfig": "tsconfig.json",
+  "cssEntry": ".tailwind-compiled.css",
+  "readmeHeader": ".design-sync/conventions.md"
+}

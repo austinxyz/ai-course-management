@@ -1,8 +1,7 @@
 schema: superpowers-driven
 
 project:
-  # C1 apply 阶段建好启动脚本后回填
-  dev_stack_command: ""
+  dev_stack_command: "npm run dev --prefix frontend"
   test_commands:
     - "cd backend && pytest"
     - "cd frontend && npm run test"
@@ -39,7 +38,7 @@ context: |
 
 rules:
   specs:
-    - "Scenario（Given/When/Then）由人工手写，agent 不得代笔生成 Scenario 内容。"
+    - "Scenario（Given/When/Then）由 agent 起草、人工 review 确认或修改再定稿；agent 起草时须标出自己不确定/可能遗漏边界的地方。"
   design:
     - "涉及数据库变更时必须说明 migration 策略与回滚方案。"
     - "任何以微信昵称作为标识或关联键的设计，直接 BLOCK。"
