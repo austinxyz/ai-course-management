@@ -98,6 +98,19 @@ pooler 提供 IPv4 入口，是更稳妥的默认。
 而 psycopg3 默认会用；要走 6543 就得额外设 `prepare_threshold=None`。后端是常驻进程、
 SQLAlchemy 自己管连接池，session 模式天然契合。
 
+**9. `DATABASE_URL` 无兜底默认值，缺失即启动失败。**（apply 阶段部署后补上）
+
+`db.py` 原本在变量缺失时回落到 `postgresql+psycopg://postgres:postgres@127.0.0.1:54322/postgres`，
+图本地开发省事。部署过程暴露出这是个坑：**生产上忘配变量的话，进程照常启动、平台健康检查照常通过，
+然后每个请求抛 500，日志里写着"连接 127.0.0.1 被拒绝"** —— 在云环境看到这句话会一头雾水。
+
+改为：变量必需，缺失时 `resolve_database_url()` 抛 `RuntimeError`，报错文案直接说明"本地复制
+`.env.example`，线上去平台配环境变量"。本地便利性由 `load_dotenv()` 保住（`python-dotenv` 本来就是
+依赖，之前从未被调用）。
+
+这样只有一条规则，不需要"生产 vs 本地"的启发式判断。代价是本地首次跑要 `cp backend/.env.example
+backend/.env`，已写进 docs/setup.md。
+
 **8. `.env.example` 放前后端各一份，紧邻使用处。**
 
 `backend/.env.example`（`DATABASE_URL`）与 `frontend/.env.example`（`BACKEND_URL`）。

@@ -29,8 +29,13 @@ supabase init          # 生成 supabase/config.toml，migrations 目录已存�
 supabase start         # Docker 起本地 Postgres + Studio，打印本地 DATABASE_URL
 ```
 
-本地 `.env` 的 `DATABASE_URL` 填 `supabase start` 打印出的那个本地连接串
-（固定是 `postgresql://postgres:postgres@127.0.0.1:54322/postgres`）。
+然后建后端的本地环境变量文件（**必需**，缺了后端会启动即失败）：
+
+```bash
+cp backend/.env.example backend/.env
+```
+
+`.env.example` 里已经填好了 `supabase start` 那个固定的本地连接串，通常不用改。
 
 迭代 migration 的流程：
 1. 新 migration 写进 `supabase/migrations/*.sql`

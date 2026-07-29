@@ -1,13 +1,16 @@
 import os
 
-import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlmodel import Session
-
-DATABASE_URL = os.environ.get(
+# Point the suite at the Supabase CLI's local stack before anything imports
+# app.db — that module now refuses to import without DATABASE_URL, on purpose
+# (see resolve_database_url). setdefault, so CI or a developer can override it.
+DATABASE_URL = os.environ.setdefault(
     "DATABASE_URL", "postgresql+psycopg://postgres:postgres@127.0.0.1:54322/postgres"
 )
+
+import pytest  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
+from sqlalchemy import create_engine  # noqa: E402
+from sqlmodel import Session  # noqa: E402
 
 
 @pytest.fixture

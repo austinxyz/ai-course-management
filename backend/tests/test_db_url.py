@@ -1,6 +1,31 @@
 from urllib.parse import urlsplit
 
-from app.db import normalize_database_url
+import pytest
+
+from app.db import normalize_database_url, resolve_database_url
+
+
+def test_missing_database_url_fails_loudly_instead_of_falling_back_to_localhost(monkeypatch):
+    """A deployed service with no DATABASE_URL must not quietly aim at 127.0.0.1.
+
+    That fallback turns a deploy-time misconfiguration into a per-request 500
+    whose log line ("connection refused to 127.0.0.1") is baffling in a cloud
+    environment. Fail at startup, and say what to do about it.
+    """
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+
+    with pytest.raises(RuntimeError) as excinfo:
+        resolve_database_url()
+
+    message = str(excinfo.value)
+    assert "DATABASE_URL" in message
+    assert ".env.example" in message  # tell the reader how to fix it
+
+
+def test_resolve_normalizes_the_configured_url(monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@h:5432/db")
+
+    assert resolve_database_url() == "postgresql+psycopg://u:p@h:5432/db"
 
 
 def test_supabase_console_url_gets_psycopg_driver():

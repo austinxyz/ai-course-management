@@ -1,6 +1,11 @@
 import os
 
+from dotenv import load_dotenv
 from sqlmodel import Session, create_engine
+
+# Local development reads backend/.env; deployed environments inject the
+# variable directly and have no such file, so this is a no-op there.
+load_dotenv()
 
 
 def normalize_database_url(url: str) -> str:
@@ -25,11 +30,27 @@ def normalize_database_url(url: str) -> str:
     return url
 
 
-DATABASE_URL = normalize_database_url(
-    os.environ.get(
-        "DATABASE_URL", "postgresql+psycopg://postgres:postgres@127.0.0.1:54322/postgres"
-    )
-)
+def resolve_database_url() -> str:
+    """Read DATABASE_URL from the environment, or refuse to start.
+
+    There is deliberately no localhost fallback. A default would make a
+    deployment that forgot to set DATABASE_URL *look* healthy — the process
+    boots, the platform's health check passes — and then fail on every request
+    with "connection refused to 127.0.0.1", which reads as nonsense in a cloud
+    log. Better to stop at startup and name the missing variable.
+    """
+    url = os.environ.get("DATABASE_URL")
+    if not url:
+        raise RuntimeError(
+            "DATABASE_URL is not set. For local development, copy "
+            "backend/.env.example to backend/.env (the Supabase CLI's local "
+            "stack is already filled in there). For a deployed environment, "
+            "set it in the platform's environment variables."
+        )
+    return normalize_database_url(url)
+
+
+DATABASE_URL = resolve_database_url()
 
 engine = create_engine(DATABASE_URL)
 
