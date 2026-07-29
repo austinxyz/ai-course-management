@@ -29,6 +29,64 @@ def test_list_students_empty_db_returns_empty_array(client, db_session):
     assert resp.json() == []
 
 
+def test_list_order_is_stable_across_an_edit(client, db_session):
+    """Without an ORDER BY, Postgres hands back rows in heap order, and an
+    UPDATE writes a new tuple at the end of the heap — so editing a student
+    moved them to the bottom of the roster. The order has to be a property of
+    the data, not of when a row was last written.
+
+    ASCII names only: which side of `Helen` a Chinese name lands on depends on
+    the database collation, and that is not what this test is about.
+    """
+    db_session.exec(delete(Student))
+    emails = ["b@example.com", "c@example.com", "a@example.com"]
+    for email, name in zip(emails, ["Bravo", "Charlie", "Alpha"]):
+        client.post(
+            "/api/students",
+            json={
+                "email": email,
+                "name": name,
+                "region": "美东",
+                "level": "小白",
+                "source": "讲武堂",
+            },
+        )
+
+    def names() -> list[str]:
+        return [s["name"] for s in client.get("/api/students").json()]
+
+    assert names() == ["Alpha", "Bravo", "Charlie"]
+
+    client.patch("/api/students/a@example.com", json={"note": "edited"})
+
+    assert names() == ["Alpha", "Bravo", "Charlie"]
+
+
+def test_list_order_breaks_name_ties_deterministically(client, db_session):
+    """Two students share a name — common enough with Chinese names. Leaving
+    the tie unbroken puts the pair in an arbitrary order that can change on
+    any write, which is the same defect one level down."""
+    db_session.exec(delete(Student))
+    for email in ["z@example.com", "y@example.com"]:
+        client.post(
+            "/api/students",
+            json={
+                "email": email,
+                "name": "Same Name",
+                "region": "美东",
+                "level": "小白",
+                "source": "讲武堂",
+            },
+        )
+
+    first_pass = [s["email"] for s in client.get("/api/students").json()]
+    client.patch("/api/students/y@example.com", json={"note": "edited"})
+    second_pass = [s["email"] for s in client.get("/api/students").json()]
+
+    assert first_pass == ["y@example.com", "z@example.com"]
+    assert second_pass == first_pass
+
+
 def test_get_student_by_email_case_insensitive(client):
     resp = client.get("/api/students/CHEN.JIAHE@EXAMPLE.COM")
     assert resp.status_code == 200

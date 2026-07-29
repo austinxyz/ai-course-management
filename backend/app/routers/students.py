@@ -37,7 +37,14 @@ def list_students(archived: bool = False, session: Session = Depends(get_session
     clause = (
         Student.archived_at.is_not(None) if archived else Student.archived_at.is_(None)
     )
-    students = session.exec(select(Student).where(clause)).all()
+    # Ordering is not cosmetic here. Without it Postgres returns rows in heap
+    # order, and an UPDATE writes a new tuple at the end of the heap — so
+    # editing one field silently moved that student to the bottom of the
+    # roster. Email breaks name ties, which Chinese names produce readily; an
+    # unbroken tie is the same defect at a smaller scale.
+    students = session.exec(
+        select(Student).where(clause).order_by(Student.name, Student.email)
+    ).all()
     return [_to_read(s) for s in students]
 
 
