@@ -39,7 +39,8 @@
 
 因此：
 - **不要**在表上预留 `user_id` 列（这点与参考项目 `opsx-new-project` 不同）
-- 只需一层访问控制防止公网裸奔，具体方式待 explore 阶段确定
+- 一层"防裸奔"的访问控制，已于 2026-07-29 落地（见 `openspec/specs/access-control/`）：
+  整站 HTTP Basic Auth（共享密码）+ 后端共享 secret header。**不做**每人一身份、限流、登出
 - 不做学员端登录
 
 ## 领域约束
@@ -100,7 +101,8 @@
 
 ## Pitfalls
 
-<!-- archive 阶段向此处追加。内容必须来自真实的 evaluator retry，不得编造。 -->
+<!-- archive 阶段向此处追加。内容必须来自真实发生过的事（evaluator 发现、实测踩坑、
+     部署事故），不得编造，也不得从"理论上可能出问题"推演。 -->
 
 **只读响应字段不要用 Pydantic `Literal` 校验没有 DB CHECK 约束的枚举列**（student-management group 2，evaluator BLOCK）。
 `region`/`level`/`source` 这类字段如果 DB 层是纯 `TEXT`（没有 CHECK 约束，为了给未来加枚举值留口子），
@@ -127,3 +129,21 @@ Server Component 取数失败时用 `reset()` 做重试按钮，点了会原地�
 **Server Component 的 fetch 必须设显式超时，且要短于平台函数执行上限**（deployment 决策 #2）。
 否则后端冷启动时 fetch 一直挂着直到平台把整个函数杀掉，`error.tsx` **根本没机会渲染**，
 用户看到的是平台的 504 而不是你写的错误界面。宁可主动放弃（15s）并给重试按钮。
+
+**Next.js 的 `middleware.ts` 在本版已弃用、改名为 `proxy.ts`**（access-control 决策 #1）。
+文件放根目录、与 `app/` 同级，导出名为 `proxy` 的函数或默认导出。用旧名字的话文件**根本不会被执行**，
+而症状是"页面照常打开"——与认证正常工作**外观完全一致**。所以认证类改动**不能以"能打开页面"作为配置成功的判据**，
+必须实测未授权请求确实被拒。另注意 `WWW-Authenticate` 的 realm 必须是 ASCII：
+HTTP header 值是 ByteString，中文 realm 会在构造响应时抛 `TypeError`，把 401 变成 500。
+
+**认证/密钥类的环境变量，缺失时必须 fail-closed（拒绝），且判断要拆成两步**（access-control 决策 #3）。
+易错写法 `if (expected && provided !== expected) deny()` 在变量未设时**放行所有人**。
+这跟 `DATABASE_URL` 那条同源但更隐蔽：数据库连不上会 500 当场暴露，认证静默失效**什么征兆都没有**，
+页面照常打开，可能数月无人察觉。因此"缺变量时被拒"要写成独立的测试断言——
+而且这类测试若是在实现之后补的，必须**故意把实现改错、确认测试真的失败**再恢复，否则它只是"碰巧通过"。
+
+**端口被占时 uvicorn 会静默退出，探针会打到旧进程上**（access-control 实测踩到）。
+新进程绑定失败后退出，curl 打的是**上一轮的旧代码**，日志里 `[Errno 10048] only one usage of each socket address`
+才是真相。表现为"改了代码但行为没变"，极易误判成实现有问题。同理 Next.js dev server：
+新增根目录文件（如 `proxy.ts`）或改 `.env` 后要重启，热重载不覆盖这些。
+**验证任何改动前，先确认打的是新进程/新构建。**

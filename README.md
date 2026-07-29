@@ -6,15 +6,22 @@
 
 **已上线**：https://ai-course-management.vercel.app/students
 
-学员名单只读查询跑在 Vercel + Render 免费档 + Supabase 云库上（`student-management` 与
-`deployment` 两个 change，均于 2026-07-29 归档）。`git push main` 后代码由平台自动部署，
+学员名单只读查询跑在 Vercel + Render 免费档 + Supabase 云库上（`student-management`、
+`deployment`、`access-control` 三个 change，均于 2026-07-29 归档）。`git push main` 后代码由平台自动部署，
 数据库 migration 由 GitHub Actions 自动推送。
+
+**访问需要密码**——整站 HTTP Basic Auth，浏览器会弹凭据框（用户名任意，密码即 `SITE_PASSWORD`）。
+你和合作伙伴共用同一个密码，**不做每人一个身份**：因此无法单独吊销某人，互动记录也无法区分是谁录的。
+也**不做限流**——密码长度是唯一防线。
 
 编辑/归档/新增学员、报课、作业、催作业等能力还没做。
 
-> ⚠️ **目前没有任何访问控制，页面公网可读。**
-> 因此生产库刻意保持空表——`supabase/seed.sql` 是本地专用文件，`supabase db push` 不会推送它。
-> **在访问控制 change 落地之前，不要往生产库导入任何真实学员数据。**
+> ⚠️ **护栏仍然有效：暂不要往生产库导入真实学员数据。**
+> 访问控制虽已落地，但解除这条护栏是一次**单独、明确的决定**，不随认证上线自动失效
+> （见 `openspec/changes/archive/2026-07-29-access-control/` 的 requirements）。
+> 生产库目前仍是空表——`supabase/seed.sql` 是本地专用文件，`supabase db push` 不会推送它。
+>
+> 真要导数据时，先把这段和 CLAUDE.md 里对应的警告一并改掉，别让陈旧的警告留着被无视。
 
 > 后端跑在 Render 免费档，15 分钟无请求会休眠。冷启动约需 1 分钟，
 > 期间页面会显示"暂时无法加载"并提供重试按钮——这是预期行为，不是故障。

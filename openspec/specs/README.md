@@ -15,5 +15,21 @@
 **部署**: Vercel（前端）+ Render 免费档（FastAPI）+ Supabase 云项目。`git push main` 后代码由平台自动部署，DB schema 由 `.github/workflows/db-migrate.yml` 自动 `supabase db push`
 **验收标准**: 生产 `GET /api/students` 返回 `200 []`（区别于连不上的 500）；冷启动时页面呈现自家错误卡片与可用的重试，而非平台 504
 
-> ⚠️ **当前无任何访问控制** —— 公网可读。生产库刻意保持空表（`seed.sql` 是本地专用，`db push` 不会推送）。
-> **在访问控制 change 落地之前，不得导入任何真实学员数据。**
+> 访问控制见下方 `access-control`（2026-07-29 落地，整站已需密码）。
+
+---
+
+### `access-control` ✅ 已实现 · 🌐 已上线
+**用户故事**: 作为讲师，我想让这个存着真实学员联系方式的系统不再对全世界敞开，只有知道密码的人能进
+**覆盖需求**: docs/superpowers/specs/2026-07-29-access-control-requirements.md
+
+**后台**: `X-Backend-Secret` 校验放在 FastAPI middleware（默认覆盖所有路由，新增路由自动受保护），`secrets.compare_digest` 常数时间比较；`/docs`、`/openapi.json`、`/redoc` 默认关闭，仅 `ENABLE_API_DOCS` 显式设置时开启
+**前台**: 根目录 `frontend/proxy.ts`（本版 Next.js 已把 `middleware` 约定改名为 `proxy`）整站 Basic Auth，matcher 负向排除静态资源；`lib/api.ts` 在 server-side fetch 注入 secret
+**关键性质**: 两个变量缺失时**拒绝而非放行**（fail-closed），且认证逻辑**无环境判断分支**——本地与生产同一条路径
+**验收标准**: 未带凭据时页面与后端一律 401 且响应体不含学员数据；带正确凭据行为如常；生产 API 文档不可达
+
+> ⚠️ **仍未解除的护栏**：CLAUDE.md 与 README 中"不得导入真实学员数据"的警告**依然有效**。
+> 认证虽已工作，但解除护栏是一次单独、明确的决定（见该 change 的 requirements Open Questions），
+> 不随本能力自动失效。生产库目前仍为空表。
+>
+> **本能力不提供**：每人一身份（无法单独吊销某人、互动记录无法区分录入者）、限流（安全性依赖密码长度）、登出。
