@@ -81,3 +81,81 @@ describe("getStudents", () => {
     expect(init?.signal).toBeInstanceOf(AbortSignal);
   });
 });
+
+describe("write requests", () => {
+  const originalBackendUrl = process.env.BACKEND_URL;
+  const originalSecret = process.env.BACKEND_SECRET;
+  const fetchMock = vi.fn();
+
+  beforeEach(() => {
+    process.env.BACKEND_URL = "http://backend.internal:8000";
+    process.env.BACKEND_SECRET = "test-secret-not-a-real-one";
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(sampleStudent),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    process.env.BACKEND_URL = originalBackendUrl;
+    process.env.BACKEND_SECRET = originalSecret;
+    fetchMock.mockReset();
+    vi.unstubAllGlobals();
+    vi.resetModules();
+  });
+
+  function headersOf(call: number): Record<string, string> {
+    return fetchMock.mock.calls[call][1].headers as Record<string, string>;
+  }
+
+  it("carries the backend secret on every write, not only on reads", async () => {
+    // The backend answers 401 without this header. A read path that has it and
+    // a write path that doesn't would look fine on the roster page and fail
+    // only when someone tries to save.
+    const { updateStudent, createStudent, archiveStudent, restoreStudent } =
+      await import("./api");
+
+    await updateStudent("chen.jiahe@example.com", { note: "改了" });
+    await createStudent({ email: "new@example.com", name: "新学员" });
+    await archiveStudent("chen.jiahe@example.com");
+    await restoreStudent("chen.jiahe@example.com");
+
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    for (let call = 0; call < 4; call++) {
+      expect(headersOf(call)["X-Backend-Secret"]).toBe(
+        "test-secret-not-a-real-one",
+      );
+    }
+  });
+
+  it("sends only the fields the caller supplied", async () => {
+    const { updateStudent } = await import("./api");
+
+    await updateStudent("chen.jiahe@example.com", { note: "" });
+
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toEqual({
+      note: "",
+    });
+  });
+
+  it("surfaces the backend's status and detail on failure", async () => {
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 409,
+      statusText: "Conflict",
+      json: () => Promise.resolve({ detail: "email belongs to an archived student" }),
+    });
+    const { createStudent, BackendError } = await import("./api");
+
+    await expect(
+      createStudent({ email: "taken@example.com", name: "新学员" }),
+    ).rejects.toMatchObject({
+      status: 409,
+      detail: "email belongs to an archived student",
+    });
+    await expect(
+      createStudent({ email: "taken@example.com", name: "新学员" }),
+    ).rejects.toBeInstanceOf(BackendError);
+  });
+});

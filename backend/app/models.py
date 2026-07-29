@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from sqlalchemy import Column
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, SQLModel
@@ -19,3 +21,5 @@ class Student(SQLModel, table=True):
     gender: str = Field(default="—")
     age: str = Field(default="—")
     industry: str = Field(default="—")
+    # null = 在读。软删除，记录与关联数据都保留。
+    archived_at: datetime | None = Field(default=None)

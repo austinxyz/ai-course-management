@@ -64,6 +64,50 @@ function backendRequestInit(): RequestInit {
   };
 }
 
+function writeRequestInit(method: string, body?: unknown): RequestInit {
+  const base = backendRequestInit();
+  return {
+    ...base,
+    method,
+    headers: { ...(base.headers as Record<string, string>), "Content-Type": "application/json" },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  };
+}
+
+/**
+ * Carries the backend's status code so callers can tell the failures apart.
+ *
+ * A duplicate email (409) needs a different message from a validation error
+ * (422), and a duplicate that belongs to an archived student needs a different
+ * one again — collapsing them into a generic "save failed" would leave the
+ * user with no idea what to do next.
+ */
+export class BackendError extends Error {
+  constructor(
+    readonly status: number,
+    readonly detail: string,
+  ) {
+    super(detail);
+    this.name = "BackendError";
+  }
+}
+
+async function backendWrite(
+  path: string,
+  method: string,
+  body?: unknown,
+): Promise<ApiStudent> {
+  const res = await fetch(backendUrl(path), writeRequestInit(method, body));
+  if (!res.ok) {
+    const detail = await res
+      .json()
+      .then((data: { detail?: string }) => data.detail ?? res.statusText)
+      .catch(() => res.statusText);
+    throw new BackendError(res.status, detail);
+  }
+  return res.json();
+}
+
 export async function getStudents(): Promise<Student[]> {
   const res = await fetch(backendUrl("/api/students"), backendRequestInit());
   if (!res.ok) throw new Error(`getStudents failed: ${res.status}`);
@@ -80,4 +124,66 @@ export async function getStudent(email: string): Promise<Student | null> {
   if (!res.ok) throw new Error(`getStudent failed: ${res.status}`);
   const data: ApiStudent = await res.json();
   return toStudent(data);
+}
+
+/** Fields a caller may change. Email is absent: it is the primary key. */
+export type StudentPatch = Partial<
+  Pick<
+    Student,
+    | "wechat"
+    | "wxName"
+    | "nick"
+    | "region"
+    | "level"
+    | "source"
+    | "industry"
+    | "gender"
+    | "age"
+    | "note"
+    | "tags"
+  >
+>;
+
+export interface NewStudent {
+  email: string;
+  name: string;
+  region?: string;
+  level?: string;
+  source?: string;
+}
+
+function toApiPatch(patch: StudentPatch): Record<string, unknown> {
+  // Only keys the caller actually supplied are forwarded. The backend
+  // distinguishes an absent field from one set to "" — dropping that
+  // distinction here would make clearing a note a silent no-op.
+  const { wxName, ...rest } = patch;
+  return wxName === undefined ? { ...rest } : { ...rest, wx_name: wxName };
+}
+
+export async function updateStudent(
+  email: string,
+  patch: StudentPatch,
+): Promise<Student> {
+  const data = await backendWrite(
+    `/api/students/${encodeURIComponent(email)}`,
+    "PATCH",
+    toApiPatch(patch),
+  );
+  return toStudent(data);
+}
+
+export async function createStudent(student: NewStudent): Promise<Student> {
+  return toStudent(await backendWrite("/api/students", "POST", student));
+}
+
+export async function archiveStudent(email: string): Promise<Student> {
+  return toStudent(
+    await backendWrite(`/api/students/${encodeURIComponent(email)}/archive`, "POST"),
+  );
+}
+
+export async function restoreStudent(email: string): Promise<Student> {
+  return toStudent(
+    await backendWrite(`/api/students/${encodeURIComponent(email)}/restore`, "POST"),
+  );
 }

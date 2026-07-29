@@ -6,18 +6,20 @@
 - **Code**: design.md 决策 #3（归档走独立端点，字段更新端点不接受归档字段）、#4（`archived_at` 可空，既有行为 null，否则无法迁移）、#5（`Literal` 只用于请求体，读响应仍用 `str`——读响应用 `Literal` 会因一行脏数据整个接口 500）、#6（部分更新必须区分"未提供"与"显式设为空"，否则清空备注会失效）
 - **Threshold**: 80
 
-- [ ] 1.0 CONTRACT — write openspec/changes/student-write/contracts/group-1.md with the ### Contract block above; confirm all three fields (Spec, Runtime, Code) are non-empty before proceeding
-- [ ] 1.1 RED — pytest：新建 `tests/test_students_write.py`，断言 `PATCH /api/students/{email}` 只提交 `{"wechat": "..."}` 时该字段更新、其余字段不变（端点尚不存在，应 404/405）
-- [ ] 1.2 GREEN — 新增 migration `alter table students add column archived_at timestamptz`（可空）；`models.py` 加字段；实现字段更新端点，接受部分字段
-- [ ] 1.3 RED — pytest：补三条——请求体含 `email` 时不得改写主键；`region` 传非法值（如 `"火星"`）被 4xx 拒绝且库中值不变；**备注显式设为空字符串会清空，而请求体不含备注时保持原值**（区分"未提供"与"设为空"）
-- [ ] 1.4 GREEN — 补齐实现使 1.3 转绿；枚举用 `schemas.py` 里既有但此前未启用的 `Region`/`Level`/`Source` 别名
-- [ ] 1.5 RED — pytest：`POST /api/students` 新增成功；邮箱与**在读**学员重复 → 冲突；邮箱与**已归档**学员重复 → 冲突且**已有记录字段未被覆盖、也未被自动恢复**
-- [ ] 1.6 GREEN — 实现新增端点与两种冲突的区分
-- [ ] 1.7 RED — pytest：归档端点使该学员 `archived_at` 非空；恢复端点使其回到 null 且**全部字段与归档前逐项相同**；请求体携带归档时间时该值被忽略、实际记录服务端时间
-- [ ] 1.8 GREEN — 实现归档/恢复独立端点；时间由服务端生成
-- [ ] 1.9 RED — pytest：读端点 `GET /api/students` 默认只返回未归档学员，且需能取到已归档列表（前端的"在读/已归档"切换依赖此）
-- [ ] 1.10 GREEN — 调整读端点以支持按归档状态筛选，保持既有响应字段契约不变
-- [ ] 1.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-1.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
+- [x] 1.0 CONTRACT — write openspec/changes/student-write/contracts/group-1.md with the ### Contract block above; confirm all three fields (Spec, Runtime, Code) are non-empty before proceeding
+- [x] 1.1 RED — pytest：新建 `tests/test_students_write.py`，断言 `PATCH /api/students/{email}` 只提交 `{"wechat": "..."}` 时该字段更新、其余字段不变（端点尚不存在，应 404/405）
+- [x] 1.2 GREEN — 新增 migration `alter table students add column archived_at timestamptz`（可空）；`models.py` 加字段；实现字段更新端点，接受部分字段
+- [x] 1.3 RED — pytest：补三条——请求体含 `email` 时不得改写主键；`region` 传非法值（如 `"火星"`）被 4xx 拒绝且库中值不变；**备注显式设为空字符串会清空，而请求体不含备注时保持原值**（区分"未提供"与"设为空"）
+- [x] 1.4 GREEN — 补齐实现使 1.3 转绿；枚举用 `schemas.py` 里既有但此前未启用的 `Region`/`Level`/`Source` 别名
+- [x] 1.5 RED — pytest：`POST /api/students` 新增成功；邮箱与**在读**学员重复 → 冲突；邮箱与**已归档**学员重复 → 冲突且**已有记录字段未被覆盖、也未被自动恢复**
+- [x] 1.6 GREEN — 实现新增端点与两种冲突的区分
+- [x] 1.7 RED — pytest：归档端点使该学员 `archived_at` 非空；恢复端点使其回到 null 且**全部字段与归档前逐项相同**；请求体携带归档时间时该值被忽略、实际记录服务端时间
+- [x] 1.8 GREEN — 实现归档/恢复独立端点；时间由服务端生成
+- [x] 1.9 RED — pytest：读端点 `GET /api/students` 默认只返回未归档学员，且需能取到已归档列表（前端的"在读/已归档"切换依赖此）
+- [x] 1.10 GREEN — 调整读端点以支持按归档状态筛选，保持既有响应字段契约不变
+- [x] 1.F1 FIX — 邮箱写入时规范化为小写（`StudentCreate` validator）+ migration 建 `unique index on lower(email)`，防止同一个人以两种大小写存成两个 join key
+- [x] 1.F2 FIX — `StudentUpdate` 加 `field_validator("*")` 拒绝显式 JSON null（`None` 是"未提供"哨兵，写进 NOT NULL 列会 500）
+- [x] 1.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-1.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 2. Server Actions + 写入面鉴权
 
@@ -27,14 +29,17 @@
 - **Code**: design.md 决策 #2 —— 凭据比对逻辑与 `proxy.ts` **共用同一个函数**，避免两处实现漂移；Server Action 内通过 `headers()` 读 `Authorization`。**双向风险**：matcher 没覆盖 Action 的 POST 且 Action 内不校验 → 写入面裸奔；浏览器不在 Action 请求上带凭据 → 所有写操作全挂。两个方向都必须实测排除
 - **Threshold**: 80
 
-- [ ] 2.0 CONTRACT — write openspec/changes/student-write/contracts/group-2.md with the ### Contract block above
-- [ ] 2.1 RED — vitest：把 `proxy.ts` 里的凭据比对抽成共用函数并直接测它（正确/错误/变量缺失三种），确认抽取后 `proxy.test.ts` 既有断言仍全绿
-- [ ] 2.2 GREEN — 抽出共用比对函数，`proxy.ts` 改为调用它
-- [ ] 2.3 RED — vitest：新建 `frontend/app/students/actions.test.ts`，mock `headers()` 返回不含 `Authorization` 的请求头，断言 Server Action 抛错/拒绝且**未调用后端**（Action 尚不存在，应失败）
-- [ ] 2.4 GREEN — 新建 `frontend/app/students/actions.ts`（`"use server"`），实现字段更新/新增/归档/恢复四个 Action，每个开头调用共用鉴权，通过后经 `lib/api.ts` 调后端，末尾 `revalidatePath`
-- [ ] 2.5 RED — vitest：断言带**正确**凭据时 Action 放行并确实调用了后端（防止鉴权写成"永远拒绝"——那是 fail-closed 但功能全挂）
-- [ ] 2.6 GREEN — 补齐实现使 2.5 转绿
-- [ ] 2.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-2.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
+- [x] 2.0 CONTRACT — write openspec/changes/student-write/contracts/group-2.md with the ### Contract block above
+- [x] 2.1 RED — vitest：把 `proxy.ts` 里的凭据比对抽成共用函数并直接测它（正确/错误/变量缺失三种），确认抽取后 `proxy.test.ts` 既有断言仍全绿
+- [x] 2.2 GREEN — 抽出共用比对函数，`proxy.ts` 改为调用它
+- [x] 2.3 RED — vitest：新建 `frontend/app/students/actions.test.ts`，mock `headers()` 返回不含 `Authorization` 的请求头，断言 Server Action 抛错/拒绝且**未调用后端**（Action 尚不存在，应失败）
+- [x] 2.4 GREEN — 新建 `frontend/app/students/actions.ts`（`"use server"`），实现字段更新/新增/归档/恢复四个 Action，每个开头调用共用鉴权，通过后经 `lib/api.ts` 调后端，末尾 `revalidatePath`
+- [x] 2.5 RED — vitest：断言带**正确**凭据时 Action 放行并确实调用了后端（防止鉴权写成"永远拒绝"——那是 fail-closed 但功能全挂）
+- [x] 2.6 GREEN — 补齐实现使 2.5 转绿
+- [x] 2.F1 FIX — Add test asserting X-Backend-Secret header is present on write operations (e.g. updateStudent representative case) to match contract requirement; mirrors getStudents header verification pattern in api.test.ts
+- [x] 2.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-2.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
+  - Result: Spec 100 + Runtime 100 + Code 75 = **95/100** → **PASS** ✓
+  - Finding: HIGH issue — tests for X-Backend-Secret on writes are missing (implementation correct, test coverage gap)
 
 ## 3. 前端接线：删本地状态 + 保存中/失败态
 
@@ -63,7 +68,7 @@
 **含 manual-ops：** 4.6 的清理需直连数据库（硬删除不是本系统功能）。
 **生产库刻意为空**，因此写功能的生产验收需专门建一条虚构记录，验完清除。
 
-- [ ] 4.1 本地 `supabase db reset` 验证 migration + seed 组合可用，`archived_at` 列存在且既有行为 null
+- [x] 4.1 本地 `supabase db reset` 验证 migration + seed 组合可用，`archived_at` 列存在且既有行为 null
 - [ ] 4.2 部署后验收 —— **未携带凭据直接 POST 到 Server Action 入口 → 被拒绝，且数据库数据未变**（design 决策 #2 的核心风险之一：写入面裸奔）
 - [ ] 4.3 部署后验收 —— **带正常凭据从界面写入能成功**（同一决策的反方向风险：鉴权过严导致所有写操作全挂）
 - [ ] 4.4 生产验收 —— 新建虚构测试记录 `deploy-test@example.com`，依次执行 编辑一个字段 → 打标签 → 归档 → 恢复，**每步刷新页面确认真正落库**
