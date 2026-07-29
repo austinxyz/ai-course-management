@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>deployment mocks</title>
+<!-- HAS_UI_SURFACE: yes -->
+<style>
+  :root {
+    --color-bg: #f6f4f0; --color-fg: #1a1917;
+    --color-surface: #ffffff; --color-surface-muted: #f2efe9;
+    --color-border: #e4e0d8; --color-primary: #9c3417;
+    --color-primary-fg: #ffffff; --color-muted: #79736a;
+    --color-muted-fg: #a09a90; --color-danger: #b3261e;
+    --color-danger-surface: #fbf0ee; --color-danger-border: #f0cfc9;
+    --radius: 8px;
+  }
+  body {
+    font-family: "Noto Sans SC", -apple-system, "Segoe UI", sans-serif;
+    margin: 0; padding: 24px; background: #ddd7cc; color: var(--color-fg);
+  }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  h2 { font-size: 15px; margin: 0 0 6px; }
+  section { margin-bottom: 40px; }
+  .note { color: #5f5a51; font-size: 13px; margin: 0 0 14px; line-height: 1.6; }
+
+  /* 模拟视口 */
+  .frame {
+    border: 1px solid var(--color-border); border-radius: var(--radius);
+    overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,.12);
+    background: var(--color-bg);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .frame-desktop { height: 380px; }
+  .frame-mobile { height: 480px; max-width: 393px; }
+
+  /* 居中卡片 —— 错误态与加载态共用同一骨架，只换内容 */
+  .card {
+    background: var(--color-surface); border: 1px solid var(--color-border);
+    border-radius: var(--radius); padding: 20px; width: 420px; max-width: calc(100% - 40px);
+  }
+  .card-mobile { width: 100%; }
+
+  .icon-box {
+    width: 36px; height: 36px; border-radius: var(--radius);
+    display: flex; align-items: center; justify-content: center; margin-bottom: 14px;
+  }
+  .icon-danger { background: var(--color-danger-surface); border: 1px solid var(--color-danger-border); }
+  .icon-muted  { background: var(--color-surface-muted);  border: 1px solid var(--color-border); }
+
+  .title { font-size: 15px; font-weight: 600; margin: 0 0 6px; }
+  .body  { font-size: 13px; line-height: 1.7; color: var(--color-muted); margin: 0 0 16px; }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    height: 32px; padding: 0 14px; border-radius: var(--radius);
+    font-size: 13px; font-weight: 500; border: 0; cursor: pointer;
+  }
+  .btn-primary { background: var(--color-primary); color: var(--color-primary-fg); }
+
+  /* 加载态的脉动点 */
+  .dots { display: flex; gap: 5px; align-items: center; }
+  .dot {
+    width: 6px; height: 6px; border-radius: 50%; background: var(--color-muted-fg);
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+  .dot:nth-child(2) { animation-delay: .2s }
+  .dot:nth-child(3) { animation-delay: .4s }
+  @keyframes pulse { 0%,100% { opacity: .25 } 50% { opacity: 1 } }
+</style>
+</head>
+<body>
+
+<h1>deployment — 错误态与加载态</h1>
+<p class="note">
+  这两个页面本身不存在于当前代码里，是本 change 要新建的
+  <code>frontend/app/students/error.tsx</code> 与 <code>loading.tsx</code>。<br>
+  <strong>结构说明：</strong>它们替换的是整个 page，而侧边栏位于 <code>StudentsClient</code> 内部，
+  因此这两个状态下侧边栏不存在——按全屏居中卡片设计，不为此重构布局。<br>
+  <strong>Token：</strong>沿用 <code>frontend/app/globals.css</code> 既有变量，不引入新视觉语言。
+  重试按钮 = <code>bg-primary</code>；错误图标底 = <code>bg-danger-surface</code> + <code>border-danger-border</code>。
+</p>
+
+<!-- ─────────────────────────── 错误态 ─────────────────────────── -->
+
+<section id="error-desktop">
+  <h2>错误态（desktop）</h2>
+  <p class="note">
+    触发时机：Server Component 的 <code>getStudents()</code> 抛错——最常见的原因是 Render 免费档冷启动超时。<br>
+    <strong>文案要点：</strong>前端无法区分"服务器在唤醒"和"服务真的挂了"，所以文案必须两种情况都成立，
+    不能斩钉截铁说"正在唤醒"。重试按钮绑定 <code>error.tsx</code> 的 <code>reset()</code>。
+  </p>
+  <div class="frame frame-desktop">
+    <div class="card">
+      <div class="icon-box icon-danger">
+        <svg viewBox="0 0 16 16" width="17" height="17" fill="none" stroke="#b3261e"
+             stroke-width="1.4" stroke-linecap="round">
+          <circle cx="8" cy="8" r="6.2"></circle><path d="M8 5v3.6M8 10.8v.2"></path>
+        </svg>
+      </div>
+      <p class="title">暂时无法加载学员数据</p>
+      <p class="body">
+        服务器可能正在唤醒——免费套餐休眠后，首次访问约需 1 分钟。<br>
+        也可能是网络或服务异常。稍等片刻后点击重试。
+      </p>
+      <button class="btn btn-primary">重试</button>
+    </div>
+  </div>
+</section>
+
+<section id="error-mobile">
+  <h2>错误态（mobile）</h2>
+  <p class="note">卡片撑满宽度（留 20px 边距），其余结构与文案不变。</p>
+  <div class="frame frame-mobile">
+    <div class="card card-mobile">
+      <div class="icon-box icon-danger">
+        <svg viewBox="0 0 16 16" width="17" height="17" fill="none" stroke="#b3261e"
+             stroke-width="1.4" stroke-linecap="round">
+          <circle cx="8" cy="8" r="6.2"></circle><path d="M8 5v3.6M8 10.8v.2"></path>
+        </svg>
+      </div>
+      <p class="title">暂时无法加载学员数据</p>
+      <p class="body">
+        服务器可能正在唤醒——免费套餐休眠后，首次访问约需 1 分钟。也可能是网络或服务异常。稍等片刻后点击重试。
+      </p>
+      <button class="btn btn-primary">重试</button>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────── 加载态 ─────────────────────────── -->
+
+<section id="loading-desktop">
+  <h2>加载态（desktop）</h2>
+  <p class="note">
+    <strong>为什么不是普通转圈：</strong>冷启动要等约 1 分钟，只显示"加载中"会让人以为页面卡死然后去刷新
+    （刷新反而重置了唤醒进度）。文案必须提前说明等待时长——这是 Success Criteria #5。<br>
+    布局刻意与错误态一致，只换图标、文案，去掉按钮。
+  </p>
+  <div class="frame frame-desktop">
+    <div class="card">
+      <div class="icon-box icon-muted">
+        <div class="dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+      </div>
+      <p class="title">正在加载学员数据…</p>
+      <p class="body">
+        若服务器处于休眠状态，首次唤醒约需 1 分钟。<br>
+        请保持页面打开，不必刷新。
+      </p>
+    </div>
+  </div>
+</section>
+
+<section id="loading-mobile">
+  <h2>加载态（mobile）</h2>
+  <p class="note">同错误态，卡片撑满宽度。</p>
+  <div class="frame frame-mobile">
+    <div class="card card-mobile">
+      <div class="icon-box icon-muted">
+        <div class="dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+      </div>
+      <p class="title">正在加载学员数据…</p>
+      <p class="body">
+        若服务器处于休眠状态，首次唤醒约需 1 分钟。请保持页面打开，不必刷新。
+      </p>
+    </div>
+  </div>
+</section>
+
+</body>
+</html>
