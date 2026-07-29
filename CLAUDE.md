@@ -28,7 +28,10 @@
 | backend/ | FastAPI + Python 3.12 + SQLModel |
 | DB | Supabase 托管 Postgres |
 | 测试 | pytest + httpx TestClient / vitest + React Testing Library |
-| 部署 | Vercel（前端）+ Fly.io（FastAPI）+ Supabase 云库 |
+| 部署 | Vercel（前端）+ Render 免费档（FastAPI）+ Supabase 云库 |
+
+> Render 免费档 15 分钟无请求会休眠，冷启动约几十秒。内部工具可接受；
+> 若未来对首次响应延迟敏感（比如催作业批量任务），再考虑升级到 Render 付费档或换 Fly.io。
 
 ## 认证
 
@@ -93,10 +96,16 @@
 - `openspec/changes/` —— 进行中的变更
 - `openspec/changes/archive/` —— 已归档变更
 
-**`spec.md` 里的 Scenario（Given/When/Then）由人工手写，agent 不得代笔生成 Scenario 内容。** agent 可以指出 Scenario 遗漏了哪些边界，但不得直接代写。
+**`spec.md` 里的 Scenario（Given/When/Then）由 agent 起草，人工 review 后确认或修改再定稿。** 不是人工从零手写，也不是 agent 一次定稿不经 review——agent 出草稿时要主动列出自己不确定、可能遗漏边界的地方，供人工重点检查。
 
 ## Pitfalls
 
 <!-- archive 阶段向此处追加。内容必须来自真实的 evaluator retry，不得编造。 -->
+
+**只读响应字段不要用 Pydantic `Literal` 校验没有 DB CHECK 约束的枚举列**（student-management group 2，evaluator BLOCK）。
+`region`/`level`/`source` 这类字段如果 DB 层是纯 `TEXT`（没有 CHECK 约束，为了给未来加枚举值留口子），
+那么 API 的 `response_model` 用 `Literal[...]` 声明就是隐患：任意一行数据落在枚举集合外，
+FastAPI 会在这一整个响应上抛 `ResponseValidationError`，`GET` 列表接口直接全灭（500），不是那一行出错。
+只读端点该用 `str`，`Literal` 留给未来的写接口做请求体校验。
 
 （暂无——第一个 change 归档后开始积累）

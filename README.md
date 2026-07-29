@@ -4,7 +4,11 @@
 
 ## 现状
 
-**需求已确认，尚未开始实现。** 下一步是 opsx explore。
+**学员名单只读查询已本地跑通**（`student-management` change，2026-07-29 归档）：
+`supabase start`（本地 Docker Postgres）+ FastAPI + `npm run dev` 三层打通，
+浏览器能看到真实数据库里的学员数据。编辑/归档/新增学员、报课、作业、催作业等能力还没做。
+
+本地跑起来见 [docs/setup.md](docs/setup.md)。
 
 ## 要解决什么
 
