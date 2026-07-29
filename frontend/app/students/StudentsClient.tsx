@@ -1,28 +1,47 @@
 "use client";
 
-import { useMemo, useState, type KeyboardEvent } from "react";
+import { useMemo, useState, useTransition, type KeyboardEvent } from "react";
 import { Button } from "@/components/ui";
 import { BLANK_FORM, TZ_BY_REGION } from "./mock-data";
+import {
+  archiveStudentAction,
+  createStudentAction,
+  restoreStudentAction,
+  updateStudentField,
+} from "./actions";
 import { Sidebar } from "./Sidebar";
 import { FilterBar } from "./FilterBar";
 import { StudentsTable, NoResultsState, EmptyDatabaseState } from "./StudentsTable";
 import { DetailPanel } from "./DetailPanel";
 import { NewStudentModal } from "./NewStudentModal";
 import { PlaceholderPage } from "./PlaceholderPage";
-import type { EditableFieldKey, NavKey, NewStudentForm, Student, StudentOverride } from "./types";
-
-function applyOverride(student: Student, override: StudentOverride | undefined): Student {
-  if (!override) return student;
-  const merged = { ...student, ...override };
-  if (override.region) merged.tz = TZ_BY_REGION[override.region] ?? "—";
-  return merged;
-}
+import type {
+  EditableFieldKey,
+  FieldStatus,
+  NavKey,
+  NewStudentForm,
+  Student,
+  StudentOverride,
+  WritableFieldKey,
+} from "./types";
 
 interface StudentsClientProps {
   students: Student[];
+  archivedStudents: Student[];
 }
 
-export function StudentsClient({ students }: StudentsClientProps) {
+/**
+ * Key for one field of one student.
+ *
+ * Saving state is per field, not per panel: an edit costs a round trip, and
+ * several fields are usually filled in one after another. A panel-wide lock
+ * would make that sequence wait on itself.
+ */
+function fieldKey(email: string, field: string): string {
+  return `${email}:${field}`;
+}
+
+export function StudentsClient({ students, archivedStudents }: StudentsClientProps) {
   const [view, setView] = useState<NavKey>("students");
   const [scope, setScope] = useState<"active" | "archived">("active");
   const [query, setQuery] = useState("");
@@ -30,9 +49,16 @@ export function StudentsClient({ students }: StudentsClientProps) {
   const [tag, setTag] = useState<string[]>([]);
   const [source, setSource] = useState<string | null>(null);
 
-  const [archived, setArchived] = useState<string[]>([]);
-  const [added, setAdded] = useState<Student[]>([]);
-  const [over, setOver] = useState<Record<string, StudentOverride>>({});
+  // No local copy of the students. The server is the only source of truth —
+  // the previous `over` / `added` / `archived` state made the page show edits
+  // that had never been written, and they vanished on reload.
+  const [fieldStatus, setFieldStatus] = useState<Record<string, FieldStatus>>({});
+  const [archivePending, setArchivePending] = useState(false);
+  const [archiveError, setArchiveError] = useState<string | null>(null);
+  const [createError, setCreateError] = useState<
+    { kind: "archived" | "exists" | "other"; message: string } | null
+  >(null);
+  const [, startTransition] = useTransition();
 
   const [selected, setSelected] = useState<string | null>(students[0]?.email ?? null);
   const [askArchive, setAskArchive] = useState(false);
@@ -43,16 +69,8 @@ export function StudentsClient({ students }: StudentsClientProps) {
   const [showNew, setShowNew] = useState(false);
   const [form, setFormState] = useState<NewStudentForm>(BLANK_FORM);
 
-  const all = useMemo(
-    () => students.concat(added).map((s) => applyOverride(s, over[s.email])),
-    [students, added, over],
-  );
-
   const inScope = scope === "archived";
-  const data = useMemo(
-    () => all.filter((s) => archived.includes(s.email) === inScope),
-    [all, archived, inScope],
-  );
+  const data = inScope ? archivedStudents : students;
 
   const unalignedCount = useMemo(() => data.filter((s) => !s.wechat).length, [data]);
 
@@ -70,34 +88,74 @@ export function StudentsClient({ students }: StudentsClientProps) {
   }, [data, query, align, tag, source]);
 
   const isFiltered = !!query || align !== "all" || tag.length > 0 || !!source;
-  const activeCount = useMemo(() => all.filter((s) => !archived.includes(s.email)).length, [all, archived]);
-  const archivedCount = useMemo(() => all.filter((s) => archived.includes(s.email)).length, [all, archived]);
+  const activeCount = students.length;
+  const archivedCount = archivedStudents.length;
 
   const selectedStudent = useMemo(() => data.find((s) => s.email === selected) ?? null, [data, selected]);
-  const isSelectedArchived = !!selectedStudent && archived.includes(selectedStudent.email);
+  const isSelectedArchived = inScope;
 
   const duplicate = useMemo(() => {
     const email = form.email.trim().toLowerCase();
     if (!email) return null;
-    return all.find((s) => s.email.toLowerCase() === email) ?? null;
-  }, [all, form.email]);
+    return students.find((s) => s.email.toLowerCase() === email) ?? null;
+  }, [students, form.email]);
+
+  const archivedDuplicate = useMemo(() => {
+    const email = form.email.trim().toLowerCase();
+    if (!email) return null;
+    return archivedStudents.find((s) => s.email.toLowerCase() === email) ?? null;
+  }, [archivedStudents, form.email]);
 
   const canSave = !!form.name.trim() && /.+@.+\..+/.test(form.email.trim()) && !duplicate;
 
-  function patch(email: string, partial: StudentOverride) {
-    setOver((st) => ({ ...st, [email]: { ...(st[email] ?? {}), ...partial } }));
+  function setStatus(key: string, status: FieldStatus | null) {
+    setFieldStatus((st) => {
+      const next = { ...st };
+      if (status === null) delete next[key];
+      else next[key] = status;
+      return next;
+    });
+  }
+
+  /**
+   * Send one field to the server and reflect the outcome on that field alone.
+   *
+   * On failure the attempted value is kept in the status, not discarded. The
+   * value the user just typed — most often a wechat handle, which takes manual
+   * matching against a group roster to obtain — is the expensive part; dropping
+   * it back to the stored value on error would throw away exactly that.
+   */
+  function saveField(email: string, field: WritableFieldKey, value: string | string[]) {
+    const key = fieldKey(email, field);
+    setStatus(key, { state: "saving" });
+    startTransition(async () => {
+      try {
+        await updateStudentField(email, { [field]: value } as StudentOverride);
+        setStatus(key, null);
+      } catch {
+        setStatus(key, { state: "failed", value, message: "没保存上。" });
+      }
+    });
   }
 
   function startEdit(key: EditableFieldKey | "note", value: string) {
     setEditKey(key);
-    setEditVal(value ?? "");
+    // A previous failure holds the value the user typed; resume from that
+    // rather than from the stored one, which is the value they were replacing.
+    const failed = selected ? fieldStatus[fieldKey(selected, key)] : undefined;
+    setEditVal(
+      failed?.state === "failed" && typeof failed.value === "string"
+        ? failed.value
+        : (value ?? ""),
+    );
   }
 
   function commitEdit() {
     if (!editKey || !selected) return;
-    patch(selected, { [editKey]: editVal.trim() } as StudentOverride);
+    const value = editVal.trim();
     setEditKey(null);
     setEditVal("");
+    saveField(selected, editKey, value);
   }
 
   function onEditKeyDown(e: KeyboardEvent) {
@@ -108,16 +166,27 @@ export function StudentsClient({ students }: StudentsClientProps) {
     }
   }
 
+  function retryField(field: WritableFieldKey) {
+    if (!selected) return;
+    const status = fieldStatus[fieldKey(selected, field)];
+    if (status?.state !== "failed") return;
+    saveField(selected, field, status.value);
+  }
+
   function pickEnum(key: EditableFieldKey, value: string) {
     if (!selected) return;
-    patch(selected, { [key]: value } as StudentOverride);
     setEditKey(null);
+    saveField(selected, key, value);
   }
 
   function toggleDetailTag(t: string) {
     if (!selectedStudent) return;
     const has = selectedStudent.tags.includes(t);
-    patch(selectedStudent.email, { tags: has ? selectedStudent.tags.filter((x) => x !== t) : selectedStudent.tags.concat(t) });
+    saveField(
+      selectedStudent.email,
+      "tags",
+      has ? selectedStudent.tags.filter((x) => x !== t) : selectedStudent.tags.concat(t),
+    );
   }
 
   function toggleListTag(t: string) {
@@ -130,6 +199,7 @@ export function StudentsClient({ students }: StudentsClientProps) {
 
   function setForm(patchVal: Partial<NewStudentForm>) {
     setFormState((st) => ({ ...st, ...patchVal }));
+    setCreateError(null);
   }
 
   function toggleFormTag(t: string) {
@@ -138,27 +208,37 @@ export function StudentsClient({ students }: StudentsClientProps) {
 
   function saveStudent(keepOpen: boolean) {
     const f = form;
-    const rec: Student = {
-      name: f.name.trim(),
-      email: f.email.trim(),
-      wechat: f.wechat.trim(),
-      nick: f.nick.trim() || "—",
-      wxName: f.wxName.trim() || "—",
-      region: f.region,
-      tz: TZ_BY_REGION[f.region] ?? "UTC+8",
-      level: f.level,
-      source: f.source,
-      tags: f.tags.slice(),
-      note: f.note.trim(),
-      gender: "—",
-      age: "—",
-      industry: "—",
-    };
-    setAdded((st) => st.concat(rec));
-    setFormState(BLANK_FORM);
-    setShowNew(keepOpen);
-    setScope("active");
-    if (!keepOpen) setSelected(rec.email);
+    const email = f.email.trim();
+    setCreateError(null);
+    startTransition(async () => {
+      try {
+        await createStudentAction({
+          email,
+          name: f.name.trim(),
+          region: f.region,
+          level: f.level,
+          source: f.source,
+        });
+        setFormState(BLANK_FORM);
+        setShowNew(keepOpen);
+        setScope("active");
+        if (!keepOpen) setSelected(email);
+      } catch (error) {
+        // The archived collision is called out separately because the remedy
+        // differs: this is not "pick another email", it is "the person already
+        // exists, go restore them". Creating anyway would either overwrite the
+        // notes, tags and wechat handle on that record or silently un-archive
+        // it — the mock rules out both.
+        const detail = error instanceof Error ? error.message : "";
+        setCreateError(
+          /archiv/i.test(detail)
+            ? { kind: "archived", message: detail }
+            : /exist/i.test(detail)
+              ? { kind: "exists", message: detail }
+              : { kind: "other", message: "没保存上。" },
+        );
+      }
+    });
   }
 
   function onSelectRow(email: string) {
@@ -179,6 +259,35 @@ export function StudentsClient({ students }: StudentsClientProps) {
     setShowNew(false);
     setScope("active");
     if (duplicate) setSelected(duplicate.email);
+  }
+
+  function onGoToArchived() {
+    setShowNew(false);
+    setCreateError(null);
+    setScope("archived");
+    if (archivedDuplicate) setSelected(archivedDuplicate.email);
+  }
+
+  function runArchiveAction(action: (email: string) => Promise<void>, email: string) {
+    // Disabling the button for the duration is the point: the confirmation is
+    // already behind a second click, and a double-click here would fire the
+    // same request twice.
+    setArchivePending(true);
+    setArchiveError(null);
+    startTransition(async () => {
+      try {
+        await action(email);
+        setAskArchive(false);
+        setSelected(null);
+      } catch {
+        // Say so. Without this the button simply becomes clickable again,
+        // which is indistinguishable from a write that succeeded — and the
+        // student stays on screen either way.
+        setArchiveError("没归档成功。");
+      } finally {
+        setArchivePending(false);
+      }
+    });
   }
 
   return (
@@ -241,7 +350,12 @@ export function StudentsClient({ students }: StudentsClientProps) {
             <div className="flex min-h-0 flex-1 overflow-hidden">
               <div className="min-w-0 flex-1 overflow-auto">
                 {list.length > 0 ? (
-                  <StudentsTable rows={list} selectedEmail={selected} archived={archived} onSelect={onSelectRow} />
+                  <StudentsTable
+                    rows={list}
+                    selectedEmail={selected}
+                    archived={inScope ? list.map((s) => s.email) : []}
+                    onSelect={onSelectRow}
+                  />
                 ) : data.length === 0 && !inScope ? (
                   <EmptyDatabaseState onOpenNew={() => setShowNew(true)} />
                 ) : (
@@ -264,6 +378,10 @@ export function StudentsClient({ students }: StudentsClientProps) {
                   editValue={editVal}
                   tagEditing={tagEdit}
                   askArchive={askArchive}
+                  archivePending={archivePending}
+                  archiveError={archiveError}
+                  fieldStatus={fieldStatus}
+                  onRetryField={retryField}
                   onClose={onCloseDetail}
                   onStartEdit={startEdit}
                   onEditValueChange={setEditVal}
@@ -274,16 +392,12 @@ export function StudentsClient({ students }: StudentsClientProps) {
                   onToggleTag={toggleDetailTag}
                   onFillWechat={() => startEdit("wechat", "")}
                   onAskArchive={() => setAskArchive(true)}
-                  onCancelArchive={() => setAskArchive(false)}
-                  onArchive={() => {
-                    setArchived((st) => st.concat(selectedStudent.email));
+                  onCancelArchive={() => {
                     setAskArchive(false);
-                    setSelected(null);
+                    setArchiveError(null);
                   }}
-                  onRestore={() => {
-                    setArchived((st) => st.filter((e) => e !== selectedStudent.email));
-                    setSelected(null);
-                  }}
+                  onArchive={() => runArchiveAction(archiveStudentAction, selectedStudent.email)}
+                  onRestore={() => runArchiveAction(restoreStudentAction, selectedStudent.email)}
                 />
               )}
             </div>
@@ -300,6 +414,9 @@ export function StudentsClient({ students }: StudentsClientProps) {
           onToggleTag={toggleFormTag}
           duplicate={duplicate}
           onOpenDuplicate={onOpenDuplicate}
+          createError={createError}
+          archivedDuplicateName={archivedDuplicate?.name ?? null}
+          onGoToArchived={onGoToArchived}
           canSave={canSave}
           onClose={() => setShowNew(false)}
           onSave={() => canSave && saveStudent(false)}

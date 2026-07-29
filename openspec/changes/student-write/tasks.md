@@ -49,17 +49,20 @@
 - **Code**: design.md 决策 #1（删除 `over`/`added`/`archived` 三块本地状态与 `applyOverride`，服务端成为唯一真相源；保留的本地状态仅为纯 UI 态）、#7（保存中/失败是 per-field 而非全局）。**回归风险**：筛选、选中、在读/已归档切换、新增弹窗都读这些被删的状态，改动面远大于"加几个写接口"
 - **Threshold**: 70
 
-- [ ] 3.0 CONTRACT — write openspec/changes/student-write/contracts/group-3.md with the ### Contract block above
-- [ ] 3.1 MOCK — open docs/superpowers/specs/mocks/2026-07-29-student-write-mocks.html；记录四种状态的结构与 token：保存中（值变淡 + 行尾转子，**只锁那一行**）、保存失败（输入框留编辑态、`border-danger`、下方 `text-danger` 提示 + "重试"）、邮箱已归档（`bg-danger-surface` + `border-danger-border` 横幅 + "前往「已归档」"按钮）、归档进行中（按钮禁用并改字）
-- [ ] 3.2 RED — vitest：`StudentsClient` 传入一个正在保存的字段状态，断言该字段呈现进行中态、**其余字段不被禁用**（防止实现成整块面板遮罩）
-- [ ] 3.3 GREEN — 删除 `over`/`added`/`archived` 与 `applyOverride`，改为直接使用 props；新增 per-field 的保存中/失败状态；接上 Server Actions
-- [ ] 3.4 RED — vitest：模拟某字段保存失败，断言失败提示出现在该字段附近，且**输入框里仍是用户刚输入的值**（不得回退为旧值——这是 mock 里标为最关键的一条）
-- [ ] 3.5 GREEN — 补齐失败处理使 3.4 转绿
-- [ ] 3.6 RED — vitest：新增学员时后端返回"邮箱属于已归档学员"，断言界面显示对应横幅且**不自动恢复**
-- [ ] 3.7 GREEN — 补齐新增冲突处理
-- [ ] 3.8 回归验证 —— 起本地栈，逐项确认删除本地状态后既有交互未坏：搜索、标签筛选、来源筛选、微信对齐三态、在读/已归档切换、点行联动详情面板、新增弹窗开关
-- [ ] 3.9 VISUAL DIFF — 起本地栈，逐一触发四种状态（可临时让后端返回错误以触发失败态），与 mock 比对配色、文案、布局；修正偏差
-- [ ] 3.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-3.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 70 → PASS; < 70 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
+- [x] 3.0 CONTRACT — write openspec/changes/student-write/contracts/group-3.md with the ### Contract block above
+- [x] 3.1 MOCK — open docs/superpowers/specs/mocks/2026-07-29-student-write-mocks.html；记录四种状态的结构与 token：保存中（值变淡 + 行尾转子，**只锁那一行**）、保存失败（输入框留编辑态、`border-danger`、下方 `text-danger` 提示 + "重试"）、邮箱已归档（`bg-danger-surface` + `border-danger-border` 横幅 + "前往「已归档」"按钮）、归档进行中（按钮禁用并改字）
+- [x] 3.2 RED — vitest：`StudentsClient` 传入一个正在保存的字段状态，断言该字段呈现进行中态、**其余字段不被禁用**（防止实现成整块面板遮罩）
+- [x] 3.3 GREEN — 删除 `over`/`added`/`archived` 与 `applyOverride`，改为直接使用 props；新增 per-field 的保存中/失败状态；接上 Server Actions
+- [x] 3.4 RED — vitest：模拟某字段保存失败，断言失败提示出现在该字段附近，且**输入框里仍是用户刚输入的值**（不得回退为旧值——这是 mock 里标为最关键的一条）
+- [x] 3.5 GREEN — 补齐失败处理使 3.4 转绿
+- [x] 3.6 RED — vitest：新增学员时后端返回"邮箱属于已归档学员"，断言界面显示对应横幅且**不自动恢复**
+- [x] 3.7 GREEN — 补齐新增冲突处理
+- [x] 3.8 回归验证 —— 起本地栈，逐项确认删除本地状态后既有交互未坏：搜索、标签筛选、来源筛选、微信对齐三态、在读/已归档切换、点行联动详情面板、新增弹窗开关
+- [x] 3.9 VISUAL DIFF — 起本地栈，逐一触发四种状态（可临时让后端返回错误以触发失败态），与 mock 比对配色、文案、布局；修正偏差
+- [x] 3.F1 FIX — 标签保存去掉 `as EditableFieldKey` 强转（新增 `WritableFieldKey`），并给标签块加 `data-field` 与失败提示+重试
+- [x] 3.F2 FIX — `runArchiveAction` 补 `catch`，归档/恢复失败显示「没归档成功。」而非静默恢复按钮
+- [x] 3.F3 FIX — DetailPanel 分支顺序改为编辑态优先于失败态；否则枚举字段保存失败后点不出选择器，只能刷新页面
+- [x] 3.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-3.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 70 → PASS; < 70 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 4. 部署与验收
 

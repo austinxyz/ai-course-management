@@ -51,3 +51,20 @@
     - "code: Shared checkSitePassword() correctly extracted to lib/site-password.ts; used by both proxy.ts and requireSitePassword() in actions.ts; Server Action reads Authorization via headers() per design decision #2; no CRITICAL/HIGH issues found"
     - "code: No authentication bypass, no unguarded writes, no fail-open paths; requireSitePassword() throws (not soft error) before any api call; all test fixtures use clearly-fake placeholder strings"
   fix_tasks: []
+- group: 3
+  attempt: 3
+  scores: {spec: 100, runtime: 100, code: 100}
+  total: 100
+  status: PASS
+  findings:
+    - "spec: All 6 SHALL statements verified—updates persist after reload (server sole truth source), new records appear in list, archived email conflicts prevent creation without auto-restore, archive hides from active with restore lossless, saving/failure states visible per-field, failed input preserved"
+    - "runtime: All 39 vitest tests pass (8 test files) including required assertions: per-field saving state renders (aria-busy one row only), failed saves keep typed value not reverting to stored, failure messages show inline next to field with retry button"
+    - "runtime: E2E regression suite confirms deleted local state did not break search, tag/source filters, wechat tri-state, 在读/已归档 toggle, row→detail selection, or new-student modal"
+    - "code: Design decision #1 fully implemented—over/added/archived state vars deleted, replaced by server props (students, archivedStudents) passed from Server Component; applyOverride function removed; only pure UI state remains (selected, editKey, editVal, fieldStatus)"
+    - "code: Design decision #7 implemented correctly—fieldStatus keyed per-field (format '${email}:${field}'), each field gets independent saving/failed state, error messages and retry buttons appear beside the specific field that failed"
+    - "code: DetailPanel branch order fixed: editing branches checked before failed state, so failed enum field can still open picker and user is not trapped on page reload"
+    - "code: Server Actions properly guard each entry with requireSitePassword() before calling backend, call revalidatePath('/students') after writes to ensure fresh data; error messages from backend (archived vs exists vs other) correctly parsed and displayed"
+    - "code: WritableFieldKey type includes all writable fields (EditableFieldKey + 'note' + 'tags'), eliminating previous cast-to-EditableFieldKey that silenced type checks on tag writes; tags block now has data-field and failure UI"
+    - "code: Previous attempts' three HIGH fixes confirmed in place and tested: (1) tag saving uses WritableFieldKey with status tracking, (2) runArchiveAction catches errors showing '没归档成功。', (3) DetailPanel branch order prioritizes editing over failed state"
+    - "code: No CRITICAL/HIGH issues found; all regressions tested; migration adds archived_at column (nullable) + unique lowercase email index as backstop"
+  fix_tasks: []

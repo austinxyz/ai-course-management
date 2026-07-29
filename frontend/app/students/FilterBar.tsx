@@ -57,7 +57,14 @@ export function FilterBar(props: FilterBarProps) {
   } = props;
 
   return (
-    <div className="flex flex-none flex-wrap items-center gap-2.5 border-b border-border bg-surface px-[22px] py-[11px]">
+    // Labelled as a toolbar: the tag and source names here also appear in the
+    // detail panel as edit controls, and without the distinction neither a
+    // screen reader nor a test can tell "filter by 活跃" from "add 活跃".
+    <div
+      role="toolbar"
+      aria-label="筛选"
+      className="flex flex-none flex-wrap items-center gap-2.5 border-b border-border bg-surface px-[22px] py-[11px]"
+    >
       <div className="flex flex-none items-center gap-0 rounded-token border border-border bg-surface-muted p-0.5">
         <button type="button" onClick={() => onScope("active")} className={segClass(scope === "active")}>
           在读<span className={numClass(scope === "active")}>{activeCount}</span>

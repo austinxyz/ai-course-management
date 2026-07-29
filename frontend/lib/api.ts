@@ -108,8 +108,11 @@ async function backendWrite(
   return res.json();
 }
 
-export async function getStudents(): Promise<Student[]> {
-  const res = await fetch(backendUrl("/api/students"), backendRequestInit());
+export async function getStudents(
+  options: { archived?: boolean } = {},
+): Promise<Student[]> {
+  const path = options.archived ? "/api/students?archived=true" : "/api/students";
+  const res = await fetch(backendUrl(path), backendRequestInit());
   if (!res.ok) throw new Error(`getStudents failed: ${res.status}`);
   const data: ApiStudent[] = await res.json();
   return data.map(toStudent);

@@ -11,6 +11,15 @@ interface NewStudentModalProps {
   duplicate: { name: string } | null;
   onOpenDuplicate: () => void;
 
+  /**
+   * Set when the server refused the create. Local duplicate detection only
+   * covers the in-study roster — an archived student is not in that list, so
+   * the collision is invisible here and only surfaces on submit.
+   */
+  createError: { kind: "archived" | "exists" | "other"; message: string } | null;
+  archivedDuplicateName: string | null;
+  onGoToArchived: () => void;
+
   canSave: boolean;
   onClose: () => void;
   onSave: () => void;
@@ -25,7 +34,13 @@ function pillClass(active: boolean) {
 }
 
 export function NewStudentModal(props: NewStudentModalProps) {
-  const { form, onChange, onToggleTag, duplicate, onOpenDuplicate, canSave, onClose, onSave, onSaveAndContinue } = props;
+  const {
+    form, onChange, onToggleTag, duplicate, onOpenDuplicate,
+    createError, archivedDuplicateName, onGoToArchived,
+    canSave, onClose, onSave, onSaveAndContinue,
+  } = props;
+
+  const archivedConflict = createError?.kind === "archived";
 
   return (
     <div className="fixed inset-0 z-[60] flex items-start justify-center bg-[#1a1917]/40 px-6 pb-6 pt-14">
@@ -62,10 +77,32 @@ export function NewStudentModal(props: NewStudentModalProps) {
                 value={form.email}
                 onChange={(e) => onChange({ email: e.target.value })}
                 placeholder="name@example.com"
-                className={cn("font-mono", duplicate && "border-danger")}
+                className={cn("font-mono", (duplicate || createError) && "border-danger")}
               />
             </label>
           </div>
+
+          {archivedConflict && (
+            <div className="flex flex-col gap-2.5 rounded-token border border-danger-border bg-danger-surface px-3 py-2.5">
+              <span className="font-sans text-[12.5px] leading-relaxed text-[#8a4136]">
+                该邮箱属于一位已归档的学员{archivedDuplicateName ? `：${archivedDuplicateName}` : ""}。
+              </span>
+              <span className="font-sans text-[12.5px] leading-relaxed text-muted">
+                新增会与现有记录冲突，因此没有创建。若确认是同一个人，请到「已归档」里恢复他，原有的备注、标签与微信号都还在。
+              </span>
+              <Button variant="danger" size="sm" onClick={onGoToArchived} className="self-start">
+                前往「已归档」
+              </Button>
+            </div>
+          )}
+
+          {createError?.kind === "other" && (
+            <div className="rounded-token border border-danger-border bg-danger-surface px-3 py-2.5">
+              <span className="font-sans text-[12.5px] leading-relaxed text-danger">
+                {createError.message}
+              </span>
+            </div>
+          )}
 
           {duplicate && (
             <div className="flex items-center justify-between gap-2.5 rounded-token border border-danger-border bg-danger-surface px-3 py-2.5">

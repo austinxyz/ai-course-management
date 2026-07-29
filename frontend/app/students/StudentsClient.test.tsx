@@ -22,7 +22,7 @@ const unalignedStudent: Student = {
 
 describe("StudentsClient", () => {
   it("renders the 未对齐微信 badge with the danger design token for a student with no wechat", () => {
-    render(<StudentsClient students={[unalignedStudent]} />);
+    render(<StudentsClient students={[unalignedStudent]} archivedStudents={[]} />);
 
     // The lone student is also auto-selected (first in list), so the badge
     // renders both in the table row and the detail panel — either instance

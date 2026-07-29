@@ -23,6 +23,26 @@ export type StudentOverride = Partial<
   Pick<Student, "wechat" | "wxName" | "nick" | "region" | "level" | "source" | "industry" | "gender" | "age" | "note" | "tags">
 >;
 
+/**
+ * Everything the detail panel can write, including the two that are not rows
+ * in the field table. `tags` used to reach `saveField` through a cast to
+ * `EditableFieldKey`, which silenced the type checker on a value that key does
+ * not contain — and with it the fact that tags had no status UI at all.
+ */
+export type WritableFieldKey = EditableFieldKey | "note" | "tags";
+
+/**
+ * Per-field write state.
+ *
+ * `failed` carries the attempted value, not just a message: the field goes
+ * back to being editable with what the user typed still in it. Reverting to
+ * the stored value would discard the newer information — usually a wechat
+ * handle, which costs a manual match against a group roster to obtain.
+ */
+export type FieldStatus =
+  | { state: "saving" }
+  | { state: "failed"; value: string | string[]; message: string };
+
 export interface NewStudentForm {
   name: string;
   email: string;

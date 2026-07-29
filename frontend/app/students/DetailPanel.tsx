@@ -2,7 +2,7 @@ import { type KeyboardEvent } from "react";
 import { Badge, Button } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { FIELDS, LEVELS, SOURCES, TAG_COLORS, TAGS, TZ_BY_REGION } from "./mock-data";
-import type { EditableFieldKey, Student } from "./types";
+import type { EditableFieldKey, FieldStatus, Student, WritableFieldKey } from "./types";
 
 interface DetailPanelProps {
   student: Student;
@@ -11,6 +11,11 @@ interface DetailPanelProps {
   editValue: string;
   tagEditing: boolean;
   askArchive: boolean;
+  archivePending: boolean;
+  archiveError: string | null;
+  /** Keyed `${email}:${field}` — see StudentsClient.fieldKey. */
+  fieldStatus: Record<string, FieldStatus>;
+  onRetryField: (field: WritableFieldKey) => void;
 
   onClose: () => void;
   onStartEdit: (key: EditableFieldKey | "note", value: string) => void;
@@ -47,6 +52,7 @@ function pillClass(active: boolean) {
 export function DetailPanel(props: DetailPanelProps) {
   const {
     student, isArchived, editKey, editValue, tagEditing, askArchive,
+    archivePending, archiveError, fieldStatus, onRetryField,
     onClose, onStartEdit, onEditValueChange, onCommitEdit, onEditKeyDown, onPickEnum,
     onToggleTagEditing, onToggleTag,
     onFillWechat, onAskArchive, onCancelArchive, onArchive, onRestore,
@@ -54,6 +60,15 @@ export function DetailPanel(props: DetailPanelProps) {
 
   const noWechat = !student.wechat && !isArchived;
   const sid = "stu_" + student.email.split("@")[0].replace(/\./g, "_");
+
+  const statusOf = (field: string): FieldStatus | undefined =>
+    fieldStatus[`${student.email}:${field}`];
+
+  const noteStatus = statusOf("note");
+  const noteFailed = noteStatus?.state === "failed" ? noteStatus : null;
+
+  const tagStatus = statusOf("tags");
+  const tagFailed = tagStatus?.state === "failed" ? tagStatus : null;
 
   return (
     <aside className="flex w-[358px] flex-none flex-col overflow-y-auto border-l border-border bg-surface">
@@ -86,8 +101,14 @@ export function DetailPanel(props: DetailPanelProps) {
             <p className="m-0 font-sans text-[12.5px] leading-relaxed text-muted">
               作业与互动记录都还在。重新导入同一邮箱不会新建学员，会提示恢复这条记录。
             </p>
-            <Button variant="primary" size="sm" onClick={onRestore} className="self-start">
-              恢复为在读
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={onRestore}
+              disabled={archivePending}
+              className="self-start"
+            >
+              {archivePending ? "正在恢复…" : "恢复为在读"}
             </Button>
           </div>
         )}
@@ -119,10 +140,15 @@ export function DetailPanel(props: DetailPanelProps) {
             const empty = !raw || raw === "—";
             const warn = fd.key === "wechat" && empty;
             const shown = fd.key === "region" ? `${student.region} · ${student.tz}` : empty ? fd.placeholder ?? "未填" : raw;
+            const status = statusOf(fd.key);
+            const saving = status?.state === "saving";
+            const failed = status?.state === "failed" ? status : null;
 
             return (
               <div
                 key={fd.key}
+                data-field={fd.key}
+                aria-busy={saving || undefined}
                 className={cn(
                   "flex items-start gap-2.5 px-3 py-1.5",
                   i % 2 ? "bg-surface-muted/40" : "bg-surface",
@@ -131,19 +157,11 @@ export function DetailPanel(props: DetailPanelProps) {
               >
                 <span className="w-[74px] flex-none pt-px font-sans text-xs text-muted">{fd.label}</span>
                 <div className="min-w-0 flex-1">
-                  {editing && fd.type === "text" ? (
-                    <input
-                      autoFocus
-                      value={editValue}
-                      onChange={(e) => onEditValueChange(e.target.value)}
-                      onBlur={onCommitEdit}
-                      onKeyDown={onEditKeyDown}
-                      className={cn(
-                        "h-7 w-full rounded-md border border-primary bg-surface px-2 text-[12.5px] outline-none",
-                        fd.mono ? "font-mono" : "font-sans",
-                      )}
-                    />
-                  ) : editing && fd.type === "enum" ? (
+                  {/* The editing branches come first. A failed enum field has
+                      no free-text fallback, so if the failure state won here
+                      the picker could never reopen and the only way out would
+                      be a page reload. */}
+                  {editing && fd.type === "enum" ? (
                     <div className="flex flex-wrap gap-1.5 py-px">
                       {enumOptions(fd.key as EditableFieldKey).map((o) => (
                         <button
@@ -156,6 +174,34 @@ export function DetailPanel(props: DetailPanelProps) {
                         </button>
                       ))}
                     </div>
+                  ) : editing && fd.type === "text" ? (
+                    <input
+                      autoFocus
+                      value={editValue}
+                      onChange={(e) => onEditValueChange(e.target.value)}
+                      onBlur={onCommitEdit}
+                      onKeyDown={onEditKeyDown}
+                      className={cn(
+                        "h-7 w-full rounded-md border bg-surface px-2 text-[12.5px] outline-none",
+                        failed ? "border-danger" : "border-primary",
+                        fd.mono ? "font-mono" : "font-sans",
+                      )}
+                    />
+                  ) : failed ? (
+                    // Still editable, still holding what the user typed. The
+                    // value they just entered is newer than the stored one and
+                    // usually harder to obtain — reverting on failure would
+                    // throw away the only copy of it.
+                    <input
+                      value={typeof failed.value === "string" ? failed.value : ""}
+                      onChange={(e) => onEditValueChange(e.target.value)}
+                      onFocus={() => onStartEdit(fd.key as EditableFieldKey, String(failed.value))}
+                      readOnly
+                      className={cn(
+                        "h-7 w-full rounded-md border border-danger bg-surface px-2 text-[12.5px] outline-none",
+                        fd.mono ? "font-mono" : "font-sans",
+                      )}
+                    />
                   ) : (
                     <button
                       type="button"
@@ -163,20 +209,54 @@ export function DetailPanel(props: DetailPanelProps) {
                       className={cn(
                         "block w-full border-0 bg-transparent py-0.5 text-left text-[12.5px] leading-relaxed",
                         fd.mono ? "font-mono" : "font-sans",
-                        warn ? "font-medium text-danger" : empty ? "text-muted-foreground/70" : "text-foreground",
+                        // Dimmed while in flight: enough to say "not settled
+                        // yet" without interrupting the eye.
+                        saving
+                          ? "text-muted-foreground/60"
+                          : warn
+                            ? "font-medium text-danger"
+                            : empty
+                              ? "text-muted-foreground/70"
+                              : "text-foreground",
                         fd.type === "ro" ? "cursor-default" : "cursor-text",
                       )}
                     >
                       {shown}
                     </button>
                   )}
+
+                  {failed && (
+                    // Next to the field, not a global toast: a page-level
+                    // message cannot say *which* field failed to save.
+                    <div className="mt-1 flex items-center gap-2">
+                      <span className="font-sans text-[11.5px] text-danger">{failed.message}</span>
+                      <button
+                        type="button"
+                        onClick={() => onRetryField(fd.key as EditableFieldKey)}
+                        className="inline-flex h-[20px] items-center rounded-token border border-danger-border bg-surface px-1.5 font-sans text-[11.5px] font-medium text-danger"
+                      >
+                        重试
+                      </button>
+                    </div>
+                  )}
                 </div>
+
+                {saving && (
+                  <span
+                    aria-hidden
+                    className="mt-1 h-3 w-3 flex-none animate-spin rounded-full border border-border border-t-muted-foreground"
+                  />
+                )}
               </div>
             );
           })}
         </div>
 
-        <div className="flex flex-col gap-1.5">
+        <div
+          className="flex flex-col gap-1.5"
+          data-field="tags"
+          aria-busy={tagStatus?.state === "saving" || undefined}
+        >
           <div className="flex items-center justify-between gap-2">
             <div className="font-mono text-[11px] tracking-wide text-muted-foreground">标签</div>
             <button
@@ -211,9 +291,23 @@ export function DetailPanel(props: DetailPanelProps) {
                   })
                 : <span className="font-sans text-xs text-muted-foreground/70">无标签</span>}
           </div>
+          {tagFailed && (
+            // Tags have no row of their own in the field table, so without
+            // this the pill just snaps back and nothing explains why.
+            <div className="flex items-center gap-2">
+              <span className="font-sans text-[11.5px] text-danger">{tagFailed.message}</span>
+              <button
+                type="button"
+                onClick={() => onRetryField("tags")}
+                className="inline-flex h-[20px] items-center rounded-token border border-danger-border bg-surface px-1.5 font-sans text-[11.5px] font-medium text-danger"
+              >
+                重试
+              </button>
+            </div>
+          )}
         </div>
 
-        <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-1.5" data-field="note" aria-busy={noteStatus?.state === "saving" || undefined}>
           <div className="font-mono text-[11px] tracking-wide text-muted-foreground">备注</div>
           {editKey === "note" ? (
             <textarea
@@ -229,12 +323,27 @@ export function DetailPanel(props: DetailPanelProps) {
               type="button"
               onClick={() => onStartEdit("note", student.note)}
               className={cn(
-                "block min-h-[60px] w-full cursor-text rounded-token border border-border bg-surface-muted px-3 py-2.5 text-left font-sans text-[12.5px] leading-relaxed",
+                "block min-h-[60px] w-full cursor-text rounded-token border bg-surface-muted px-3 py-2.5 text-left font-sans text-[12.5px] leading-relaxed",
+                noteFailed ? "border-danger" : "border-border",
                 student.note ? "text-foreground" : "text-muted-foreground/70",
               )}
             >
-              {student.note || "（无备注）"}
+              {noteFailed && typeof noteFailed.value === "string"
+                ? noteFailed.value
+                : student.note || "（无备注）"}
             </button>
+          )}
+          {noteFailed && (
+            <div className="flex items-center gap-2">
+              <span className="font-sans text-[11.5px] text-danger">{noteFailed.message}</span>
+              <button
+                type="button"
+                onClick={() => onRetryField("note")}
+                className="inline-flex h-[20px] items-center rounded-token border border-danger-border bg-surface px-1.5 font-sans text-[11.5px] font-medium text-danger"
+              >
+                重试
+              </button>
+            </div>
           )}
         </div>
 
@@ -268,11 +377,14 @@ export function DetailPanel(props: DetailPanelProps) {
                 <p className="m-0 font-sans text-[12.5px] leading-relaxed text-foreground">
                   归档 <strong className="font-semibold">{student.name}</strong>？他的 2 条报课、4 份作业和互动记录会一起隐藏，但不会删除。可随时恢复。
                 </p>
+                {archiveError && (
+                  <span className="font-sans text-[11.5px] text-danger">{archiveError}</span>
+                )}
                 <div className="flex gap-2">
-                  <Button variant="danger" size="sm" onClick={onArchive}>
-                    确认归档
+                  <Button variant="danger" size="sm" onClick={onArchive} disabled={archivePending}>
+                    {archivePending ? "正在归档…" : "确认归档"}
                   </Button>
-                  <Button variant="secondary" size="sm" onClick={onCancelArchive}>
+                  <Button variant="secondary" size="sm" onClick={onCancelArchive} disabled={archivePending}>
                     取消
                   </Button>
                 </div>
