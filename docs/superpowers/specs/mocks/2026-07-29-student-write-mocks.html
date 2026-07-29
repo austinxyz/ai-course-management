@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>student-write mocks</title>
+<!-- HAS_UI_SURFACE: yes -->
+<style>
+  :root {
+    --color-bg: #f6f4f0; --color-fg: #1a1917;
+    --color-surface: #ffffff; --color-surface-muted: #f2efe9;
+    --color-border: #e4e0d8; --color-primary: #9c3417;
+    --color-primary-fg: #ffffff; --color-muted: #79736a;
+    --color-muted-fg: #a09a90; --color-danger: #b3261e;
+    --color-danger-surface: #fbf0ee; --color-danger-border: #f0cfc9;
+    --radius: 8px;
+  }
+  body {
+    font-family: "Noto Sans SC", -apple-system, "Segoe UI", sans-serif;
+    margin: 0; padding: 24px; background: #ddd7cc; color: var(--color-fg);
+  }
+  h1 { font-size: 20px; margin: 0 0 4px }
+  h2 { font-size: 15px; margin: 0 0 6px }
+  section { margin-bottom: 36px }
+  .note { color: #5f5a51; font-size: 13px; margin: 0 0 14px; line-height: 1.65 }
+
+  .panel {
+    background: var(--color-surface); border: 1px solid var(--color-border);
+    border-radius: var(--radius); width: 358px; padding: 14px 18px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.10);
+  }
+  .panel-mobile { width: 100%; max-width: 393px }
+
+  /* 字段行 —— 复刻 DetailPanel 现有结构：74px 标签 + 弹性值区 */
+  .rows { border: 1px solid var(--color-border); border-radius: var(--radius); overflow: hidden }
+  .row { display: flex; gap: 10px; align-items: flex-start; padding: 6px 12px; background: var(--color-surface) }
+  .row:nth-child(even) { background: rgba(242,239,233,.4) }
+  .row + .row { border-top: 1px solid rgba(228,224,216,.6) }
+  .label { width: 74px; flex: none; padding-top: 1px; font-size: 12px; color: var(--color-muted) }
+  .val { flex: 1; min-width: 0; font-size: 12.5px; line-height: 1.5 }
+  .mono { font-family: "JetBrains Mono", ui-monospace, monospace }
+
+  .input {
+    height: 28px; width: 100%; border-radius: 6px; border: 1px solid var(--color-primary);
+    background: var(--color-surface); padding: 0 8px; font-size: 12.5px; box-sizing: border-box;
+  }
+  .input-err { border-color: var(--color-danger) }
+
+  /* 保存中：值变淡 + 一个小转子。刻意不禁用输入框，也不遮罩整块面板 */
+  .saving { color: var(--color-muted-fg) }
+  .spin {
+    width: 11px; height: 11px; border-radius: 50%; display: inline-block; vertical-align: -1px;
+    border: 1.5px solid var(--color-border); border-top-color: var(--color-muted);
+    animation: r .7s linear infinite; margin-left: 6px;
+  }
+  @keyframes r { to { transform: rotate(360deg) } }
+
+  .err-line {
+    display: flex; align-items: baseline; gap: 6px; margin-top: 5px;
+    font-size: 11.5px; color: var(--color-danger); line-height: 1.5;
+  }
+  .retry {
+    border: 0; background: none; padding: 0; font: inherit; color: var(--color-primary);
+    text-decoration: underline; cursor: pointer;
+  }
+
+  .banner {
+    border: 1px solid var(--color-danger-border); background: var(--color-danger-surface);
+    border-radius: var(--radius); padding: 11px 12px; font-size: 12.5px; line-height: 1.6;
+    color: #8a4136; display: flex; flex-direction: column; gap: 8px;
+  }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; height: 30px;
+    padding: 0 12px; border-radius: var(--radius); font-size: 12.5px; font-weight: 500;
+    border: 0; background: var(--color-primary); color: var(--color-primary-fg); cursor: pointer;
+    align-self: flex-start;
+  }
+  .btn-ghost { background: var(--color-surface-muted); color: var(--color-fg); border: 1px solid var(--color-border) }
+  .btn[disabled] { opacity: .6; cursor: default }
+  .field-input { display: block }
+</style>
+</head>
+<body>
+
+<h1>student-write — 保存中 / 保存失败 / 邮箱冲突</h1>
+<p class="note">
+  这三类状态<strong>目前在代码里完全不存在</strong>：现有原型是纯本地 state，点了立刻变、永不失败。
+  改成"等服务器确认"之后，界面必须能表达"正在保存"和"没保存成功"。<br>
+  Token 沿用 <code>frontend/app/globals.css</code>；字段行结构复刻 <code>DetailPanel.tsx</code>
+  现有的 74px 标签 + 弹性值区。
+</p>
+
+<!-- ───────────────────────── 保存中 ───────────────────────── -->
+
+<section id="saving-desktop">
+  <h2>字段保存中（desktop）</h2>
+  <p class="note">
+    <strong>取舍：</strong>只让<em>正在保存的那一行</em>进入等待态，不遮罩整个面板、不禁用其它字段。
+    改一个字段要等一次往返，若每次都锁死整块面板，连续补几个字段会非常难受。<br>
+    值变淡 + 行尾小转子，足够说明"还没落定"，又不打断视线。
+  </p>
+  <div class="panel">
+    <div class="rows">
+      <div class="row">
+        <span class="label">微信号</span>
+        <span class="val mono saving">wx_chenjh<span class="spin"></span></span>
+      </div>
+      <div class="row">
+        <span class="label">微信名</span>
+        <span class="val">Jiahe Chen</span>
+      </div>
+      <div class="row">
+        <span class="label">区域</span>
+        <span class="val">美西 · UTC-8</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="saving-mobile">
+  <h2>字段保存中（mobile）</h2>
+  <p class="note">面板撑满宽度，行结构与状态表达不变。</p>
+  <div class="panel panel-mobile">
+    <div class="rows">
+      <div class="row">
+        <span class="label">微信号</span>
+        <span class="val mono saving">wx_chenjh<span class="spin"></span></span>
+      </div>
+      <div class="row">
+        <span class="label">微信名</span>
+        <span class="val">Jiahe Chen</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────────────────── 保存失败 ───────────────────────── -->
+
+<section id="save-failed-desktop">
+  <h2>字段保存失败（desktop）</h2>
+  <p class="note">
+    <strong>最关键的一条：保留用户输入。</strong>失败时输入框留在编辑态、内容原样保住，
+    绝不回退成旧值——否则刚敲进去的微信号就没了，而那正是最难重新收集的信息（需要人工对齐，见 requirements §5）。<br>
+    错误就近显示在该字段下方，不是全局 toast：全局提示无法告诉你<em>是哪个字段</em>没存上。
+    附一个"重试"，省得重新敲一遍。
+  </p>
+  <div class="panel">
+    <div class="rows">
+      <div class="row">
+        <span class="label">微信号</span>
+        <span class="val">
+          <input class="input input-err field-input" value="wx_chenjh_new">
+          <span class="err-line">
+            <span>没保存上。</span><button class="retry">重试</button>
+          </span>
+        </span>
+      </div>
+      <div class="row">
+        <span class="label">微信名</span>
+        <span class="val">Jiahe Chen</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="save-failed-mobile">
+  <h2>字段保存失败（mobile）</h2>
+  <p class="note">同上，面板撑满宽度。</p>
+  <div class="panel panel-mobile">
+    <div class="rows">
+      <div class="row">
+        <span class="label">微信号</span>
+        <span class="val">
+          <input class="input input-err field-input" value="wx_chenjh_new">
+          <span class="err-line">
+            <span>没保存上。</span><button class="retry">重试</button>
+          </span>
+        </span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────────────────── 邮箱已归档 ───────────────────────── -->
+
+<section id="email-archived-desktop">
+  <h2>新增学员：邮箱属于已归档学员（desktop）</h2>
+  <p class="note">
+    现有弹窗已有"该邮箱已存在 → 打开该学员"的提示，但那只覆盖<strong>在读</strong>学员——
+    已归档的不在当前列表里，本地查重看不见，会一路提交到服务器才撞上。<br>
+    <strong>刻意不自动恢复、不自动覆盖：</strong>归档记录里的备注、标签、微信号是过去攒下来的，
+    静默覆盖等于抹掉最贵的那部分数据。让人多点一步，去已归档视图确认后再恢复。
+  </p>
+  <div class="panel" style="width:100%;max-width:520px;box-sizing:border-box">
+    <div class="banner">
+      <span><strong>该邮箱属于一位已归档的学员：陈嘉禾。</strong>
+        新增会与现有记录冲突，因此没有创建。若确认是同一个人，请到「已归档」里恢复他，
+        原有的备注、标签与微信号都还在。</span>
+      <button class="btn">前往「已归档」</button>
+    </div>
+  </div>
+</section>
+
+<section id="email-archived-mobile">
+  <h2>新增学员：邮箱属于已归档学员（mobile）</h2>
+  <p class="note">同上，弹窗撑满宽度。</p>
+  <div class="panel panel-mobile">
+    <div class="banner">
+      <span><strong>该邮箱属于一位已归档的学员：陈嘉禾。</strong>
+        新增会与现有记录冲突，因此没有创建。请到「已归档」里恢复他。</span>
+      <button class="btn">前往「已归档」</button>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────────────────── 归档进行中 ───────────────────────── -->
+
+<section id="archiving-desktop">
+  <h2>归档进行中（desktop）</h2>
+  <p class="note">
+    归档已有二次确认，这里只加"确认后到服务器返回之间"的状态：按钮禁用并改字，
+    防止连点导致重复请求。恢复走同一套表达。
+  </p>
+  <div class="panel">
+    <div class="banner" style="border-color:var(--color-danger-border)">
+      <span>归档 <strong>陈嘉禾</strong>？他的 2 条报课、4 份作业和互动记录会一起隐藏，但不会删除。可随时恢复。</span>
+      <div style="display:flex;gap:8px">
+        <button class="btn" disabled>正在归档…<span class="spin"></span></button>
+        <button class="btn btn-ghost" disabled>取消</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="archiving-mobile">
+  <h2>归档进行中（mobile）</h2>
+  <p class="note">同上，面板撑满宽度。</p>
+  <div class="panel panel-mobile">
+    <div class="banner" style="border-color:var(--color-danger-border)">
+      <span>归档 <strong>陈嘉禾</strong>？相关记录会一起隐藏，但不会删除。</span>
+      <div style="display:flex;gap:8px">
+        <button class="btn" disabled>正在归档…<span class="spin"></span></button>
+        <button class="btn btn-ghost" disabled>取消</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+</body>
+</html>
