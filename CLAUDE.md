@@ -108,4 +108,22 @@
 FastAPI 会在这一整个响应上抛 `ResponseValidationError`，`GET` 列表接口直接全灭（500），不是那一行出错。
 只读端点该用 `str`，`Literal` 留给未来的写接口做请求体校验。
 
-（暂无——第一个 change 归档后开始积累）
+**子目录的 `.gitignore` 会吃掉根目录的否定规则**（deployment group 3，evaluator HIGH finding）。
+根 `.gitignore` 写了 `!.env.example`，但 `create-next-app` 在 `frontend/.gitignore` 里生成了 `.env*`——
+**根目录的否定例外管不到子目录自己的规则**，于是 `frontend/.env.example` 静默地进不了仓库，
+文件在磁盘上、`git add` 也不报错，只是永远没被跟踪。以后每加一个带自带 `.gitignore` 的子包
+（Next.js、Vite 等脚手架都会生成），都要检查一遍：`git check-ignore -v <路径>` 会直接告诉你是哪一行拦的。
+
+**部署配置类的环境变量，缺失时要启动即失败，不要留 localhost 兜底**（deployment，实际部署中暴露）。
+`DATABASE_URL` 原本在缺失时回落到 `127.0.0.1:54322` 图本地方便。这在云上是灾难性的沉默失败：
+**进程正常启动、平台健康检查通过**，然后每个请求 500，日志写着"连接 127.0.0.1 被拒绝"——
+在云环境里看到这句话根本不会联想到"变量没配"。改为缺失即抛错，本地便利性交给 `.env` + `load_dotenv()`。
+
+**Next.js 的 `error.tsx` 要用 `unstable_retry()` 而不是 `reset()`**（deployment group 2，查文档才发现）。
+本项目 Next.js 16.2：`reset()` 只重渲染子树、**不重新拉取数据**；`unstable_retry()` 才会重新 fetch。
+Server Component 取数失败时用 `reset()` 做重试按钮，点了会原地不动停在错误页——
+恰好在"后端刚醒过来"这个最需要它工作的场景失效。
+
+**Server Component 的 fetch 必须设显式超时，且要短于平台函数执行上限**（deployment 决策 #2）。
+否则后端冷启动时 fetch 一直挂着直到平台把整个函数杀掉，`error.tsx` **根本没机会渲染**，
+用户看到的是平台的 504 而不是你写的错误界面。宁可主动放弃（15s）并给重试按钮。

@@ -4,9 +4,20 @@
 
 ## 现状
 
-**学员名单只读查询已本地跑通**（`student-management` change，2026-07-29 归档）：
-`supabase start`（本地 Docker Postgres）+ FastAPI + `npm run dev` 三层打通，
-浏览器能看到真实数据库里的学员数据。编辑/归档/新增学员、报课、作业、催作业等能力还没做。
+**已上线**：https://ai-course-management.vercel.app/students
+
+学员名单只读查询跑在 Vercel + Render 免费档 + Supabase 云库上（`student-management` 与
+`deployment` 两个 change，均于 2026-07-29 归档）。`git push main` 后代码由平台自动部署，
+数据库 migration 由 GitHub Actions 自动推送。
+
+编辑/归档/新增学员、报课、作业、催作业等能力还没做。
+
+> ⚠️ **目前没有任何访问控制，页面公网可读。**
+> 因此生产库刻意保持空表——`supabase/seed.sql` 是本地专用文件，`supabase db push` 不会推送它。
+> **在访问控制 change 落地之前，不要往生产库导入任何真实学员数据。**
+
+> 后端跑在 Render 免费档，15 分钟无请求会休眠。冷启动约需 1 分钟，
+> 期间页面会显示"暂时无法加载"并提供重试按钮——这是预期行为，不是故障。
 
 本地跑起来见 [docs/setup.md](docs/setup.md)。
 

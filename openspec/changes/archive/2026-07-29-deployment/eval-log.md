@@ -41,3 +41,16 @@
   fix_tasks:
     - "3.F1 FIX — Add !.env.example exception to frontend/.gitignore line 34 (add new line after .env*)"
   recommendation: "RETRY. Total score 81 barely meets threshold, but critically: Design decision #8 is not fulfilled. frontend/.env.example must be added to staged commit. This requires fixing frontend/.gitignore to include !.env.example exception, then re-staging the file."
+
+# 归档时补记（apply agent，非 evaluator）
+#
+# group 3 的 status 字段是 RETRY，但 evaluator 在其返回摘要里报的是 PASS
+# （总分 81 ≥ 阈值 80）—— 它对同一次评估给出了两个不一致的结论：分数过线，
+# 但它认为那条 HIGH finding 严重到应当重跑。
+#
+# 实际处理：该 finding 当场就修了 —— frontend/.gitignore 补上 `!.env.example`
+# 例外（commit 86745a2），两份 .env.example 随后都确认进了暂存区。修复内容与
+# fix_task "3.F1" 描述完全一致，只是没有作为编号任务登记，所以 tasks.md 里
+# 找不到 3.F1 这一行。
+#
+# 即：substance 已闭环，记账方式有出入。此处如实标注，不改动 evaluator 原始输出。
