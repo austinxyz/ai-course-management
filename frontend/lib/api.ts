@@ -147,12 +147,25 @@ export type StudentPatch = Partial<
   >
 >;
 
+/**
+ * Everything the new-student modal collects.
+ *
+ * The optional fields are not decoration: the modal asks for them, so leaving
+ * them off this type silently drops whatever the user typed. The wechat handle
+ * is the one that hurts — it takes a manual match against a group roster to
+ * obtain, and creation is the moment it is most likely to be at hand.
+ */
 export interface NewStudent {
   email: string;
   name: string;
   region?: string;
   level?: string;
   source?: string;
+  wechat?: string;
+  wxName?: string;
+  nick?: string;
+  note?: string;
+  tags?: string[];
 }
 
 function toApiPatch(patch: StudentPatch): Record<string, unknown> {
@@ -176,7 +189,11 @@ export async function updateStudent(
 }
 
 export async function createStudent(student: NewStudent): Promise<Student> {
-  return toStudent(await backendWrite("/api/students", "POST", student));
+  const { wxName, ...rest } = student;
+  // The backend field is wx_name; sending wxName would be quietly ignored and
+  // the value lost, which is the same failure as not sending it at all.
+  const body = wxName === undefined ? rest : { ...rest, wx_name: wxName };
+  return toStudent(await backendWrite("/api/students", "POST", body));
 }
 
 export async function archiveStudent(email: string): Promise<Student> {

@@ -218,6 +218,11 @@ export function StudentsClient({ students, archivedStudents }: StudentsClientPro
           region: f.region,
           level: f.level,
           source: f.source,
+          wechat: f.wechat.trim(),
+          wxName: f.wxName.trim() || "—",
+          nick: f.nick.trim() || "—",
+          note: f.note.trim(),
+          tags: f.tags,
         });
         setFormState(BLANK_FORM);
         setShowNew(keepOpen);

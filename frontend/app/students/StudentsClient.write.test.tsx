@@ -296,3 +296,37 @@ describe("in-progress state is visible, not only announced", () => {
     );
   });
 });
+
+describe("creating a student", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    actions.createStudentAction.mockResolvedValue(undefined);
+  });
+
+  it("submits every field the form collected, not just the required ones", async () => {
+    // The modal asks for a wechat handle, a wechat name, a nickname, tags and
+    // a note. Dropping them on the way to the server means the one field that
+    // costs a manual match against a group roster is silently discarded at the
+    // exact moment it was easiest to record.
+    const user = userEvent.setup();
+    render(<StudentsClient students={[]} archivedStudents={[]} />);
+
+    await user.click(screen.getByRole("button", { name: "新增学员" }));
+    await user.type(screen.getByPlaceholderText("如 陈嘉禾"), "新同学");
+    await user.type(screen.getByPlaceholderText("name@example.com"), "new@example.com");
+    await user.type(screen.getByPlaceholderText("可留空"), "wx_new_student");
+    await user.type(screen.getByPlaceholderText("用于比对"), "New Student");
+    await user.type(screen.getByPlaceholderText("群里显示"), "小新");
+    await user.click(screen.getByRole("button", { name: "保存" }));
+
+    expect(actions.createStudentAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: "new@example.com",
+        name: "新同学",
+        wechat: "wx_new_student",
+        wxName: "New Student",
+        nick: "小新",
+      }),
+    );
+  });
+});

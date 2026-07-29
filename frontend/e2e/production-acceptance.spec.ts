@@ -26,6 +26,7 @@ import { expect, test, type Page } from "@playwright/test";
 const TEST_EMAIL = "deploy-test@example.com";
 const TEST_NAME = "部署测试记录";
 const WECHAT = "wx_deploy_test";
+const WECHAT_EDITED = "wx_deploy_test_2";
 const TAG = "活跃";
 
 const isLocal = /localhost|127\.0\.0\.1/.test(process.env.BASE_URL ?? "");
@@ -78,6 +79,10 @@ test.describe("production acceptance", () => {
     await page.getByRole("button", { name: "新增学员" }).click();
     await page.getByPlaceholder("如 陈嘉禾").fill(TEST_NAME);
     await page.getByPlaceholder("name@example.com").fill(TEST_EMAIL);
+    // Filled at creation time on purpose. This is where the reported defect
+    // was: the modal collected a wechat handle and the create request dropped
+    // it, so the field came back empty and the value was simply gone.
+    await page.getByPlaceholder("可留空").fill(WECHAT);
     await page.getByRole("button", { name: "保存", exact: true }).click();
     // The modal closes once the record is created.
     await expect(page.getByPlaceholder("name@example.com")).toHaveCount(0, {
@@ -87,6 +92,9 @@ test.describe("production acceptance", () => {
     await openRoster(page);
     await page.getByPlaceholder(/搜索/).fill(TEST_EMAIL);
     await expect(page.getByRole("cell", { name: TEST_NAME })).toBeVisible();
+
+    await page.getByRole("cell", { name: TEST_NAME }).click();
+    await expect(detailRow(page, "wechat")).toContainText(WECHAT);
   });
 
   test("editing a field persists it", async ({ page }) => {
@@ -94,15 +102,15 @@ test.describe("production acceptance", () => {
     await selectTestStudent(page);
 
     await detailRow(page, "wechat").getByRole("button").click();
-    await detailRow(page, "wechat").getByRole("textbox").fill(WECHAT);
+    await detailRow(page, "wechat").getByRole("textbox").fill(WECHAT_EDITED);
     await page.keyboard.press("Enter");
     await settled(page, "wechat");
     // Present without a reload — the revalidation brought the stored value back.
-    await expect(detailRow(page, "wechat")).toContainText(WECHAT);
+    await expect(detailRow(page, "wechat")).toContainText(WECHAT_EDITED);
 
     await openRoster(page);
     await selectTestStudent(page);
-    await expect(detailRow(page, "wechat")).toContainText(WECHAT);
+    await expect(detailRow(page, "wechat")).toContainText(WECHAT_EDITED);
   });
 
   test("tagging persists", async ({ page }) => {
@@ -171,7 +179,7 @@ test.describe("production acceptance", () => {
     await selectTestStudent(page);
     // The archive round trip is a soft delete: the wechat handle and the tag
     // set before archiving are both still there.
-    await expect(detailRow(page, "wechat")).toContainText(WECHAT);
+    await expect(detailRow(page, "wechat")).toContainText(WECHAT_EDITED);
     await expect(detailRow(page, "tags")).toContainText(TAG);
   });
 

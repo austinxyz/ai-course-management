@@ -139,6 +139,23 @@ describe("write requests", () => {
     });
   });
 
+  it("renames wxName to the backend's wx_name when creating", async () => {
+    // Sending wxName instead would be dropped by the backend without an error,
+    // which looks exactly like never having sent it.
+    const { createStudent } = await import("./api");
+
+    await createStudent({
+      email: "new@example.com",
+      name: "新同学",
+      wechat: "wx_new",
+      wxName: "New Student",
+    });
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    expect(body).toMatchObject({ wechat: "wx_new", wx_name: "New Student" });
+    expect(body).not.toHaveProperty("wxName");
+  });
+
   it("surfaces the backend's status and detail on failure", async () => {
     fetchMock.mockResolvedValue({
       ok: false,
