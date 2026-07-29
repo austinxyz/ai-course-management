@@ -124,8 +124,22 @@ Notion 方案停用（见 [CLAUDE.md](../../../CLAUDE.md) 数据来源表：「�
 
 - 生产库学员数从 1 增至 19
 - 抽查：Helen He 与 Guoqing Zhang 带 `作业优秀`，全部 18 条带 `Phase1导入`
-- 11 条备注原样落库
+- **9** 条备注原样落库 —— 全库 11 条备注中有 2 条在 Danny、达莱身上，
+  他们无邮箱、不在导入范围内。按 11 验收会把正常结果误判成丢数据
 - 重跑脚本不产生任何重复记录
+
+## 执行结果（2026-07-29）
+
+已完成，生产库 1 → 19 条，0 失败。
+
+一处与本文不符：**本项目从未配置过 Notion integration token** —— Phase 1 的学员库一直走
+Notion MCP connector（见 `ai-course/docs/student-management-guide.md`），而独立脚本连不上 MCP。
+因此脚本增加了 `--pages-file`：在 agent 会话里用 MCP 的 SQL 查询导出 21 行，
+经 `mcp_rows_to_pages.py` 转成 Notion REST 的 property 形状，再喂给脚本。
+映射与冲突判断仍由被测过的代码执行，`NOTION_API_KEY` 直连路径保留但未使用。
+
+验证按本文顺序走完四步：生产 dry-run（18 待建 / 0 冲突 / 未写入）→ 本地实跑并逐字段核对
+→ 本地重跑（18 条全部冲突跳过，记录数不变）→ 生产实跑。
 
 ## 遗留
 
