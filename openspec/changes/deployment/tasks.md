@@ -54,16 +54,16 @@
 
 **含 manual-ops：** 4.1–4.5 涉及账号注册、控制台操作与凭证录入，必须由用户本人执行；agent 负责给出清单、待用户完成后接手验证。
 
-- [ ] 4.1 **[人工]** 建 Supabase 云项目，取 **pooler / session 模式（5432）** 连接串（design 决策 #6）
-- [ ] 4.2 首次 `supabase link --project-ref <ref>` + `supabase db push`，在云端建表；确认 `students` 表存在且为空（`seed.sql` 不应被推送）
-- [ ] 4.3 **[人工]** 配 GitHub Secrets：`SUPABASE_ACCESS_TOKEN`、`SUPABASE_DB_PASSWORD`、`SUPABASE_PROJECT_REF`
-- [ ] 4.4 **[人工]** Render 建 Web Service（依 `render.yaml`），填入 4.1 的连接串；记录分配到的服务 URL
-- [ ] 4.5 **[人工]** Vercel 建 Project，Root Directory 指向 `frontend`，配 `BACKEND_URL` = 4.4 的 URL
-- [ ] 4.6 验收 —— `curl <render-url>/api/students` 返回 `200` + `[]`（证明后端真连上云库；连不上会 500，空库与连不上由此区分）
-- [ ] 4.7 验收 —— `curl <render-url>/api/students/nobody@example.com` 返回 `404`
-- [ ] 4.8 验收 —— 打开 Vercel 上的 `/students`，渲染"暂无学员"空状态，浏览器控制台无报错
-- [ ] 4.9 验收 —— **实测冷启动路径**：等待 Render 休眠（或人为使后端不可达）后访问页面，确认看到的是本 change 实现的错误卡片，**而非 Vercel 平台的 504 页**（design 决策 #2 的核心风险，必须实际验证而非推断）
-- [ ] 4.10 验收 —— 推一个空提交到 `main`，确认 GitHub Actions 的 `db push` job 成功
-- [ ] 4.11 Run backend test suite — `cd backend && uv run pytest`，确认无回归
-- [ ] 4.12 Run frontend test suite — `cd frontend && npm run test`，确认无回归
-- [ ] 4.13 Run superpowers:verification-before-completion — 跑 `project.test_commands`；`grep -rn 'console.log' frontend/app frontend/lib`；跑 `project.custom_verification_checks`（含密钥/环境变量泄露检查）；另需确认 `.env.example` 与 `render.yaml` 中均无真实凭证
+- [x] 4.1 **[人工]** 建 Supabase 云项目，取 **pooler / session 模式（5432）** 连接串（design 决策 #6）
+- [x] 4.2 首次 `supabase link --project-ref <ref>` + `supabase db push`，在云端建表；确认 `students` 表存在且为空（`seed.sql` 不应被推送）
+- [x] 4.3 **[人工]** 配 GitHub Secrets：`SUPABASE_ACCESS_TOKEN`、`SUPABASE_DB_PASSWORD`、`SUPABASE_PROJECT_REF`
+- [x] 4.4 **[人工]** Render 建 Web Service（依 `render.yaml`），填入 4.1 的连接串；记录分配到的服务 URL
+- [x] 4.5 **[人工]** Vercel 建 Project，Root Directory 指向 `frontend`，配 `BACKEND_URL` = 4.4 的 URL
+- [x] 4.6 验收 —— `curl <render-url>/api/students` 返回 `200` + `[]`（证明后端真连上云库；连不上会 500，空库与连不上由此区分）
+- [x] 4.7 验收 —— `curl <render-url>/api/students/nobody@example.com` 返回 `404`
+- [x] 4.8 验收 —— 打开 Vercel 上的 `/students`，渲染"暂无学员"空状态，浏览器控制台无报错
+- [x] 4.9 验收 —— **实测冷启动路径**：等待 Render 休眠（或人为使后端不可达）后访问页面，确认看到的是本 change 实现的错误卡片，**而非 Vercel 平台的 504 页**（design 决策 #2 的核心风险，必须实际验证而非推断）
+- [x] 4.10 验收 —— 推一个空提交到 `main`，确认 GitHub Actions 的 `db push` job 成功
+- [x] 4.11 Run backend test suite — `cd backend && uv run pytest`，确认无回归
+- [x] 4.12 Run frontend test suite — `cd frontend && npm run test`，确认无回归
+- [x] 4.13 Run superpowers:verification-before-completion — 跑 `project.test_commands`；`grep -rn 'console.log' frontend/app frontend/lib`；跑 `project.custom_verification_checks`（含密钥/环境变量泄露检查）；另需确认 `.env.example` 与 `render.yaml` 中均无真实凭证

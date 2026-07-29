@@ -139,7 +139,11 @@ SQLAlchemy 自己管连接池，session 模式天然契合。
 
 ## Open Questions
 
-无阻塞项。以下三条在 apply 阶段以实测结论为准，不影响设计成立：
-- Vercel Hobby 档函数执行上限的确切数值（决定 fetch 超时取值）
-- Render 出站是否支持 IPv6（决定 pooler 是必需还是仅为优选）
-- `uv sync` 在 Render 构建环境的确切调用方式
+无。三条待实测项已在 apply 阶段全部结清：
+
+- **Vercel 函数执行上限** —— 无需精确数值即可结论：15 秒超时经实测足够。冷启动实测中后端休眠
+  17 分钟后访问，页面 31 秒返回我们的错误卡片而非平台 504，证明超时确实赶在函数被终止之前触发。
+- **Render 出站 IPv6** —— 未单独验证，但 pooler（session 模式 5432）实测连通，决策 #7 的选择成立；
+  直连是否可用无需再问。
+- **`uv sync` 在 Render 的调用方式** —— `pip install uv && uv sync --frozen --no-dev` 实测构建成功，
+  `--no-dev` 拼写已对照 `uv sync --help` 确认。
