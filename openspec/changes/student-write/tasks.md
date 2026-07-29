@@ -73,10 +73,10 @@
 
 - [x] 4.1 本地 `supabase db reset` 验证 migration + seed 组合可用，`archived_at` 列存在且既有行为 null
 - [x] 4.2 部署后验收 —— **未携带凭据直接 POST 到 Server Action 入口 → 被拒绝，且数据库数据未变**（design 决策 #2 的核心风险之一：写入面裸奔）
-- [ ] 4.3 部署后验收 —— **带正常凭据从界面写入能成功**（同一决策的反方向风险：鉴权过严导致所有写操作全挂）
-- [ ] 4.4 生产验收 —— 新建虚构测试记录 `deploy-test@example.com`，依次执行 编辑一个字段 → 打标签 → 归档 → 恢复，**每步刷新页面确认真正落库**
-- [ ] 4.5 生产验收 —— 用同一邮箱再次新增，确认得到"该邮箱已存在"提示且未产生重复记录
-- [ ] 4.6 **[人工]** 直连生产数据库删除该测试记录（`DELETE FROM students WHERE email = 'deploy-test@example.com'`），确认生产库回到空表
+- [x] 4.3 部署后验收 —— **带正常凭据从界面写入能成功**（同一决策的反方向风险：鉴权过严导致所有写操作全挂）
+- [x] 4.4 生产验收 —— 新建虚构测试记录，依次执行 编辑一个字段 → 打标签 → 归档 → 恢复，**每步刷新页面确认真正落库**（由 `frontend/e2e/production-acceptance.spec.ts` 跑完，7/7 通过；实际用了 `deploy-test-2..5@example.com`，因为本系统无硬删除，每次重跑需换地址）
+- [x] 4.5 生产验收 —— 用同一邮箱再次新增，确认得到"该邮箱已存在"提示且未产生重复记录
+- [x] 4.6 **[人工]** 直连生产数据库删除测试记录（`DELETE FROM students WHERE email LIKE 'deploy-test%@example.com'`）。注：生产库已不是空表——期间导入了 1 条真实学员数据，因此判据改为"测试记录清零"，而非"回到空表"
 - [x] 4.7 Run backend test suite — `cd backend && uv run pytest`，确认无回归
 - [x] 4.8 Run frontend test suite — `cd frontend && npm run test`，确认无回归
-- [ ] 4.9 Run superpowers:verification-before-completion — 跑 `project.test_commands`；`grep -rn 'console.log' frontend/app frontend/lib`；跑 `project.custom_verification_checks`；确认仓库内无真实凭证
+- [x] 4.9 Run superpowers:verification-before-completion — 跑 `project.test_commands`；`grep -rn 'console.log' frontend/app frontend/lib`；跑 `project.custom_verification_checks`；确认仓库内无真实凭证
