@@ -1,0 +1,32 @@
+name: Deploy DB migrations
+
+# 每次 push main 都跑，不加 paths 过滤。
+# `supabase db push` 对"没有新 migration"是幂等 no-op，跑一次约一分钟；
+# 而 paths 过滤一旦写错，失败模式是 migration 静默不部署 —— 正是本 change
+# 要消灭的那个问题。宁可多跑。
+#
+# 注意：本 workflow 与 Vercel / Render 的部署是三条独立流水线，无先后保证，
+# 本 job 失败也不会阻止代码上线。失败需人工留意通知。
+on:
+  push:
+    branches: [main]
+  # 允许手工触发，便于首次配置后补跑一次而不必造一个空提交。
+  workflow_dispatch:
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Push migrations to the production database
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          supabase link --project-ref "${{ secrets.SUPABASE_PROJECT_REF }}"
+          supabase db push

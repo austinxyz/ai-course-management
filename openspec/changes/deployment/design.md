@@ -68,13 +68,28 @@ Root:   backend
 
 Secrets：`SUPABASE_ACCESS_TOKEN`、`SUPABASE_DB_PASSWORD`、`SUPABASE_PROJECT_REF`（存 GitHub Secrets）。
 
-**5. `error.tsx` / `loading.tsx` 按全屏居中卡片实现，不重构布局以保留侧边栏。**
+**5. 重试用 `unstable_retry()`，不是 `reset()`。**（apply 阶段查阅 Next.js 16.2 文档后修正）
+
+requirements 与本文档先前都写的是"重试机制即 `error.tsx` 收到的 `reset()` prop"——**这是错的**。
+本项目 Next.js 16.2 的 `error.js` 文档写明：
+
+- `unstable_retry()` —— "will try to **re-fetch** and re-render"（v16.2.0 新增）
+- `reset()` —— "re-render the error boundary's children **without re-fetching**"
+
+我们的 spec 要求点重试后"重新发起该页面的数据获取"。照 `reset()` 实现会做出一个**点了不会真正重试的按钮**：
+只重渲染同一个失败态，用户看到的还是这张错误卡。冷启动场景下后端明明已经醒了却依然显示失败——
+恰好在这个 change 最该生效的地方失效。
+
+因此实现用 `unstable_retry`。代价是依赖了带 `unstable_` 前缀的 API，未来 Next 升级可能改名；
+但备选（`reset` 不满足 spec、或自行 `router.refresh()` 拼装）都更差。
+
+**6. `error.tsx` / `loading.tsx` 按全屏居中卡片实现，不重构布局以保留侧边栏。**
 
 侧边栏当前位于 `StudentsClient` 内部，而 `page.tsx` 的 fetch 一旦抛错，整个 page（含
 `StudentsClient`）都不会渲染，`error.tsx` 顶替的是整段。要让错误态也带侧边栏，得把 `Sidebar` 提到
 `layout.tsx`——那是布局重构，超出本 change 范围。mock 已按无侧边栏定稿。
 
-**6. Supabase 连接优先 pooler 的 session 模式（5432），而非直连。**
+**7. Supabase 连接优先 pooler 的 session 模式（5432），而非直连。**
 
 Supabase 直连地址已转为 IPv6-only，Render 出站是否支持 IPv6 存疑（apply 阶段实测为准）。
 pooler 提供 IPv4 入口，是更稳妥的默认。
@@ -83,7 +98,7 @@ pooler 提供 IPv4 入口，是更稳妥的默认。
 而 psycopg3 默认会用；要走 6543 就得额外设 `prepare_threshold=None`。后端是常驻进程、
 SQLAlchemy 自己管连接池，session 模式天然契合。
 
-**7. `.env.example` 放前后端各一份，紧邻使用处。**
+**8. `.env.example` 放前后端各一份，紧邻使用处。**
 
 `backend/.env.example`（`DATABASE_URL`）与 `frontend/.env.example`（`BACKEND_URL`）。
 比集中放一份更不容易在改目录结构时失联。`docs/setup.md` 已有的环境变量表继续作为"配在哪个平台"的索引。

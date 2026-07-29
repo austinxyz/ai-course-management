@@ -55,4 +55,16 @@ describe("getStudents", () => {
     const { wx_name, ...rest } = sampleStudent;
     expect(students).toEqual([{ ...rest, wxName: wx_name }]);
   });
+
+  it("passes an abort signal so a hung backend cannot outlive the serverless function", async () => {
+    // Without a timeout, a cold-starting Render backend keeps the fetch open
+    // until Vercel kills the whole function — error.tsx never renders and the
+    // user gets a platform 504 instead of our error card (design decision #2).
+    const { getStudents } = await import("./api");
+
+    await getStudents();
+
+    const init = vi.mocked(fetch).mock.calls[0][1];
+    expect(init?.signal).toBeInstanceOf(AbortSignal);
+  });
 });

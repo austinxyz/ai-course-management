@@ -1,0 +1,19 @@
+# Render Blueprint —— 后端 FastAPI 服务。
+# 版本化在仓库里而非控制台手点，改动可 review、可复现。
+services:
+  - type: web
+    name: ai-course-management-api
+    runtime: python
+    plan: free
+    rootDir: backend
+    # uv 不在 Render 预装镜像里，先装再同步锁定的依赖。
+    # --no-dev 排除 pytest/httpx，生产镜像不需要它们。
+    buildCommand: pip install uv && uv sync --frozen --no-dev
+    # $PORT 由 Render 注入，不可硬编码；--host 0.0.0.0 不可省，
+    # 否则只监听回环地址，平台健康检查连不上。
+    startCommand: uv run uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      # 值在 Render 控制台填入（Supabase pooler / session 模式连接串），
+      # 绝不写进仓库。sync: false 即"此处不提供值，等人工录入"。
+      - key: DATABASE_URL
+        sync: false
