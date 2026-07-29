@@ -35,12 +35,17 @@ function sitePassword(): string {
  * No `webServer` block: the dev server and the FastAPI backend are started
  * separately, because these runs exist to check behaviour against real data in
  * the local Supabase stack, not against a fresh throwaway process.
+ *
+ * `BASE_URL` retargets the whole suite at a deployed environment. The two spec
+ * files guard themselves against running in the wrong one — the local suite
+ * asserts against seeded students that production does not have, and the
+ * production suite writes a record that has no business existing locally.
  */
 export default defineConfig({
   testDir: "./e2e",
   timeout: 30_000,
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL: process.env.BASE_URL ?? "http://localhost:3000",
     httpCredentials: {
       username: "verify",
       password: sitePassword(),

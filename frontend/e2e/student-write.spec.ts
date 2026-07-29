@@ -13,6 +13,14 @@ import { expect, test, type Page } from "@playwright/test";
 
 const SHOT_DIR = process.env.SHOT_DIR ?? "test-results/states";
 
+// These assertions are written against the local seed data, and several of
+// them write to whatever database is behind the app. Pointing them at a
+// deployed environment would both fail and leave debris there.
+test.skip(
+  !!process.env.BASE_URL && !process.env.BASE_URL.includes("localhost"),
+  "local-only suite: BASE_URL points at a deployed environment",
+);
+
 async function gotoRoster(page: Page) {
   await page.goto("/students");
   await expect(page.getByRole("heading", { name: "学员" })).toBeVisible();
