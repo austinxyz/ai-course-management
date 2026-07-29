@@ -57,13 +57,13 @@
 **含 manual-ops：** 4.1–4.2 需在 Vercel / Render 控制台录入环境变量，必须由用户本人执行。
 **顺序要紧：** 必须先配好平台变量再让代码生效，否则 fail-closed 会把人锁在外面（见 design Migration Plan）。
 
-- [ ] 4.1 **[人工]** Vercel 配前端共享密码变量；Render 配后端 secret 变量（两个不同的值）
+- [x] 4.1 **[人工]** Vercel 配前端共享密码变量；Render 配后端 secret 变量（两个不同的值）
 - [x] 4.2 **[人工]** 本地 `.env` / `.env.local` 补上对应变量（本地与生产行为一致，不配则进不去）
-- [ ] 4.3 部署后验收 —— 未带凭据访问生产 `/students` 返回 401，**且响应体不含学员数据**
-- [ ] 4.4 部署后验收 —— 未带凭据访问生产 `/` 与 `/style-guide` 同样返回 401（保护范围是整站）
-- [ ] 4.5 部署后验收 —— 带正确凭据访问 `/students`，页面行为与本 change 之前一致
-- [ ] 4.6 部署后验收 —— 不带 secret 直接 `curl` 生产后端 `/api/students` → 401（而非 200）
-- [ ] 4.7 部署后验收 —— 生产 `/docs` 与 `/openapi.json` → 404
+- [x] 4.3 部署后验收 —— 未带凭据访问生产 `/students` 返回 401，**且响应体不含学员数据**
+- [x] 4.4 部署后验收 —— 未带凭据访问生产 `/` 与 `/style-guide` 同样返回 401（保护范围是整站）
+- [x] 4.5 部署后验收 —— 带正确凭据访问 `/students`，页面行为与本 change 之前一致
+- [x] 4.6 部署后验收 —— 不带 secret 直接 `curl` 生产后端 `/api/students` → 401（而非 200）
+- [x] 4.7 部署后验收 —— 生产 `/docs` 与 `/openapi.json` → 404
 - [x] 4.8 Run backend test suite — `cd backend && uv run pytest`，确认无回归
 - [x] 4.9 Run frontend test suite — `cd frontend && npm run test`，确认无回归
 - [x] 4.10 Run superpowers:verification-before-completion — 跑 `project.test_commands`；`grep -rn 'console.log' frontend/app frontend/lib`；跑扩充后的 `project.custom_verification_checks`；另需确认 `.env.example` 与仓库内任何文件均无真实密码/secret
