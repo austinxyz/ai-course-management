@@ -20,11 +20,22 @@ import { expect, test, type Page } from "@playwright/test";
  * The record is left behind on purpose — hard delete is deliberately not a
  * feature of this system, so removing it is a manual step against the database:
  *
- *   DELETE FROM students WHERE email = 'deploy-test@example.com';
+ *   DELETE FROM students WHERE email = 'deploy-test-2@example.com';
+ *
+ * Set ACCEPTANCE_EMAIL (and optionally ACCEPTANCE_NAME) to use a different one.
  */
 
-const TEST_EMAIL = "deploy-test@example.com";
-const TEST_NAME = "部署测试记录";
+/**
+ * Which fictional record this run uses.
+ *
+ * Overridable because the walk-through creates its subject and this system has
+ * no hard delete: re-running against the same environment needs either a fresh
+ * address or a manual cleanup of the previous one. Keeping it a parameter beats
+ * editing the file each time and beats accumulating records nobody meant to
+ * keep.
+ */
+const TEST_EMAIL = process.env.ACCEPTANCE_EMAIL ?? "deploy-test-2@example.com";
+const TEST_NAME = process.env.ACCEPTANCE_NAME ?? "部署测试记录二";
 const WECHAT = "wx_deploy_test";
 const WECHAT_EDITED = "wx_deploy_test_2";
 const TAG = "活跃";
