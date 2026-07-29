@@ -47,21 +47,35 @@ function backendUrl(path: string): string {
  */
 const FETCH_TIMEOUT_MS = 15_000;
 
-export async function getStudents(): Promise<Student[]> {
-  const res = await fetch(backendUrl("/api/students"), {
+/**
+ * Options every backend call shares.
+ *
+ * The secret header is what distinguishes this server-side fetch from anyone
+ * else who has found the backend's URL; without it the backend answers 401.
+ * It is read from a plain (non-`NEXT_PUBLIC_`) variable so it stays on the
+ * server — prefixing it would compile the secret into the browser bundle and
+ * hand it to every visitor.
+ */
+function backendRequestInit(): RequestInit {
+  return {
     cache: "no-store",
     signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-  });
+    headers: { "X-Backend-Secret": process.env.BACKEND_SECRET ?? "" },
+  };
+}
+
+export async function getStudents(): Promise<Student[]> {
+  const res = await fetch(backendUrl("/api/students"), backendRequestInit());
   if (!res.ok) throw new Error(`getStudents failed: ${res.status}`);
   const data: ApiStudent[] = await res.json();
   return data.map(toStudent);
 }
 
 export async function getStudent(email: string): Promise<Student | null> {
-  const res = await fetch(backendUrl(`/api/students/${encodeURIComponent(email)}`), {
-    cache: "no-store",
-    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-  });
+  const res = await fetch(
+    backendUrl(`/api/students/${encodeURIComponent(email)}`),
+    backendRequestInit(),
+  );
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`getStudent failed: ${res.status}`);
   const data: ApiStudent = await res.json();

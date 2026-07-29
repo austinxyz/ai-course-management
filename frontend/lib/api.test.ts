@@ -56,6 +56,19 @@ describe("getStudents", () => {
     expect(students).toEqual([{ ...rest, wxName: wx_name }]);
   });
 
+  it("presents the shared secret so the backend accepts the call", async () => {
+    // The backend rejects anything without this header — it is what separates
+    // our own server-side fetch from anyone else who knows the Render URL.
+    process.env.BACKEND_SECRET = "test-secret-not-a-real-one";
+    const { getStudents } = await import("./api");
+
+    await getStudents();
+
+    const init = vi.mocked(fetch).mock.calls[0][1];
+    const headers = new Headers(init?.headers);
+    expect(headers.get("X-Backend-Secret")).toBe("test-secret-not-a-real-one");
+  });
+
   it("passes an abort signal so a hung backend cannot outlive the serverless function", async () => {
     // Without a timeout, a cold-starting Render backend keeps the fetch open
     // until Vercel kills the whole function — error.tsx never renders and the

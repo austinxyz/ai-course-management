@@ -9,7 +9,7 @@ project:
   design_system: "linear"
   custom_verification_checks:
     - "grep -rn 'console.log' frontend/app frontend/lib || true"
-    - "grep -rnE 'SUPABASE_SERVICE|DATABASE_URL|SMTP_|NEXT_PUBLIC_(DATABASE|SUPABASE|SMTP)' frontend/ && exit 1 || true"
+    - "grep -rnE 'SUPABASE_SERVICE|DATABASE_URL|SMTP_|NEXT_PUBLIC_(DATABASE|SUPABASE|SMTP|BACKEND|SITE_PASSWORD|API)' frontend/ --include=*.ts --include=*.tsx --include=*.js --include=*.jsx && exit 1 || true"
 
 context: |
   学员管理系统 —— 北美华人 Claude AI 课程的学员档案、报课、作业与互动管理。

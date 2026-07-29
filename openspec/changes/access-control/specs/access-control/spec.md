@@ -36,9 +36,13 @@
 后端在生产环境 SHALL NOT 提供 `/docs` 与 `/openapi.json`。
 这两个端点即便在 secret 校验之下无法被调用，仍会泄露字段名，等于公开"系统存了哪些类型的个人信息"。
 
-#### Scenario: 生产环境访问 API 文档
-- **WHEN** 在生产环境访问 `/docs` 或 `/openapi.json`
-- **THEN** 返回 404
+#### Scenario: 持有 secret 的调用方也拿不到文档
+- **WHEN** 在生产环境以**正确的 secret** 访问 `/docs` 或 `/openapi.json`
+- **THEN** 返回 404 —— 证明这两个路由确实不存在，而非仅被认证遮蔽
+
+#### Scenario: 外部调用方拿不到文档
+- **WHEN** 在生产环境未携带 secret 访问 `/docs` 或 `/openapi.json`
+- **THEN** 不返回 200（实际为 401：secret 校验在路由之前发生）
 
 ### Requirement: 配置缺失时 fail-closed
 当认证所需的环境变量缺失时，系统 SHALL 拒绝全部请求，SHALL NOT 放行。
