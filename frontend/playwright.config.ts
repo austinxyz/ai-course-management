@@ -43,7 +43,9 @@ function sitePassword(): string {
  */
 export default defineConfig({
   testDir: "./e2e",
-  timeout: 30_000,
+  // Generous, because the backend runs on a free tier that sleeps: a first
+  // write after idle can wait out a cold start of several tens of seconds.
+  timeout: 90_000,
   use: {
     baseURL: process.env.BASE_URL ?? "http://localhost:3000",
     httpCredentials: {

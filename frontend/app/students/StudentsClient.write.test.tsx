@@ -144,9 +144,16 @@ describe("creating a student whose email belongs to an archived one", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    actions.createStudentAction.mockRejectedValue(
-      new Error("email belongs to an archived student"),
-    );
+    // The action reports an expected refusal by returning it. Throwing cannot
+    // work: Next.js redacts Server Action error messages in production builds,
+    // so anything the client tried to read off `error.message` is gone by the
+    // time it arrives — the classification would always fall through to the
+    // generic branch, and only in production.
+    actions.createStudentAction.mockResolvedValue({
+      ok: false,
+      kind: "archived",
+      message: "email belongs to an archived student",
+    });
   });
 
   async function submitNewStudent() {

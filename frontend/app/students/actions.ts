@@ -8,6 +8,7 @@ import {
   createStudent,
   restoreStudent,
   updateStudent,
+  BackendError,
   type NewStudent,
   type StudentPatch,
 } from "@/lib/api";
@@ -42,10 +43,41 @@ export async function updateStudentField(
   revalidatePath("/students");
 }
 
-export async function createStudentAction(student: NewStudent): Promise<void> {
+/**
+ * A refusal the caller is expected to act on, distinct from a crash.
+ *
+ * `archived` and `exists` need different remedies — restore that person versus
+ * open them — so the UI has to be able to tell them apart.
+ */
+export type CreateResult =
+  | { ok: true }
+  | { ok: false; kind: "archived" | "exists" | "other"; message: string };
+
+function classify(error: unknown): CreateResult {
+  if (error instanceof BackendError && error.status === 409) {
+    return /archiv/i.test(error.detail)
+      ? { ok: false, kind: "archived", message: error.detail }
+      : { ok: false, kind: "exists", message: error.detail };
+  }
+  return { ok: false, kind: "other", message: "没保存上。" };
+}
+
+export async function createStudentAction(
+  student: NewStudent,
+): Promise<CreateResult> {
   await requireSitePassword();
-  await createStudent(student);
+  try {
+    await createStudent(student);
+  } catch (error) {
+    // Returned, not thrown. A duplicate email is an ordinary outcome of this
+    // form, and Next.js redacts thrown Server Action errors in production
+    // builds — the detail the UI needs to tell the two collisions apart would
+    // survive locally and vanish once deployed, which is the worst possible
+    // place for it to differ.
+    return classify(error);
+  }
   revalidatePath("/students");
+  return { ok: true };
 }
 
 export async function archiveStudentAction(email: string): Promise<void> {

@@ -13,7 +13,10 @@ const api = vi.hoisted(() => ({
   archiveStudent: vi.fn(),
   restoreStudent: vi.fn(),
 }));
-vi.mock("@/lib/api", () => api);
+vi.mock("@/lib/api", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/api")>("@/lib/api");
+  return { ...api, BackendError: actual.BackendError };
+});
 
 function withAuthorization(value: string | null) {
   headersMock.mockResolvedValue(new Headers(value ? { Authorization: value } : {}));
@@ -103,5 +106,55 @@ describe("student write actions", () => {
     expect(api.createStudent).toHaveBeenCalledOnce();
     expect(api.archiveStudent).toHaveBeenCalledWith("someone@example.com");
     expect(api.restoreStudent).toHaveBeenCalledWith("someone@example.com");
+  });
+});
+
+describe("create refusals are returned, not thrown", () => {
+  beforeEach(() => {
+    process.env.SITE_PASSWORD = PASSWORD;
+    vi.clearAllMocks();
+    withAuthorization(basic(PASSWORD));
+  });
+
+  it("reports an archived collision as a value the client can read", async () => {
+    // Production builds redact thrown Server Action errors down to a digest.
+    // Anything the UI needs in order to tell the two collisions apart has to
+    // travel as a return value, or it survives locally and vanishes once
+    // deployed — a difference that only shows up where it costs the most.
+    const { createStudentAction } = await import("./actions");
+    const { BackendError } = await import("@/lib/api");
+    api.createStudent.mockRejectedValue(
+      new BackendError(409, "email belongs to an archived student"),
+    );
+
+    await expect(
+      createStudentAction({ email: "x@example.com", name: "新学员" }),
+    ).resolves.toEqual({
+      ok: false,
+      kind: "archived",
+      message: "email belongs to an archived student",
+    });
+  });
+
+  it("distinguishes a plain duplicate from an archived one", async () => {
+    const { createStudentAction } = await import("./actions");
+    const { BackendError } = await import("@/lib/api");
+    api.createStudent.mockRejectedValue(new BackendError(409, "email already exists"));
+
+    await expect(
+      createStudentAction({ email: "x@example.com", name: "新学员" }),
+    ).resolves.toMatchObject({ ok: false, kind: "exists" });
+  });
+
+  it("still refuses an unauthenticated caller by throwing", async () => {
+    // Not an expected outcome of the form — nobody using the app can reach it,
+    // so it must not be reported as a tidy result the UI might render.
+    const { createStudentAction } = await import("./actions");
+    withAuthorization(null);
+
+    await expect(
+      createStudentAction({ email: "x@example.com", name: "新学员" }),
+    ).rejects.toThrow();
+    expect(api.createStudent).not.toHaveBeenCalled();
   });
 });

@@ -79,9 +79,33 @@ function detailRow(page: Page, field: string) {
  * the application. Waiting for the in-progress marker to clear also asserts
  * something worth asserting: that the action actually completed.
  */
+/**
+ * Wait for the detail panel to unmount.
+ *
+ * Archive and restore close it on success, so its absence is the completion
+ * signal. Watching a button label instead does not work: the buttons either
+ * swap out when the confirmation opens or change their text while the write is
+ * in flight, so a name-based locator empties immediately and the wait passes
+ * before anything has happened.
+ */
+/**
+ * How long to wait on anything that follows a write.
+ *
+ * The backend sleeps when idle, so the first write of a run can sit through a
+ * cold start. Playwright's 5s assertion default is fine locally and far too
+ * short here — and it fails looking exactly like a missing feature.
+ */
+const WRITE_TIMEOUT = 45_000;
+
+async function panelClosed(page: Page) {
+  await expect(page.locator('[data-field="wechat"]')).toHaveCount(0, {
+    timeout: WRITE_TIMEOUT,
+  });
+}
+
 async function settled(page: Page, field: string) {
   const row = detailRow(page, field);
-  await expect(row).not.toHaveAttribute("aria-busy", "true", { timeout: 20_000 });
+  await expect(row).not.toHaveAttribute("aria-busy", "true", { timeout: WRITE_TIMEOUT });
 }
 
 test.describe("production acceptance", () => {
@@ -97,7 +121,7 @@ test.describe("production acceptance", () => {
     await page.getByRole("button", { name: "保存", exact: true }).click();
     // The modal closes once the record is created.
     await expect(page.getByPlaceholder("name@example.com")).toHaveCount(0, {
-      timeout: 20_000,
+      timeout: WRITE_TIMEOUT,
     });
 
     await openRoster(page);
@@ -144,10 +168,7 @@ test.describe("production acceptance", () => {
 
     await page.getByRole("button", { name: "归档学员" }).click();
     await page.getByRole("button", { name: "确认归档" }).click();
-    // The panel closes when the archive lands; that is the completion signal.
-    await expect(page.getByRole("button", { name: "归档学员" })).toHaveCount(0, {
-      timeout: 20_000,
-    });
+    await panelClosed(page);
 
     await openRoster(page);
     await page.getByPlaceholder(/搜索/).fill(TEST_EMAIL);
@@ -167,7 +188,9 @@ test.describe("production acceptance", () => {
     await page.getByPlaceholder("name@example.com").fill(TEST_EMAIL);
     await page.getByRole("button", { name: "保存", exact: true }).click();
 
-    await expect(page.getByText(/该邮箱属于一位已归档的学员/)).toBeVisible();
+    await expect(page.getByText(/该邮箱属于一位已归档的学员/)).toBeVisible({
+      timeout: WRITE_TIMEOUT,
+    });
     await expect(page.getByRole("button", { name: "前往「已归档」" })).toBeVisible();
 
     // Nothing was created, and the archived record was neither overwritten nor
@@ -182,9 +205,7 @@ test.describe("production acceptance", () => {
     await openRoster(page, "archived");
     await selectTestStudent(page);
     await page.getByRole("button", { name: "恢复为在读" }).click();
-    await expect(page.getByRole("button", { name: "恢复为在读" })).toHaveCount(0, {
-      timeout: 20_000,
-    });
+    await panelClosed(page);
 
     await openRoster(page);
     await selectTestStudent(page);

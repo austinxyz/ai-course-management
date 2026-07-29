@@ -211,8 +211,15 @@ export function StudentsClient({ students, archivedStudents }: StudentsClientPro
     const email = f.email.trim();
     setCreateError(null);
     startTransition(async () => {
+      // The action reports a refusal by returning it. The archived collision is
+      // called out separately because the remedy differs: this is not "pick
+      // another email", it is "the person already exists, go restore them".
+      // Creating anyway would either overwrite the notes, tags and wechat
+      // handle on that record or silently un-archive it — the mock rules out
+      // both.
+      let result;
       try {
-        await createStudentAction({
+        result = await createStudentAction({
           email,
           name: f.name.trim(),
           region: f.region,
@@ -224,25 +231,22 @@ export function StudentsClient({ students, archivedStudents }: StudentsClientPro
           note: f.note.trim(),
           tags: f.tags,
         });
-        setFormState(BLANK_FORM);
-        setShowNew(keepOpen);
-        setScope("active");
-        if (!keepOpen) setSelected(email);
-      } catch (error) {
-        // The archived collision is called out separately because the remedy
-        // differs: this is not "pick another email", it is "the person already
-        // exists, go restore them". Creating anyway would either overwrite the
-        // notes, tags and wechat handle on that record or silently un-archive
-        // it — the mock rules out both.
-        const detail = error instanceof Error ? error.message : "";
-        setCreateError(
-          /archiv/i.test(detail)
-            ? { kind: "archived", message: detail }
-            : /exist/i.test(detail)
-              ? { kind: "exists", message: detail }
-              : { kind: "other", message: "没保存上。" },
-        );
+      } catch {
+        // Only unexpected failures reach here — a rejected credential, or the
+        // action never running at all.
+        setCreateError({ kind: "other", message: "没保存上。" });
+        return;
       }
+
+      if (!result.ok) {
+        setCreateError({ kind: result.kind, message: result.message });
+        return;
+      }
+
+      setFormState(BLANK_FORM);
+      setShowNew(keepOpen);
+      setScope("active");
+      if (!keepOpen) setSelected(email);
     });
   }
 
