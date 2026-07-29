@@ -96,7 +96,11 @@ export function NewStudentModal(props: NewStudentModalProps) {
             </div>
           )}
 
-          {createError?.kind === "other" && (
+          {/* "exists" lands here too. The pre-submit duplicate check normally
+              catches that case, so reaching it means the server saw something
+              the client could not — and rendering nothing at all would leave a
+              failed submit looking like no submit. */}
+          {(createError?.kind === "other" || createError?.kind === "exists") && (
             <div className="rounded-token border border-danger-border bg-danger-surface px-3 py-2.5">
               <span className="font-sans text-[12.5px] leading-relaxed text-danger">
                 {createError.message}

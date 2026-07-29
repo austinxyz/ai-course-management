@@ -42,6 +42,26 @@ function enumOptions(key: EditableFieldKey): string[] {
   return [];
 }
 
+/**
+ * The in-flight marker, shared by every writable field.
+ *
+ * `aria-busy` alone reaches assistive technology and nobody else — the state
+ * has to be visible too, or a save in progress looks exactly like an idle
+ * field.
+ */
+function SavingSpinner({ className }: { className?: string }) {
+  return (
+    <span
+      data-testid="saving-spinner"
+      aria-hidden
+      className={cn(
+        "h-3 w-3 flex-none animate-spin rounded-full border border-border border-t-muted-foreground",
+        className,
+      )}
+    />
+  );
+}
+
 function pillClass(active: boolean) {
   return cn(
     "inline-flex h-[26px] items-center whitespace-nowrap rounded-token border px-2.5 font-sans text-xs",
@@ -241,12 +261,7 @@ export function DetailPanel(props: DetailPanelProps) {
                   )}
                 </div>
 
-                {saving && (
-                  <span
-                    aria-hidden
-                    className="mt-1 h-3 w-3 flex-none animate-spin rounded-full border border-border border-t-muted-foreground"
-                  />
-                )}
+                {saving && <SavingSpinner className="mt-1" />}
               </div>
             );
           })}
@@ -258,7 +273,10 @@ export function DetailPanel(props: DetailPanelProps) {
           aria-busy={tagStatus?.state === "saving" || undefined}
         >
           <div className="flex items-center justify-between gap-2">
-            <div className="font-mono text-[11px] tracking-wide text-muted-foreground">标签</div>
+            <div className="flex items-center gap-1.5">
+              <div className="font-mono text-[11px] tracking-wide text-muted-foreground">标签</div>
+              {tagStatus?.state === "saving" && <SavingSpinner />}
+            </div>
             <button
               type="button"
               onClick={onToggleTagEditing}
@@ -308,7 +326,10 @@ export function DetailPanel(props: DetailPanelProps) {
         </div>
 
         <div className="flex flex-col gap-1.5" data-field="note" aria-busy={noteStatus?.state === "saving" || undefined}>
-          <div className="font-mono text-[11px] tracking-wide text-muted-foreground">备注</div>
+          <div className="flex items-center gap-1.5">
+            <div className="font-mono text-[11px] tracking-wide text-muted-foreground">备注</div>
+            {noteStatus?.state === "saving" && <SavingSpinner />}
+          </div>
           {editKey === "note" ? (
             <textarea
               autoFocus

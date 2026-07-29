@@ -260,3 +260,39 @@ describe("an enum field that fails to save", () => {
     ).toBeInTheDocument();
   });
 });
+
+describe("in-progress state is visible, not only announced", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    actions.updateStudentField.mockReturnValue(new Promise(() => {}));
+  });
+
+  it("shows a spinner while a tag change is in flight", async () => {
+    // aria-busy alone reaches assistive technology and nobody else. Tags and
+    // the note are the two most-edited fields here, and they are also the two
+    // that sit outside the field table — easy to leave without the treatment
+    // every row in that table gets.
+    const user = userEvent.setup();
+    render(<StudentsClient students={[student]} archivedStudents={[]} />);
+
+    await user.click(screen.getByRole("button", { name: "编辑" }));
+    await user.click(within(fieldRow("tags")).getByRole("button", { name: "活跃" }));
+
+    await waitFor(() =>
+      expect(within(fieldRow("tags")).getByTestId("saving-spinner")).toBeInTheDocument(),
+    );
+  });
+
+  it("shows a spinner while the note is being saved", async () => {
+    const user = userEvent.setup();
+    render(<StudentsClient students={[student]} archivedStudents={[]} />);
+
+    await user.click(within(fieldRow("note")).getByRole("button"));
+    await user.type(within(fieldRow("note")).getByRole("textbox"), "写点东西");
+    await user.tab();
+
+    await waitFor(() =>
+      expect(within(fieldRow("note")).getByTestId("saving-spinner")).toBeInTheDocument(),
+    );
+  });
+});
