@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>course-page-boundaries mocks</title>
+  <!-- HAS_UI_SURFACE: yes -->
+  <style>
+    body { font-family: "Noto Sans SC", -apple-system, BlinkMacSystemFont, sans-serif; margin: 0; padding: 24px; max-width: 1000px; color: #1a1917; background: #f6f4f0; }
+    section { margin-bottom: 34px; padding-bottom: 20px; border-bottom: 1px solid #e4e0d8; }
+    h1 { margin-top: 0; font-size: 21px; }
+    h2 { font-size: 16px; margin-bottom: 6px; }
+    h3 { font-size: 13.5px; margin: 14px 0 6px; color: #5c574e; }
+    p, li { line-height: 1.65; font-size: 13.5px; }
+    code { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12.5px; background: #f2efe9; border: 1px solid #e4e0d8; border-radius: 4px; padding: 1px 5px; }
+    table { border-collapse: collapse; width: 100%; font-size: 12.5px; margin: 8px 0; }
+    th, td { border: 1px solid #e4e0d8; padding: 6px 9px; text-align: left; vertical-align: top; }
+    th { background: #f2efe9; font-weight: 600; }
+    .warn { background: #fbf0ee; border: 1px solid #f0cfc9; border-radius: 8px; padding: 12px 14px; font-size: 13px; line-height: 1.65; }
+    .ok { background: #eef4ee; border: 1px solid #cfe0d0; border-radius: 8px; padding: 12px 14px; font-size: 13px; line-height: 1.65; }
+
+    .frame { display: flex; border: 1px solid #e4e0d8; border-radius: 8px; overflow: hidden; background: #fff; margin: 10px 0; min-height: 190px; }
+    .side { width: 150px; flex: none; background: #262521; color: #cdc7bc; padding: 10px 8px; font-size: 11.5px; }
+    .side .item { padding: 5px 7px; border-radius: 5px; margin-bottom: 2px; display: flex; justify-content: space-between; }
+    .side .item.on { background: #3a3833; color: #fff; }
+    .side .badge { color: #85807a; font-family: "JetBrains Mono", monospace; }
+    .body { flex: 1; min-width: 0; padding: 12px; display: flex; align-items: center; justify-content: center; }
+    .card { border: 1px solid #e4e0d8; border-radius: 8px; padding: 12px 14px; background: #fbfaf8; max-width: 300px; font-size: 12px; line-height: 1.6; }
+    .card .t { font-weight: 600; margin-bottom: 4px; font-size: 12.5px; }
+    .card .btn { display: inline-block; margin-top: 8px; border-radius: 5px; background: #262521; color: #fff; padding: 4px 10px; font-size: 11.5px; }
+    .gone { background: repeating-linear-gradient(45deg, #fff, #fff 6px, #fbf0ee 6px, #fbf0ee 12px); color: #b6ada2; display: flex; align-items: center; justify-content: center; font-size: 11px; }
+    .mob { width: 300px; }
+    .mob .side { width: 100%; }
+  </style>
+</head>
+<body>
+
+<h1>course-page-boundaries — 视觉基准导览</h1>
+
+<p>
+  本 change <strong>不新增任何设计元素</strong>。加载态与错误态的卡片就是已经上线的
+  <code>app/students/loading.tsx</code> 与 <code>app/students/error.tsx</code>，
+  文案一字不改。变的只有<strong>它们占多大面积</strong>，以及课程页要有一份同构的。
+  所以这份导览讲的是<strong>范围与时序</strong>，不是长相。
+</p>
+
+<section>
+  <h2>核心差异：加载/错误态占多大面积</h2>
+
+  <h3>现在（错）—— 整屏，侧边栏一起消失</h3>
+  <div class="frame">
+    <div class="gone" style="flex:1">整屏被加载卡片替换<br>侧边栏不在了 —— 看着像整页刷新</div>
+  </div>
+
+  <h3>应该（对）—— 侧边栏留着，只有内容区换</h3>
+  <div class="frame">
+    <div class="side">
+      <div class="item">学员 <span class="badge">19</span></div>
+      <div class="item on">课程 <span class="badge">—</span></div>
+      <div class="item">报课 <span class="badge">—</span></div>
+    </div>
+    <div class="body">
+      <div class="card">
+        <div class="t">正在加载课程数据…</div>
+        若服务器处于休眠状态，首次唤醒约需 1 分钟。请保持页面打开，不必刷新。
+      </div>
+    </div>
+  </div>
+  <p>
+    错误态同理 —— 同样的框，内容区换成错误卡片与「重试」按钮。
+    侧边栏留着还有一个白赚的好处：<strong>错误态下用户可以直接点去别的页面</strong>，
+    不必先重试或刷新。这条已写进 spec。
+  </p>
+</section>
+
+<section>
+  <h2>三态时序（这才是要验的东西）</h2>
+  <table>
+    <tr><th>时刻</th><th>现在</th><th>应该</th></tr>
+    <tr><td>点击瞬间</td><td>旧页面原地不动，高亮还在原处</td><td><strong>高亮立即移到目标项</strong></td></tr>
+    <tr><td>取数期间</td><td>整屏加载卡片（侧边栏消失）／课程页干脆什么都不变</td><td>侧边栏在，内容区是加载卡片</td></tr>
+    <tr><td>数据到达</td><td>整页出现，高亮这时才跳</td><td>内容区就地换成页面内容</td></tr>
+  </table>
+  <div class="ok">
+    高亮之所以能"立即"，是因为同时给 <code>/courses</code> 补了 <code>loading.tsx</code> ——
+    有 loading 边界时导航才会立即提交，<code>usePathname</code> 也才会立即更新。
+    这两件事是一件事的两面，验收时不要把它们当成两条独立的改动分开看。
+  </div>
+</section>
+
+<section>
+  <h2>徽标占位：<code>—</code> 不是 0</h2>
+  <p>
+    计数尚未返回时，徽标显示 <code>—</code> —— 与"这一页不数学员"用的是同一个占位。
+    二者语义本就相同：<strong>没数过的位置不能声称是 0</strong>。
+  </p>
+  <div class="frame" style="min-height:120px">
+    <div class="side">
+      <div class="item on">学员 <span class="badge">—</span></div>
+      <div class="item">课程 <span class="badge">—</span></div>
+    </div>
+    <div class="body"><div class="card" style="border-style:dashed">页面内容已经渲染<br>计数返回后就地替换为数字</div></div>
+  </div>
+</section>
+
+<section>
+  <h2>移动端</h2>
+  <p>
+    <strong>桌面单一视口，没有移动版</strong> —— 与 <code>course-catalog</code>、
+    <code>course-list-order</code> 一致，这是既定的范围限定（内部工具，讲师在电脑上用）。
+    窄屏下侧边栏与内容区仍是同一套左右结构，不做断点切换；下图仅说明<strong>本 change
+    不引入</strong>移动端形态，不是要实现的目标。
+  </p>
+  <div class="frame mob" style="flex-direction:column; min-height:0">
+    <div class="side" style="display:flex; gap:10px; padding:8px 10px">
+      <span>学员</span><span style="color:#fff">课程</span><span>报课</span>
+    </div>
+    <div class="body" style="padding:14px"><div class="card">加载/错误卡片同样只占内容区</div></div>
+  </div>
+</section>
+
+<section>
+  <h2>验收时最容易漏的一条</h2>
+  <div class="warn">
+    <strong>Suspense 漏包不会报错，只会"哪儿都变慢"。</strong>
+    layout 的取数若没包 <code>&lt;Suspense&gt;</code>，本版 Next 会让
+    <strong>每一次导航</strong>都等它完成 —— 没有任何错误信息，页面照常渲染，
+    只是全都慢。用<strong>「后端不可达时占位页（如报课）仍能打开」</strong>这条钉住它：
+    漏包时这条必然失败，包了则必然通过。
+    不要用"课程页看着挺快"作为判据 —— 本地后端是毫秒级，什么都看不出来。
+  </div>
+</section>
+
+</body>
+</html>
