@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>course-catalog mocks</title>
+  <!-- HAS_UI_SURFACE: yes -->
+  <style>
+    body { font-family: "Noto Sans SC", -apple-system, BlinkMacSystemFont, sans-serif; margin: 0; padding: 24px; max-width: 1000px; color: #1a1917; background: #f6f4f0; }
+    section { margin-bottom: 40px; padding-bottom: 24px; border-bottom: 1px solid #e4e0d8; }
+    h1 { margin-top: 0; font-size: 22px; }
+    h2 { font-size: 16px; margin-bottom: 6px; }
+    h3 { font-size: 13.5px; margin: 18px 0 6px; color: #79736a; font-weight: 600; }
+    p { line-height: 1.65; font-size: 13.5px; }
+    code, .v { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12.5px; background: #f2efe9; border: 1px solid #e4e0d8; border-radius: 4px; padding: 1px 5px; }
+    .v { display: inline-block; margin: 2px 0; background: #fff; }
+    ul { font-size: 13.5px; line-height: 1.7; }
+    table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+    th, td { border: 1px solid #e4e0d8; padding: 6px 9px; text-align: left; vertical-align: top; }
+    th { background: #f2efe9; font-weight: 600; }
+    .note { background: #fbf0ee; border: 1px solid #f0cfc9; border-radius: 8px; padding: 12px 14px; font-size: 13px; line-height: 1.65; }
+    .anchor { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12px; color: #9c3417; }
+  </style>
+</head>
+<body>
+
+<h1>course-catalog — 视觉基准导览</h1>
+
+<p>
+  <strong>这一页不是 mock，是导览。</strong> 真正的视觉基准是设计产出物本身：
+  <code>docs/superpowers/specs/mocks/2026-07-29-course-enrollment-design.dc.html</code>
+  （在线版 <span class="anchor">claude.ai/design/p/1d976911-7272-4c83-aa54-715d22105341</span>）。
+  那份文件 160KB，把它复制一遍只会得到一份权威性更低的副本；而 <code>.dc.html</code> 需要设计面板运行时，
+  本地打开不渲染，所以这一页负责把「哪块在哪、要照抄什么文案、用哪些 token」写清楚。
+</p>
+
+<div class="note">
+  <strong>apply 阶段怎么用：</strong>MOCK 任务读这一页（拿 verbatim 文案与 token）；
+  VISUAL DIFF 任务对着在线版 <code>.dc.html</code> 的 <code>课程</code> 页比。
+  两者不可互换 —— 这一页没有像素信息，那一页没有实现约束。
+</div>
+
+<section>
+  <h2>屏幕清单与在 .dc.html 里的位置</h2>
+  <table>
+    <tr><th>区块</th><th>分支 / 锚点</th><th>本 change 是否实现</th></tr>
+    <tr><td>课程页（列表 + 选中课程详情）</td><td class="anchor">sc-if isCourses</td><td>是</td></tr>
+    <tr><td>课程卡片行（含「已下线」标记）</td><td class="anchor">sc-for co.list</td><td>是</td></tr>
+    <tr><td>平台别名区块</td><td class="anchor">co.aliases</td><td>是</td></tr>
+    <tr><td>「这门课」事实行</td><td class="anchor">sc-for co.facts</td><td>是</td></tr>
+    <tr><td>作业 · 一次</td><td class="anchor">co.hwTitle</td><td>只显示题目与「截止日期按场次定」；<strong>不做</strong>「编辑作业要求」</td></tr>
+    <tr><td>上课时间（场次列表）</td><td class="anchor">sc-for co.sessionRows</td><td>是</td></tr>
+    <tr><td>场次行内编辑</td><td class="anchor">sc-if s.editing</td><td>是</td></tr>
+    <tr><td>新增一场表单</td><td class="anchor">sc-if co.addOpen</td><td>是</td></tr>
+    <tr><td>无场次空态</td><td class="anchor">sc-if co.noSessions</td><td>是</td></tr>
+    <tr><td>新建/编辑课程弹窗</td><td class="anchor">sc-if showCourse</td><td>是</td></tr>
+    <tr><td>场次卡片上的「已报 N 人」</td><td class="anchor">s.enrolled</td><td><strong>不做</strong> —— 需要报课表。不显示，而非显示 0</td></tr>
+    <tr><td>报课页 / 导入弹窗 / 手工补录弹窗</td><td class="anchor">sc-if isEnroll / showIntake / showManual</td><td><strong>不做</strong> —— 下一个 change</td></tr>
+  </table>
+</section>
+
+<section>
+  <h2>要照抄的 verbatim 文案</h2>
+  <p>以下字符串逐字取自设计，实现时不要改写。它们是文案决定，不是占位。</p>
+
+  <h3>课程页头部</h3>
+  <div class="v">课程</div><br>
+  <div class="v">每门课上一次、交一次作业。课程是报课、作业、催作业共用的口径，改这里会影响所有引用它的页面。</div><br>
+  <div class="v">新建课程</div>
+
+  <h3>课程详情</h3>
+  <div class="v">已下线</div>（Badge variant="muted"）<br>
+  <div class="v">编辑课程</div><br>
+  <div class="v">平台别名</div><br>
+  <div class="v">导入时按这些写法匹配到本课程</div><br>
+  <div class="v">这门课</div><br>
+  <div class="v">作业 · 一次</div><br>
+  <div class="v">截止日期按场次定</div>
+
+  <h3>场次区块</h3>
+  <div class="v">上课时间 · 每场独立讲师与学员</div><br>
+  <div class="v">时间按美西记，下面一行是各时区对应时间</div><br>
+  <div class="v">还没有排课。加一个上课时间后，这门课才会出现在报课的场次选项里。</div><br>
+  <div class="v">+ 添加上课时间</div><br>
+  <div class="v">新增一场 · 时间按美西填，其他时区自动换算</div><br>
+  <div class="v">上课日期</div> <div class="v">时间（美西）</div> <div class="v">讲师</div> <div class="v">+ 新讲师</div><br>
+  <div class="v">这一场为什么开</div>（备注标签的副文案）<br>
+  <div class="v">如 第一场报满后加的第二场 / 为亚洲时区加的晚场</div>（备注 placeholder）<br>
+  <div class="v">添加这一场</div> <div class="v">删除这一场</div> <div class="v">完成</div>
+
+  <h3>场次编辑态</h3>
+  <div class="v">这一场已经上过，改动会影响历史记录和作业统计，只在修正错误时改。</div><br>
+  <div class="v">默认按日期自动判断，取消或补记时手动改</div><br>
+  <div class="v">跟随日期</div> <div class="v">恢复跟随日期</div><br>
+  <div class="v">改这一场</div>（未上）/ <div class="v">修正</div>（已上）—— 同一个按钮按状态换字
+  <p>状态选项显示为中文 <div class="v">待上</div> <div class="v">已上</div> <div class="v">已取消</div>，
+  库里存 <code>pending</code> / <code>done</code> / <code>cancelled</code>。</p>
+
+  <h3>课程弹窗</h3>
+  <div class="v">课程名</div> <div class="v">简称</div><br>
+  <div class="v">一句话定位</div> + 副文案 <div class="v">列表和卡片上显示</div><br>
+  <div class="v">讲给谁、一次课解决什么问题</div>（placeholder）<br>
+  <div class="v">课程介绍</div> + 副文案 <div class="v">招生和答疑时用的完整说明</div><br>
+  <div class="v">这门课怎么上、上完能做到什么、对学员有什么要求…</div>（placeholder）<br>
+  <div class="v">默认上课设置</div><br>
+  <div class="v">每场时长</div> + 副文案 <div class="v">上课时间统一按美西记</div>（1 / 2 / 3 / 4 小时）<br>
+  <div class="v">作业题目</div> + 副文案 <div class="v">一次 · 截止日期按场次定</div><br>
+  <div class="v">用 Claude 完成一件自己的真实工作</div>（placeholder）<br>
+  <div class="v">平台别名</div> + 副文案 <div class="v">导入时按这些写法匹配</div><br>
+  <div class="v">平台里的另一种写法</div>（placeholder）<div class="v">添加别名</div><br>
+  <div class="v">上架状态</div>：<div class="v">上架</div> / <div class="v">已下线</div><br>
+  <div class="v">待开课 / 已上课 由上课日期自动判断，这里只管上下架。</div><br>
+  <div class="v">已有报课不会因为改课程信息而变动</div><br>
+  <div class="v">课程名改了要同步平台别名，否则下次导入会匹配不上。</div>（编辑态的说明）<br>
+  <div class="v">先把课建出来：名称、定位、作业。场次和讲师创建后在课程页排，同一门课可以多场、不同讲师。</div>（新建态）<br>
+  <div class="v">讲师是按场次定的：在课程页「上课时间」里点某一场的「改这一场 / 修正」改讲师。这里只管全课默认时区和时长。</div><br>
+  按钮：<div class="v">创建课程</div>（新建）/ <div class="v">保存课程</div>（编辑）/ <div class="v">取消</div>
+</section>
+
+<section>
+  <h2>Token 用法</h2>
+  <ul>
+    <li>组件全部取自 <code>frontend/components/ui/</code>：<code>Button</code>（primary / secondary / ghost，size sm）、
+      <code>Badge</code>（muted / danger / success）、<code>Card</code> 家族、<code>Input</code>。<strong>不新增组件</strong>。</li>
+    <li>颜色只用 <code>frontend/app/globals.css</code> 的 token：面板 <code>bg-surface</code>、
+      次级块 <code>bg-surface-muted</code>、描边 <code>border-border</code>、
+      主色 <code>text-primary</code>、警示 <code>text-danger</code> / <code>border-danger-border</code>。
+      设计里出现的 <code>#9c3417</code> 等十六进制值是 token 的当前取值，实现里不要写死。</li>
+    <li>状态 Badge 的 variant 映射：<code>pending → success</code>、<code>done → muted</code>、
+      <code>cancelled → danger</code>（取自设计脚本 <code>s.stateVariant</code>）。
+      注意「待上」是 success 而非 default —— 这是设计的选择，别改成灰色。</li>
+    <li>等宽字体（<code>font-mono</code>）用于日期、时间、时区行与别名；正文用 <code>font-sans</code>。</li>
+    <li>行内编辑沿用学员详情面板既有那套：<code>回车保存 · Esc 取消</code>，
+      保存中降低不透明度，失败就近显示并保留用户输入。</li>
+  </ul>
+</section>
+
+<section>
+  <h2>时区行的期望输出（这不是视觉决定，是正确性要求）</h2>
+  <p>场次卡片第二行列各时区对应时间。<strong>验收必须拿亚洲时区比，不能拿美东比</strong>：
+    美国两地同日切换夏令时，美西→美东恒为 +3 小时，那条断言无论换算实现对错都会通过。</p>
+  <table>
+    <tr><th>场次（美西墙上时间）</th><th>美东</th><th>上海</th></tr>
+    <tr><td>2026-10-15 19:30</td><td>22:30 同日</td><td><strong>10:30 次日</strong>（+15h）</td></tr>
+    <tr><td>2026-12-15 19:30</td><td>22:30 同日</td><td><strong>11:30 次日</strong>（+16h）</td></tr>
+  </table>
+  <p>两场的美西显示值都必须是 <code>19:30</code> —— 这是"存墙上时间"的意义所在。</p>
+</section>
+
+<section>
+  <h2>视口范围</h2>
+  <p>
+    <strong>桌面单一视口，没有移动版。</strong> 设计里侧栏固定 216px、详情面板固定 358px、
+    容器 <code>min-height:640px</code> 且横向不折行 —— 它是为笔记本屏幕画的。
+    使用者是讲师与合作伙伴两人，都在电脑上用（CLAUDE.md：不面向学员）。
+    因此本 change 不产出移动版布局，也不为窄屏做断点；
+    这是有意的范围限定，不是遗漏。将来若真要手机上查名单，那是独立的一件事。
+  </p>
+</section>
+
+</body>
+</html>
