@@ -42,14 +42,14 @@
 - [x] 2.4 RED — vitest：课程列表位于一个可独立滚动的左栏容器内（可用 `aria-label="课程列表"` 定位），且详情不在该容器内
 - [x] 2.5 GREEN — 改成左右两栏容器，课程列表移入左栏
 - [x] 2.6 VISUAL DIFF — 起 dev stack 进 `/courses`，对着 `.dc.html` 的 `isCourses` 分支比：左栏宽度、分隔线、两侧各自滚动。**不要只看四门课** —— 把窗口压窄或临时多造几门，确认左栏内部滚动而不是把详情往下推（上次就是"四门课看着挺好"让漂移过了关）
-- [ ] 2.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-2.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 70 → PASS; < 70 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
+- [x] 2.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-2.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 70 → PASS; < 70 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 3. 验证与上线
 
-- [ ] 3.1 Run backend test suite — `cd backend && uv run pytest`，确认无回归
-- [ ] 3.2 Run frontend test suite — `cd frontend && npm run test`；另跑 `npm run build`
-- [ ] 3.3 e2e — `project.e2e_command` 为空，本 change 不新增 e2e
-- [ ] 3.4 Run superpowers:verification-before-completion — 跑 `project.test_commands`；`grep -rn 'console.log' frontend/app frontend/lib`；跑 `project.custom_verification_checks`
-- [ ] 3.5 上线 —— 无 schema 变更，前后端各自部署，顺序不敏感
+- [x] 3.1 Run backend test suite — `cd backend && uv run pytest`，确认无回归
+- [x] 3.2 Run frontend test suite — `cd frontend && npm run test`；另跑 `npm run build`
+- [x] 3.3 e2e — `project.e2e_command` 为空，本 change 不新增 e2e
+- [x] 3.4 Run superpowers:verification-before-completion — 跑 `project.test_commands`；`grep -rn 'console.log' frontend/app frontend/lib`；跑 `project.custom_verification_checks`
+- [x] 3.5 上线 —— 无 schema 变更，前后端各自部署，顺序不敏感
 - [ ] 3.6 生产验收 —— 四门课顺序为 S4（7/26）→ S3（7/19）→ S2（7/12）→ S1（6/28）
 - [ ] 3.7 生产验收 —— 页面为左右两栏，与设计稿一致
