@@ -96,6 +96,25 @@ def test_get_student_by_email_case_insensitive(client):
     assert body["tz"] == "UTC-8"
 
 
+def test_create_rejects_blank_name(client, db_session):
+    """The same rule has to hold on both write paths. Enforcing it on update
+    alone would leave the create path able to produce exactly the state the
+    rule exists to prevent."""
+    resp = client.post(
+        "/api/students",
+        json={
+            "email": "blank.name@example.com",
+            "name": "   ",
+            "region": "美东",
+            "level": "小白",
+            "source": "讲武堂",
+        },
+    )
+
+    assert resp.status_code == 422
+    assert client.get("/api/students/blank.name@example.com").status_code == 404
+
+
 def test_get_student_not_found(client):
     resp = client.get("/api/students/nobody@example.com")
     assert resp.status_code == 404

@@ -33,6 +33,95 @@ def test_partial_update_changes_only_the_named_field(client, db_session):
     assert after.note == original_note
 
 
+def test_name_update_persists(client, db_session):
+    """Name was the one field in the profile with no write path. Imported
+    records carry group-chat nicknames instead of real names, and without this
+    the only fix was archive-and-recreate, which throws away the note."""
+    resp = client.patch(f"/api/students/{EXISTING}", json={"name": "改过的名字"})
+
+    assert resp.status_code == 200
+    db_session.expire_all()
+    assert db_session.get(Student, EXISTING).name == "改过的名字"
+
+
+def test_request_without_name_leaves_it_alone(client, db_session):
+    """The three inputs below have to stay distinguishable. This one is
+    "the request never mentioned the name" — exclude_unset territory."""
+    before = db_session.get(Student, EXISTING).name
+
+    client.patch(f"/api/students/{EXISTING}", json={"wechat": "wx_x"})
+
+    db_session.expire_all()
+    assert db_session.get(Student, EXISTING).name == before
+
+
+def test_explicit_null_name_is_rejected(client, db_session):
+    """An explicit JSON null parses to the same value the sentinel uses for
+    "not mentioned", but means something else. The column is NOT NULL, so
+    letting it through turns an edit into a 500."""
+    before = db_session.get(Student, EXISTING).name
+
+    resp = client.patch(f"/api/students/{EXISTING}", json={"name": None})
+
+    assert resp.status_code == 422
+    db_session.expire_all()
+    assert db_session.get(Student, EXISTING).name == before
+
+
+def test_blank_name_is_rejected(client, db_session):
+    """Name is the displayed identity and the list's sort key — a blank one
+    turns a row into an unidentifiable gap. Unlike every other editable
+    field, clearing it is not a legitimate edit."""
+    before = db_session.get(Student, EXISTING).name
+
+    resp = client.patch(f"/api/students/{EXISTING}", json={"name": "   "})
+
+    assert resp.status_code == 422
+    db_session.expire_all()
+    assert db_session.get(Student, EXISTING).name == before
+
+
+def test_name_is_stored_trimmed(client, db_session):
+    """Names arrive pasted from group rosters and spreadsheets, which carry
+    stray whitespace. Storing it would make the same person sort in two
+    different places."""
+    client.patch(f"/api/students/{EXISTING}", json={"name": "  张三  "})
+
+    db_session.expire_all()
+    assert db_session.get(Student, EXISTING).name == "张三"
+
+
+def test_name_update_leaves_other_fields_alone(client, db_session):
+    """The note is the least reproducible data in the system — it is hand
+    written and exists nowhere else. A name edit must not touch it."""
+    client.patch(
+        f"/api/students/{EXISTING}",
+        json={"wechat": "wx_before", "note": "手写备注", "tags": ["活跃"]},
+    )
+
+    client.patch(f"/api/students/{EXISTING}", json={"name": "只改名字"})
+
+    db_session.expire_all()
+    after = db_session.get(Student, EXISTING)
+    assert after.name == "只改名字"
+    assert after.wechat == "wx_before"
+    assert after.note == "手写备注"
+    assert after.tags == ["活跃"]
+
+
+def test_other_fields_can_still_be_cleared(client, db_session):
+    """Tightening the name must not tighten the rest. Clearing a wechat handle
+    is a legitimate edit, and the sentinel already distinguishes "" from
+    "field absent" — this pins that the name rule did not leak sideways."""
+    client.patch(f"/api/students/{EXISTING}", json={"wechat": "wx_temp"})
+
+    resp = client.patch(f"/api/students/{EXISTING}", json={"wechat": ""})
+
+    assert resp.status_code == 200
+    db_session.expire_all()
+    assert db_session.get(Student, EXISTING).wechat == ""
+
+
 def test_email_in_body_does_not_rewrite_the_primary_key(client, db_session):
     """Email is the identity everything else joins on — it must not be
     reachable through an update body, however the body is shaped."""

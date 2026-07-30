@@ -1,0 +1,11 @@
+### Contract
+- **Spec**:
+  - 系统 SHALL 支持更新已有学员的可编辑字段（**姓名**、微信号、微信名、微信昵称、区域、基础、来源、行业、性别、年龄、备注、标签），更新 SHALL 落库并在页面刷新后依然存在。邮箱 SHALL NOT 可被修改。
+  - 姓名 SHALL 在写入前去除首尾空白；去除后为空的姓名 SHALL 被拒绝。该约束 SHALL 同时作用于更新与新增两条路径。
+  - 其余可编辑字段 SHALL 允许被清空——清空是合法编辑，不得与姓名一并收紧。
+- **Runtime**: `cd backend && pytest` → expected: 既有 34 项全绿，新增姓名相关用例全部通过；无 import 错误
+- **Code**:
+  - 姓名规则只有一处定义：`StudentName = Annotated[str, AfterValidator(...)]`，`StudentCreate.name` 与 `StudentUpdate.name` 共用。两个 `@field_validator("name")` 各写一遍就是把本 change 要修的那个洞（只拦更新、放过新增）在实现里重造
+  - 不得破坏 `StudentUpdate` 的哨兵语义：`None` = "本次请求未提到该字段"（配合 `exclude_unset`），显式 JSON `null` 仍由既有 `@field_validator("*") _reject_explicit_null` 拦下；`AfterValidator` 只在值为 `str` 时运行
+  - 校验放 Pydantic 层，**不加 DB CHECK 约束**（约束放在能演进的那一层；本系统只有 FastAPI 访问数据库）
+- **Threshold**: 80

@@ -1,6 +1,30 @@
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, field_validator
+from pydantic import AfterValidator, BaseModel, field_validator
+
+
+def _strip_and_require(value: str) -> str:
+    """Trim a name and refuse it if nothing is left.
+
+    Every other editable field may be cleared — clearing is a legitimate
+    edit. Name may not: it is the identity shown in the list and the detail
+    panel, and it is the list's sort key, so a blank one turns a row into an
+    unidentifiable gap.
+
+    Trimming happens here rather than at the callers because email is
+    normalized the same way and for the same reason: the boundary is the only
+    place a normalization stays cheap.
+    """
+    stripped = value.strip()
+    if not stripped:
+        raise ValueError("name must not be blank")
+    return stripped
+
+
+# One definition, shared by the create and update bodies below. Two separate
+# @field_validator("name") declarations would reproduce the exact hole this
+# change exists to close — a rule enforced on update and skipped on create.
+StudentName = Annotated[str, AfterValidator(_strip_and_require)]
 
 Region = Literal["美西", "美东", "加拿大", "其他地区"]
 Level = Literal["小白", "会电脑", "有基础", "工程师"]
@@ -50,7 +74,7 @@ class StudentCreate(BaseModel):
     """
 
     email: str
-    name: str
+    name: StudentName
     region: Region
     level: Level
     source: Source
@@ -93,6 +117,12 @@ class StudentUpdate(BaseModel):
     unexpected stored value fail the entire payload.
     """
 
+    # StudentName, not plain str: the trim-and-require rule rides on the type,
+    # so it cannot drift apart from StudentCreate's. `| None` keeps the
+    # sentinel intact — None still means "this request did not mention the
+    # name", and AfterValidator only runs when the value really is a str. An
+    # explicit JSON null lands on the None branch and is refused below.
+    name: StudentName | None = None
     wechat: str | None = None
     wx_name: str | None = None
     nick: str | None = None

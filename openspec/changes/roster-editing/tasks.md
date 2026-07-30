@@ -12,16 +12,16 @@
   - 校验放 Pydantic 层，**不加 DB CHECK 约束**（约束放在能演进的那一层；本系统只有 FastAPI 访问数据库）
 - **Threshold**: 80
 
-- [ ] 1.0 CONTRACT — write openspec/changes/roster-editing/contracts/group-1.md with the ### Contract block above; confirm all three fields (Spec, Runtime, Code) are non-empty before proceeding
-- [ ] 1.1 环境 — 修好后端 venv（`cd backend && uv python install 3.12 && uv sync`；`.venv` 现指向已被删除的 cpython-3.12.13，`uv run` 直接报 `No Python at ...`），确认 `pytest` 可跑、34 项全绿。基础设施任务，无 RED/GREEN
-- [ ] 1.2 RED — `backend/tests/test_students_write.py`：PATCH 姓名落库（虚构姓名，`@example.com`）
-- [ ] 1.3 GREEN — `StudentUpdate` 增 `name` 字段，最小实现通过 1.2
-- [ ] 1.4 RED — 三种输入的区别各一条断言：不带 `name` 键 → 姓名不变；`{"name": null}` → 拒绝；`{"name": "   "}` → 拒绝（422）且库中姓名不变
-- [ ] 1.5 GREEN — 提取 `StudentName = Annotated[str, AfterValidator(...)]`（trim + 非空），挂到 `StudentUpdate.name`
-- [ ] 1.6 RED — `backend/tests/test_students_api.py`：POST 新建学员时姓名为空白 → 拒绝且不创建记录
-- [ ] 1.7 GREEN — `StudentCreate.name` 改用同一个 `StudentName` 别名（不新写 validator）
-- [ ] 1.8 RED — 姓名首尾空白被 trim 后落库（`"  张三  "` → `"张三"`）；更新姓名不影响备注/标签/微信号；微信号仍可清空为 `""`（证明非空约束没有波及其它字段）
-- [ ] 1.9 GREEN — 使 1.8 通过（若 1.5 已满足则确认无需改动，并在提交信息里说明）
+- [x] 1.0 CONTRACT — write openspec/changes/roster-editing/contracts/group-1.md with the ### Contract block above; confirm all three fields (Spec, Runtime, Code) are non-empty before proceeding
+- [x] 1.1 环境 — 修好后端 venv（`cd backend && uv python install 3.12 && uv sync`；`.venv` 现指向已被删除的 cpython-3.12.13，`uv run` 直接报 `No Python at ...`），确认 `pytest` 可跑、34 项全绿。基础设施任务，无 RED/GREEN
+- [x] 1.2 RED — `backend/tests/test_students_write.py`：PATCH 姓名落库（虚构姓名，`@example.com`）
+- [x] 1.3 GREEN — `StudentUpdate` 增 `name` 字段，最小实现通过 1.2
+- [x] 1.4 RED — 三种输入的区别各一条断言：不带 `name` 键 → 姓名不变；`{"name": null}` → 拒绝；`{"name": "   "}` → 拒绝（422）且库中姓名不变
+- [x] 1.5 GREEN — 提取 `StudentName = Annotated[str, AfterValidator(...)]`（trim + 非空），挂到 `StudentUpdate.name`
+- [x] 1.6 RED — `backend/tests/test_students_api.py`：POST 新建学员时姓名为空白 → 拒绝且不创建记录
+- [x] 1.7 GREEN — `StudentCreate.name` 改用同一个 `StudentName` 别名（不新写 validator）
+- [x] 1.8 RED — 姓名首尾空白被 trim 后落库（`"  张三  "` → `"张三"`）；更新姓名不影响备注/标签/微信号；微信号仍可清空为 `""`（证明非空约束没有波及其它字段）
+- [x] 1.9 GREEN — 使 1.8 通过（若 1.5 已满足则确认无需改动，并在提交信息里说明）
 - [ ] 1.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-1.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 2. 前端：姓名编辑入口
