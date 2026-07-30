@@ -20,9 +20,11 @@ HAS_UI_SURFACE: no
 - **把生产词表搬出 `mock-data.ts`。** 该文件里**没有任何 mock 数据** —— `TAGS` / `TAG_COLORS` /
   `SOURCES` / `LEVELS` / `TZ_BY_REGION` / `FIELDS` / `BLANK_FORM` / `NAV` / `PAGES`
   全是线上行为与线上文案。文件名会让人（包括 agent）以为可以随便改或直接删
-- **顺带删掉 `FIELDS` 里的幽灵字段 `sid`。** 详情面板渲染一行「学员 ID」，
-  但 `Student` 类型里没有这个字段 —— 靠 `keyof Student | "sid"` 这个类型后门放进来的，
-  取不到值。搬迁必然碰到它，留着就是把已知的坏东西搬到新家
+- **顺带删掉 `FIELDS` 里的 `sid` 行。** 详情面板渲染一行「学员 ID」，值是
+  `"stu_" + 邮箱前缀` **当场合成**的 —— 数据库里没有这个标识，`Student` 类型里也没有，
+  靠 `keyof Student | "sid"` 这个类型后门挤进字段表。邮箱才是本系统的学员主键，
+  界面上摆一个看着像主键、实际谁也不认的合成 ID，只会诱导人把它当键用。
+  搬迁必然碰到它，留着就是把已知的坏东西搬到新家
 
 ## Non-Goals
 
@@ -85,7 +87,8 @@ HAS_UI_SURFACE: no
 11. 代码中不存在按微信昵称自动关联/去重/建档的逻辑（人工 review 项，非自动化断言）
 12. `TAGS` / `TAG_COLORS` / `SOURCES` / `LEVELS` / `TZ_BY_REGION` / `FIELDS` / `BLANK_FORM` /
     `NAV` / `PAGES` 不再从名为 `mock-data` 的模块导出；搬迁前后 UI 行为逐项一致
-13. 详情面板不再出现「学员 ID」行，`keyof Student | "sid"` 类型后门随之消失
+13. 详情面板不再出现「学员 ID」行；`keyof Student | "sid"` 类型后门、
+    合成 `sid` 的那行代码、以及为它存在的 `type: "ro"` 分支一并消失
 14. 前后端测试套件无回归（当前后端 34 passed）
 
 **生产验收**：生产库现有 19 条真实记录，因此不新建测试记录，改为在既有记录上做可逆操作：

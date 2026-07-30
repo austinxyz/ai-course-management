@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>roster-editing mocks</title>
+  <!-- HAS_UI_SURFACE: no -->
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 0; padding: 24px; }
+    section { margin-bottom: 48px; }
+    h1, h2 { margin-top: 0; }
+    .stub { color: #888; font-style: italic; }
+  </style>
+</head>
+<body>
+
+<section class="stub">
+  <h1>roster-editing</h1>
+  <p>This change has no UI surface; no visual mocks needed.</p>
+  <p>
+    It does touch the students page, but adds no new visual state: the name field reuses the
+    existing field-row / inline-edit / saving / failed treatment defined by the
+    <code>student-write</code> mocks, the search change is a matching-scope change behind an
+    existing input, and the vocabulary move plus the <code>sid</code> row removal are not visual.
+    The one text decision — the search placeholder, <code>搜索姓名 / 邮箱 / 微信</code> — is
+    fixed in the requirements doc instead.
+  </p>
+</section>
+
+</body>
+</html>
