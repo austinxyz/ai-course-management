@@ -1,0 +1,11 @@
+### Contract
+- **Spec**:
+  - 排序 SHALL 由服务端决定并体现在响应顺序里；客户端 SHALL NOT 自行重排——每个客户端各自决定的顺序不成其为顺序。
+  - （布局本身不入 spec：视觉基准是设计稿，验收靠 mocks 导览 + VISUAL DIFF）
+- **Runtime**: `cd frontend && npm run test` → expected: 课程列表按 props 顺序渲染且前端无排序调用、左栏可定位，既有 105 项无回归；`npm run build` 通过
+- **Code**:
+  - 只改容器，不重画内容：外层 `flex` + `overflow-hidden`，左栏 `w-[264px] flex-none border-r overflow-y-auto`，右侧 `flex-1 min-w-0 overflow-y-auto`
+  - **`min-w-0` 不能省** —— flex 子项默认 `min-width:auto`，长课程名会撑开右栏、挤扁左栏。四门短名字的课看不出来
+  - 颜色用 token（`border-border` / `bg-surface-muted` / `bg-surface`），不写设计稿里的十六进制值
+  - 前端仍然不排序：只要它可以重排，"最近开课在前"就只是某个客户端的看法
+- **Threshold**: 70

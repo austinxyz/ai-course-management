@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>course-list-order mocks</title>
+  <!-- HAS_UI_SURFACE: yes -->
+  <style>
+    body { font-family: "Noto Sans SC", -apple-system, BlinkMacSystemFont, sans-serif; margin: 0; padding: 24px; max-width: 980px; color: #1a1917; background: #f6f4f0; }
+    section { margin-bottom: 34px; padding-bottom: 20px; border-bottom: 1px solid #e4e0d8; }
+    h1 { margin-top: 0; font-size: 21px; }
+    h2 { font-size: 16px; margin-bottom: 6px; }
+    p, li { line-height: 1.65; font-size: 13.5px; }
+    code { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12.5px; background: #f2efe9; border: 1px solid #e4e0d8; border-radius: 4px; padding: 1px 5px; }
+    table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+    th, td { border: 1px solid #e4e0d8; padding: 6px 9px; text-align: left; vertical-align: top; }
+    th { background: #f2efe9; font-weight: 600; }
+    .warn { background: #fbf0ee; border: 1px solid #f0cfc9; border-radius: 8px; padding: 12px 14px; font-size: 13px; line-height: 1.65; }
+    .sketch { display: flex; gap: 0; border: 1px solid #e4e0d8; border-radius: 8px; overflow: hidden; background: #fff; margin: 10px 0; }
+    .left { width: 200px; flex: none; border-right: 1px solid #e4e0d8; background: #fbfaf8; padding: 10px; }
+    .right { flex: 1; min-width: 0; padding: 10px; }
+    .row { border: 1px solid #e4e0d8; border-radius: 6px; padding: 6px 8px; margin-bottom: 6px; font-size: 12px; }
+    .bad { display: flex; flex-wrap: wrap; gap: 6px; border: 1px dashed #f0cfc9; border-radius: 8px; padding: 10px; background: #fff; margin: 10px 0; }
+    .chip { border: 1px solid #e4e0d8; border-radius: 6px; padding: 5px 8px; font-size: 12px; background: #f2efe9; }
+  </style>
+</head>
+<body>
+
+<h1>course-list-order — 视觉基准导览</h1>
+
+<p>
+  视觉基准仍是
+  <code>docs/superpowers/specs/mocks/2026-07-29-course-enrollment-design.dc.html</code>
+  的 <code>sc-if isCourses</code> 分支。本页只讲**这次要摆回去的那一处**，
+  以及我上次漂移成了什么样 —— 免得实现时又照着当前代码抄一遍。
+</p>
+
+<div class="warn">
+  <strong>上次漂移的形状：</strong>我把课程列表做成了一排 <code>flex-wrap</code> 的 chip 放在详情上方。
+  四门课时看着还行，所以它一路通过了 review 与 VISUAL DIFF —— <strong>数量掩盖了问题</strong>。
+  课程一多，chip 换行堆叠，详情被越推越低。设计稿从一开始就是左右两栏。
+</div>
+
+<section>
+  <h2>现在（错）</h2>
+  <div class="bad">
+    <span class="chip">S1 · 1 场</span>
+    <span class="chip">S2 · 1 场</span>
+    <span class="chip">S3 · 1 场</span>
+    <span class="chip">S4 · 2 场</span>
+  </div>
+  <div class="row" style="max-width:100%">详情卡片（被挤在下方，课程越多位置越低）</div>
+
+  <h2>应该（对）</h2>
+  <div class="sketch">
+    <div class="left">
+      <div class="row">S4 · 2 场</div>
+      <div class="row">S3 · 1 场</div>
+      <div class="row">S2 · 1 场</div>
+      <div class="row">S1 · 1 场</div>
+      <div style="font-size:11px;color:#a09a90">↕ 左栏自己滚动</div>
+    </div>
+    <div class="right">
+      <div class="row">课程详情</div>
+      <div class="row">上课时间 · 每场独立讲师与学员</div>
+      <div style="font-size:11px;color:#a09a90">↕ 右侧自己滚动</div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>取自设计稿的值</h2>
+  <table>
+    <tr><th>位置</th><th>样式（<code>.dc.html</code> 443–458 行）</th></tr>
+    <tr><td>外层</td><td><code>flex:1; min-height:0; display:flex; overflow:hidden</code></td></tr>
+    <tr><td>左栏</td><td><code>width:264px; flex:none; border-right:1px solid #e4e0d8; background:#fbfaf8; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:8px</code></td></tr>
+    <tr><td>右侧</td><td><code>flex:1; min-width:0; overflow-y:auto; display:flex; flex-direction:column</code></td></tr>
+    <tr><td>课程项</td><td>整块可点，课程名 <code>500 13.5px</code> 单行省略号；下方一行 <code>11.5px</code> 等宽字体的元信息（简称 · N 场）</td></tr>
+  </table>
+  <p>
+    颜色不要写死十六进制 —— 用既有 token：<code>border-border</code>、
+    <code>bg-surface-muted</code>（左栏底色）、<code>bg-surface</code>（右侧）。
+    稿子里的 <code>#fbfaf8</code> 是 token 的当时取值。
+  </p>
+  <p>
+    <strong><code>min-w-0</code> 不能省。</strong>flex 子项默认 <code>min-width:auto</code>，
+    长课程名会把右栏撑开、把左栏挤扁。四门短名字的课看不出来，名字一长立刻出现。
+  </p>
+</section>
+
+<section>
+  <h2>顺序（这条属于契约，不是视觉）</h2>
+  <p>左栏自上而下 = 后端返回顺序，前端<strong>不重排</strong>。生产上应为：</p>
+  <table>
+    <tr><th>位置</th><th>课程</th><th>第一场</th></tr>
+    <tr><td>1</td><td>S4 AI 炒股分析系统</td><td>2026-07-26</td></tr>
+    <tr><td>2</td><td>S3 从一句话到成品</td><td>2026-07-19</td></tr>
+    <tr><td>3</td><td>S2 先造枪，再打子弹</td><td>2026-07-12</td></tr>
+    <tr><td>4</td><td>S1 从零开始用 Claude 和 Cowork</td><td>2026-06-28</td></tr>
+  </table>
+  <p>还没排课的课程排在这四门之前。</p>
+</section>
+
+<section>
+  <h2>验收时别只看四门课</h2>
+  <p>
+    上次就是"四门课的样子挺好"让漂移过了关。VISUAL DIFF 时把窗口压窄、
+    或临时多造几门课，确认<strong>左栏内部滚动</strong>而不是把详情往下推。
+  </p>
+  <p><strong>桌面单一视口，没有移动版</strong> —— 与 <code>course-catalog</code> 相同，这是范围限定。</p>
+</section>
+
+</body>
+</html>
