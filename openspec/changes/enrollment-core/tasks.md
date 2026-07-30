@@ -28,7 +28,7 @@
 - [x] 1.4 GREEN — 若 1.3 已通过，说明 partial index 生效；若没通过，修索引条件
 - [x] 1.5 RED — 不同场次的两条报课并存（重听同一门课的场景）
 - [x] 1.6 GREEN — 确认无需改动或修正索引条件
-- [ ] 1.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-1.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
+- [x] 1.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-1.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 2. 报课接口与状态派生
 
@@ -50,16 +50,16 @@
   - `StudentUpdate` 那类哨兵语义：客户端显式传 `null` 要在边界上挡住
 - **Threshold**: 80
 
-- [ ] 2.0 CONTRACT — write openspec/changes/enrollment-core/contracts/group-2.md with the ### Contract block above
-- [ ] 2.1 RED — 派生：场次已上时 `state == "completed"`，而库里存的仍是 `enrolled`
-- [ ] 2.2 GREEN — `GET /api/enrollments`（可按学员筛选），派生 `state` 复用场次 state
-- [ ] 2.3 RED — 派生的另外四态：无场次、场次未到、场次**已取消**、退课压倒派生
-- [ ] 2.4 GREEN — 补齐派生分支
-- [ ] 2.5 RED — 写入路径：补录一条（含可选字段）、改场次到未来那场后 `state` 变回 `enrolled`、
+- [x] 2.0 CONTRACT — write openspec/changes/enrollment-core/contracts/group-2.md with the ### Contract block above
+- [x] 2.1 RED — 派生：场次已上时 `state == "completed"`，而库里存的仍是 `enrolled`
+- [x] 2.2 GREEN — `GET /api/enrollments`（可按学员筛选），派生 `state` 复用场次 state
+- [x] 2.3 RED — 派生的另外四态：无场次、场次未到、场次**已取消**、退课压倒派生
+- [x] 2.4 GREEN — 补齐派生分支
+- [x] 2.5 RED — 写入路径：补录一条（含可选字段）、改场次到未来那场后 `state` 变回 `enrolled`、
       清空场次同理、标退课、退课改回报名、删除记录
-- [ ] 2.6 GREEN — `POST/PATCH/DELETE /api/enrollments`
-- [ ] 2.7 RED — 补录到已下线课程被拒绝；但既有的、指向已下线课程的报课照常返回
-- [ ] 2.8 GREEN — 补录时校验课程未下线
+- [x] 2.6 GREEN — `POST/PATCH/DELETE /api/enrollments`
+- [x] 2.7 RED — 补录到已下线课程被拒绝；但既有的、指向已下线课程的报课照常返回
+- [x] 2.8 GREEN — 补录时校验课程未下线
 - [ ] 2.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-2.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 3. 计数与场次删除守卫

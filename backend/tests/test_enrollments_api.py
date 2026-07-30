@@ -8,6 +8,7 @@ from datetime import date, time
 
 import pytest
 from sqlalchemy.exc import IntegrityError
+from sqlmodel import select
 
 from app.models import Course, CourseSession, Enrollment, Student
 
@@ -92,7 +93,9 @@ def test_two_sessions_of_the_same_course_can_both_be_enrolled(db_session):
     enroll(db_session, student, course, june)
     enroll(db_session, student, course, august)
 
-    rows = db_session.query(Enrollment).filter_by(student_email=student.email).all()
+    rows = db_session.exec(
+        select(Enrollment).where(Enrollment.student_email == student.email)
+    ).all()
     assert len(rows) == 2
     assert {r.session_id for r in rows} == {june.id, august.id}
 
@@ -107,4 +110,185 @@ def test_the_same_session_can_hold_several_students(db_session):
     enroll(db_session, a, course, only)
     enroll(db_session, b, course, only)
 
-    assert db_session.query(Enrollment).filter_by(session_id=only.id).count() == 2
+    rows = db_session.exec(
+        select(Enrollment).where(Enrollment.session_id == only.id)
+    ).all()
+    assert len(rows) == 2
+
+
+# --- 状态派生 -------------------------------------------------------------
+#
+# 只存 enrolled / withdrawn。「已完成」不入库，读取时由所属场次派生——
+# 没有人会在每次课后回来把十几条记录挨个改成已完成，存下来的状态会腐烂。
+
+
+def read_states(client, email):
+    resp = client.get("/api/enrollments", params={"student": email})
+    assert resp.status_code == 200
+    return [row["state"] for row in resp.json()]
+
+
+def test_past_session_reads_as_completed_but_is_stored_as_enrolled(client, db_session):
+    student = seed_student(db_session)
+    course = seed_course(db_session)
+    past = seed_session(db_session, course, "2020-01-01")
+    row = enroll(db_session, student, course, past)
+
+    assert read_states(client, student.email) == ["completed"]
+    # 库里没有存过这个状态——这正是这条设计的要点
+    db_session.refresh(row)
+    assert row.status == "enrolled"
+
+
+def test_enrollment_without_a_session_reads_as_enrolled(client, db_session):
+    student = seed_student(db_session)
+    course = seed_course(db_session)
+    enroll(db_session, student, course, None)
+
+    assert read_states(client, student.email) == ["enrolled"]
+
+
+def test_future_session_reads_as_enrolled(client, db_session):
+    student = seed_student(db_session)
+    course = seed_course(db_session)
+    later = seed_session(db_session, course, "2099-01-01")
+    enroll(db_session, student, course, later)
+
+    assert read_states(client, student.email) == ["enrolled"]
+
+
+def test_cancelled_session_does_not_count_as_completed(client, db_session):
+    """课没上成，人还欠一场——所以是「报名」，不是「已完成」。"""
+    student = seed_student(db_session)
+    course = seed_course(db_session)
+    past = seed_session(db_session, course, "2020-01-01")
+    past.state_override = "cancelled"
+    db_session.add(past)
+    db_session.commit()
+    enroll(db_session, student, course, past)
+
+    assert read_states(client, student.email) == ["enrolled"]
+
+
+def test_withdrawn_overrides_the_derived_state(client, db_session):
+    """退课是存下来的那一个，它压倒派生：场次早就上过了也仍是退课。"""
+    student = seed_student(db_session)
+    course = seed_course(db_session)
+    past = seed_session(db_session, course, "2020-01-01")
+    enroll(db_session, student, course, past, status="withdrawn")
+
+    assert read_states(client, student.email) == ["withdrawn"]
+
+
+# --- 写入 -----------------------------------------------------------------
+
+
+def test_create_keeps_every_field_the_form_collects(client, db_session):
+    """新建路径要真正处理**所有**字段，不只是必填的那几个。
+
+    只送必填字段、其余被静默丢弃是这个项目踩过的坑：后端有默认值所以不报错，
+    而"先建最简记录、再逐个编辑"的验收流程根本走不到新建路径的字段处理。
+    """
+    student = seed_student(db_session)
+    course = seed_course(db_session)
+    only = seed_session(db_session, course)
+
+    resp = client.post(
+        "/api/enrollments",
+        json={
+            "student_email": student.email,
+            "course_id": str(course.id),
+            "session_id": str(only.id),
+            "enrolled_at": "2026-05-04",
+            "note": "线下转账，平台漏记",
+        },
+    )
+
+    assert resp.status_code == 201
+    body = resp.json()
+    assert body["session_id"] == str(only.id)
+    assert body["enrolled_at"] == "2026-05-04"
+    assert body["note"] == "线下转账，平台漏记"
+    assert body["source"] == "manual"
+
+
+def test_moving_to_a_later_session_brings_the_state_back_to_enrolled(client, db_session):
+    """没上成、要补后面那一场——改场次即可，不需要状态覆盖。"""
+    student = seed_student(db_session)
+    course = seed_course(db_session)
+    past = seed_session(db_session, course, "2020-01-01")
+    later = seed_session(db_session, course, "2099-01-01")
+    row = enroll(db_session, student, course, past)
+    assert read_states(client, student.email) == ["completed"]
+
+    resp = client.patch(f"/api/enrollments/{row.id}", json={"session_id": str(later.id)})
+
+    assert resp.status_code == 200
+    assert resp.json()["state"] == "enrolled"
+
+
+def test_clearing_the_session_brings_the_state_back_to_enrolled(client, db_session):
+    """还没定补哪一场：清空场次，落进"未定场次"那一类。"""
+    student = seed_student(db_session)
+    course = seed_course(db_session)
+    past = seed_session(db_session, course, "2020-01-01")
+    row = enroll(db_session, student, course, past)
+
+    resp = client.patch(f"/api/enrollments/{row.id}", json={"session_id": None})
+
+    assert resp.status_code == 200
+    assert resp.json()["state"] == "enrolled"
+    assert resp.json()["session_id"] is None
+
+
+def test_withdraw_and_restore(client, db_session):
+    student = seed_student(db_session)
+    course = seed_course(db_session)
+    later = seed_session(db_session, course, "2099-01-01")
+    row = enroll(db_session, student, course, later)
+
+    assert client.patch(f"/api/enrollments/{row.id}", json={"status": "withdrawn"}).json()["state"] == "withdrawn"
+    # 标错了要能撤销
+    assert client.patch(f"/api/enrollments/{row.id}", json={"status": "enrolled"}).json()["state"] == "enrolled"
+
+
+def test_delete_removes_the_record(client, db_session):
+    """删除 ≠ 退课：退课是"发生过"，删除是"这条记录本身录错了"。"""
+    student = seed_student(db_session)
+    course = seed_course(db_session)
+    row = enroll(db_session, student, course, None)
+
+    assert client.delete(f"/api/enrollments/{row.id}").status_code == 204
+    assert read_states(client, student.email) == []
+
+
+def test_cannot_enroll_into_an_offline_course(client, db_session):
+    """下线是"不再招生"，所以新建被拒。"""
+    student = seed_student(db_session)
+    course = seed_course(db_session)
+    course.offline = True
+    db_session.add(course)
+    db_session.commit()
+
+    resp = client.post(
+        "/api/enrollments",
+        json={
+            "student_email": student.email,
+            "course_id": str(course.id),
+            "enrolled_at": "2026-05-04",
+        },
+    )
+
+    assert resp.status_code == 409
+
+
+def test_existing_enrollments_of_an_offline_course_still_show(client, db_session):
+    """下线不是"这门课没发生过"——既有报课照常返回。"""
+    student = seed_student(db_session)
+    course = seed_course(db_session)
+    enroll(db_session, student, course, None)
+    course.offline = True
+    db_session.add(course)
+    db_session.commit()
+
+    assert read_states(client, student.email) == ["enrolled"]

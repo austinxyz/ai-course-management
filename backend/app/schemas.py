@@ -334,3 +334,58 @@ class SessionUpdate(BaseModel):
         if value is None:
             raise ValueError("null is not a valid value; omit the field instead")
         return value
+
+
+class EnrollmentRead(BaseModel):
+    """一条报课的只读形状。
+
+    `state` 是**算出来的**：库里只存 enrolled / withdrawn，「已完成」由所属场次
+    派生。用 `str` 而非 `Literal`，理由同 `SessionRead`——只读响应上的 `Literal`
+    会让一行落在枚举外时整个列表接口 500，而不是那一行出错。
+
+    课程名与场次日期一并给出：调用方（学员详情）要显示它们，而它们分散在两张表里，
+    让前端再取一次课程列表来查名字既慢又会不一致。
+    """
+
+    id: uuid.UUID
+    student_email: str
+    course_id: uuid.UUID
+    course_name: str
+    session_id: uuid.UUID | None
+    session_date: date | None
+    enrolled_at: date
+    state: str
+    source: str
+    note: str
+
+
+class EnrollmentCreate(BaseModel):
+    """补录一条报课。
+
+    `session_id` 可以不给（还没定上哪一场），`note` 可以为空。
+    两者都要**真的被处理**——只收必填字段、其余静默丢弃时后端不会报错，
+    因为它们都有默认值。
+    """
+
+    student_email: str
+    course_id: uuid.UUID
+    session_id: uuid.UUID | None = None
+    enrolled_at: date
+    note: str = ""
+
+
+class EnrollmentUpdate(BaseModel):
+    """改一条报课。
+
+    `session_id` 上的显式 `null` 在这里**是合法输入**：它表示"清空场次"，
+    而该列本来就可空。这与 `StudentUpdate` 相反——那边的列是 NOT NULL，
+    显式 null 只能是误用，所以被挡在边界上。
+
+    区分"没提到这个字段"与"显式设成 null"，靠调用方读 `model_fields_set`，
+    不是靠值本身。
+    """
+
+    session_id: uuid.UUID | None = None
+    status: str | None = None
+    enrolled_at: date | None = None
+    note: str | None = None

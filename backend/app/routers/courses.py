@@ -37,7 +37,7 @@ def today_pt() -> date:
     return utcnow().astimezone(PACIFIC).date()
 
 
-def _derive_state(row: CourseSession) -> tuple[str, bool]:
+def derive_session_state(row: CourseSession) -> tuple[str, bool]:
     """状态：人工覆盖优先，否则跟随日期。
 
     返回 (状态, 是否人工覆盖) —— 界面靠第二个值决定显示「跟随日期」还是
@@ -60,7 +60,7 @@ def _starts_at(row: CourseSession) -> datetime:
 
 
 def _to_session_read(row: CourseSession) -> SessionRead:
-    state, is_override = _derive_state(row)
+    state, is_override = derive_session_state(row)
     return SessionRead(
         id=row.id,
         starts_at=_starts_at(row),
