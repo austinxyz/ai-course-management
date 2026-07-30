@@ -25,10 +25,10 @@
       两条约束冲突时以"spec 不许声称未被测试的行为"优先：补了
       `test_archived_list_uses_the_same_order`，并按规矩把 `order_by` 故意改错、
       确认三条排序测试都真的会红，再恢复。）
-- [ ] 1.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-1.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
+- [x] 1.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-1.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 2. 验证
 
-- [ ] 2.1 Run backend test suite — `cd backend && uv run pytest`
-- [ ] 2.2 前端测试与构建 —— 本 change 不碰前端，跑一遍确认无意外
-- [ ] 2.3 无需上线 —— 纯文档，不部署、不迁移
+- [x] 2.1 Run backend test suite — `cd backend && uv run pytest`
+- [x] 2.2 前端测试与构建 —— 本 change 不碰前端，跑一遍确认无意外
+- [x] 2.3 无需上线 —— 纯文档，不部署、不迁移
