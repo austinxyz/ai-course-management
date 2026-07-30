@@ -144,6 +144,7 @@ function SessionRow({
           <button
             type="button"
             onClick={onFollowDate}
+            disabled={busy}
             className="border-0 bg-transparent font-sans text-[11.5px] text-primary"
           >
             恢复跟随日期
@@ -237,9 +238,12 @@ function SessionRow({
             />
           </label>
           <div className="flex items-center justify-between gap-2">
+            {/* 与保存按钮一样在写入期间禁用：busy 是全页共享的，
+                连点会把同一个删除发两遍。 */}
             <button
               type="button"
               onClick={onDelete}
+              disabled={busy}
               className="border-0 bg-transparent font-sans text-[11.5px] text-danger"
             >
               删除这一场

@@ -270,3 +270,54 @@ describe("the add-session form", () => {
     );
   });
 });
+
+describe("writes whose failure must survive the closing UI", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("keeps the new-course modal open when the create fails", async () => {
+    // 提交即关窗，等于把失败信息连同承载它的界面一起丢掉 ——
+    // 场次那边刚修过同一个毛病，课程这边不能留着。
+    actions.createCourseAction.mockResolvedValue({ ok: false, message: "建不上。" });
+    const user = userEvent.setup();
+    render(<CoursesClient courses={[]} teachers={[]} />);
+
+    await user.click(screen.getByRole("button", { name: "新建课程" }));
+    await user.type(screen.getByPlaceholderText("如 Claude 实战入门"), "新课");
+    await user.click(screen.getByRole("button", { name: "创建课程" }));
+
+    await waitFor(() => expect(screen.getByText("建不上。")).toBeInTheDocument());
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    // 用户输入还在，不用重打一遍
+    expect(screen.getByPlaceholderText("如 Claude 实战入门")).toHaveValue("新课");
+  });
+
+  it("closes the new-course modal once the create lands", async () => {
+    actions.createCourseAction.mockResolvedValue({ ok: true });
+    const user = userEvent.setup();
+    render(<CoursesClient courses={[]} teachers={[]} />);
+
+    await user.click(screen.getByRole("button", { name: "新建课程" }));
+    await user.type(screen.getByPlaceholderText("如 Claude 实战入门"), "新课");
+    await user.click(screen.getByRole("button", { name: "创建课程" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+
+  it("reports a failed 恢复跟随日期 on the row", async () => {
+    actions.followDateAction.mockResolvedValue({ ok: false, message: "改不回去。" });
+    const overridden = {
+      ...course,
+      sessions: [{ ...done, state: "cancelled" as const, state_is_override: true }],
+    };
+    const user = userEvent.setup();
+    render(<CoursesClient courses={[overridden]} teachers={[]} />);
+
+    await user.click(
+      within(sessionRow("s-done")).getByRole("button", { name: "恢复跟随日期" }),
+    );
+
+    await waitFor(() =>
+      expect(within(sessionRow("s-done")).getByText("改不回去。")).toBeInTheDocument(),
+    );
+  });
+});

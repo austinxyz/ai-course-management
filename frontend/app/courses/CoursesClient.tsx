@@ -97,8 +97,10 @@ export function CoursesClient({ courses, teachers }: CoursesClientProps) {
           ? updateCourseAction(target.id, { ...modal.form, name })
           : createCourseAction({ ...modal.form, name }),
       (message) => setSaveError(message),
+      // 只在成功后关窗。提交即关会把失败信息连同承载它的弹窗一起丢掉，
+      // 用户还得把整张表单重打一遍 —— 场次那边刚修过同一个毛病。
+      () => setModal(null),
     );
-    if (!target) setModal(null);
   }
 
   return (
