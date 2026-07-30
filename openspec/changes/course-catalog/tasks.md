@@ -91,7 +91,7 @@
 - [x] 4.8 GREEN — 派生逻辑 + `_today_pt()` 可替换
 - [x] 4.9 RED — 修改与删除场次；删除后同课程其余场次不受影响
 - [x] 4.10 GREEN — `PATCH` / `DELETE` 端点
-- [ ] 4.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-4.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
+- [x] 4.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-4.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 5. 前端：课程页（列表、详情、场次与时区行）
 

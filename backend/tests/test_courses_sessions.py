@@ -200,7 +200,8 @@ def test_teacher_options_are_the_distinct_teachers_seen_so_far(client, db_sessio
     resp = client.get("/api/courses/teachers")
 
     assert resp.status_code == 200
-    assert resp.json() == ["讲师乙", "讲师甲"] or resp.json() == ["讲师甲", "讲师乙"]
+    # 排序是契约的一部分：选项顺序抖动会让界面每次刷新都换位置。
+    assert resp.json() == sorted(["讲师甲", "讲师乙"])
 
 
 @pytest.mark.parametrize("bad_tz", ["Mars/Olympus", ""])
@@ -210,3 +211,8 @@ def test_unknown_timezone_is_rejected(client, db_session, bad_tz):
     cid = make_course(client)
 
     assert add_session(client, cid, tz=bad_tz).status_code == 422
+
+    # 改一场时同样要拦——两条路径各自都能写 tz。
+    sid = add_session(client, cid, local_date="2026-11-05").json()["sessions"][-1]["id"]
+    patched = client.patch(f"/api/courses/{cid}/sessions/{sid}", json={"tz": bad_tz})
+    assert patched.status_code == 422
