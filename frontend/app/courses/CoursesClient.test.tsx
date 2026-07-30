@@ -130,3 +130,31 @@ describe("CoursesClient", () => {
     expect(screen.getByText("还没有课程")).toBeInTheDocument();
   });
 });
+
+describe("课程列表的容器与顺序", () => {
+  const later: Course = { ...course, id: "c-2", name: "第二门课", sessions: [] };
+
+  it("按 props 给的顺序渲染，不在前端重排", () => {
+    // 顺序是服务端的契约。前端一旦自己排，"最近开课在前"就只是某个客户端的看法 ——
+    // 这条测试防的是将来有人在这里加一句 sort。
+    render(<CoursesClient courses={[later, course]} teachers={[]} />);
+
+    const listed = within(screen.getByRole("navigation", { name: "课程列表" }))
+      .getAllByRole("button")
+      .map((b) => b.textContent ?? "");
+
+    expect(listed[0]).toContain("第二门课");
+    expect(listed[1]).toContain(course.name);
+  });
+
+  it("课程列表在自己的左栏里，详情不在其中", () => {
+    // 上一版把课程做成横排 chip 摞在详情上方：四门课看着还行，
+    // 课程一多就换行堆叠、把详情越推越低。左栏要能自己滚。
+    render(<CoursesClient courses={[course, later]} teachers={[]} />);
+
+    const sidebar = screen.getByRole("navigation", { name: "课程列表" });
+
+    expect(sidebar.className).toMatch(/overflow-y-auto/);
+    expect(within(sidebar).queryByRole("heading", { name: course.name })).toBeNull();
+  });
+});

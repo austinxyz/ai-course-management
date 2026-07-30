@@ -19,7 +19,7 @@
 - [x] 1.3 RED — 没有任何场次的课程排在最前
 - [x] 1.4 RED — **顺序不因写入而抖动**：两门排序键相同的课，编辑其中一门后再查，相对顺序不变。用真实 `PATCH` 触发，不是连查两次 —— 学员名单那个 bug 恰恰是 `UPDATE` 之后才显形
 - [x] 1.5 GREEN — `list_courses` 换成三段排序键（分组位 + 反转日期 + 名称 + id）
-- [ ] 1.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-1.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
+- [x] 1.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-1.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 2. 前端：课程页改回左右两栏
 
@@ -35,13 +35,13 @@
   - 前端仍然不排序：只要它可以重排，"最近开课在前"就只是某个客户端的看法
 - **Threshold**: 70
 
-- [ ] 2.0 CONTRACT — write openspec/changes/course-list-order/contracts/group-2.md with the ### Contract block above
-- [ ] 2.1 MOCK — 读 `docs/superpowers/specs/mocks/2026-07-30-course-list-order-mocks.html`：记下左栏宽度/边框/滚动行为，以及「上次漂移成了什么样」那一节
-- [ ] 2.2 RED — vitest：课程列表按 props 给的顺序渲染（传入乱序数组，断言 DOM 顺序与之一致）—— 钉住"前端不重排"
-- [ ] 2.3 GREEN — 若已满足则确认无需改动并说明；本条的价值是防止将来有人在前端加 `sort`
-- [ ] 2.4 RED — vitest：课程列表位于一个可独立滚动的左栏容器内（可用 `aria-label="课程列表"` 定位），且详情不在该容器内
-- [ ] 2.5 GREEN — 改成左右两栏容器，课程列表移入左栏
-- [ ] 2.6 VISUAL DIFF — 起 dev stack 进 `/courses`，对着 `.dc.html` 的 `isCourses` 分支比：左栏宽度、分隔线、两侧各自滚动。**不要只看四门课** —— 把窗口压窄或临时多造几门，确认左栏内部滚动而不是把详情往下推（上次就是"四门课看着挺好"让漂移过了关）
+- [x] 2.0 CONTRACT — write openspec/changes/course-list-order/contracts/group-2.md with the ### Contract block above
+- [x] 2.1 MOCK — 读 `docs/superpowers/specs/mocks/2026-07-30-course-list-order-mocks.html`：记下左栏宽度/边框/滚动行为，以及「上次漂移成了什么样」那一节
+- [x] 2.2 RED — vitest：课程列表按 props 给的顺序渲染（传入乱序数组，断言 DOM 顺序与之一致）—— 钉住"前端不重排"
+- [x] 2.3 GREEN — 若已满足则确认无需改动并说明；本条的价值是防止将来有人在前端加 `sort`
+- [x] 2.4 RED — vitest：课程列表位于一个可独立滚动的左栏容器内（可用 `aria-label="课程列表"` 定位），且详情不在该容器内
+- [x] 2.5 GREEN — 改成左右两栏容器，课程列表移入左栏
+- [x] 2.6 VISUAL DIFF — 起 dev stack 进 `/courses`，对着 `.dc.html` 的 `isCourses` 分支比：左栏宽度、分隔线、两侧各自滚动。**不要只看四门课** —— 把窗口压窄或临时多造几门，确认左栏内部滚动而不是把详情往下推（上次就是"四门课看着挺好"让漂移过了关）
 - [ ] 2.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-2.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 70 → PASS; < 70 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 3. 验证与上线

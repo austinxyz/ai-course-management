@@ -132,46 +132,58 @@ export function CoursesClient({ courses, teachers }: CoursesClientProps) {
         </Button>
       </header>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-auto bg-background p-[22px]">
+      {/* 左右两栏：左栏定宽自己滚，右侧详情自己滚。
+          上一版把课程做成横排 chip 摞在详情上方——四门课时看着还行，
+          课程一多就换行堆叠，把详情越推越低。 */}
+      <div className="flex min-h-0 flex-1 overflow-hidden">
         {courses.length === 0 ? (
-          <Card className="max-w-[640px]">
-            <div className="flex flex-col gap-1.5">
-              <h3 className="m-0 font-sans text-sm font-semibold">还没有课程</h3>
-              <p className="m-0 font-sans text-[13px] leading-relaxed text-muted">
-                建一门课之后，报课与作业才有地方挂。
-              </p>
-            </div>
-          </Card>
+          <div className="flex-1 overflow-y-auto bg-background p-[22px]">
+            <Card className="max-w-[640px]">
+              <div className="flex flex-col gap-1.5">
+                <h3 className="m-0 font-sans text-sm font-semibold">还没有课程</h3>
+                <p className="m-0 font-sans text-[13px] leading-relaxed text-muted">
+                  建一门课之后，报课与作业才有地方挂。
+                </p>
+              </div>
+            </Card>
+          </div>
         ) : (
           <>
-            <div className="flex flex-wrap gap-2">
+            <nav
+              aria-label="课程列表"
+              className="flex w-[264px] flex-none flex-col gap-2 overflow-y-auto border-r border-border bg-surface-muted p-3"
+            >
+              {/* 顺序就是服务端给的顺序——这里不排。 */}
               {courses.map((course) => (
                 <button
                   key={course.id}
                   type="button"
                   onClick={() => setSelectedId(course.id)}
                   className={cn(
-                    "flex flex-col items-start gap-1 rounded-token border px-3 py-2 text-left",
+                    "flex flex-none flex-col items-start gap-1 rounded-token border px-3 py-2 text-left",
                     course.id === selected?.id
                       ? "border-primary bg-surface"
-                      : "border-border bg-surface-muted",
+                      : "border-border bg-surface",
                   )}
                 >
-                  <span className="flex items-center gap-1.5">
-                    <span className="font-sans text-[13px] font-medium text-foreground">
+                  <span className="flex w-full items-center gap-1.5">
+                    <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap font-sans text-[13.5px] font-medium text-foreground">
                       {course.name}
                     </span>
                     {course.offline && <Badge variant="muted">已下线</Badge>}
                   </span>
-                  <span className="font-mono text-[11px] text-muted-foreground">
+                  <span className="font-mono text-[11.5px] text-muted-foreground">
                     {course.short || "—"} · {course.sessions.length} 场
                   </span>
                 </button>
               ))}
-            </div>
+            </nav>
 
-            {selected && (
-              <CourseDetail
+            {/* min-w-0 不能省：flex 子项默认 min-width:auto，
+                长课程名会把右栏撑开、反过来挤扁左栏。短名字的课看不出来。 */}
+            <div className="flex min-w-0 flex-1 flex-col overflow-y-auto bg-background p-[22px]">
+              {selected && (
+                <CourseDetail
                 course={selected}
                 teachers={teachers}
                 busy={busy}
@@ -211,8 +223,9 @@ export function CoursesClient({ courses, teachers }: CoursesClientProps) {
                     () => setSessionAdded((n) => n + 1),
                   );
                 }}
-              />
-            )}
+                />
+              )}
+            </div>
           </>
         )}
       </div>
