@@ -62,3 +62,17 @@
     - "runtime: tests 73/73 pass (8 new CoursesClient tests + 65 existing); build successful, no TS errors; DST scenario correctly uses October PDT (UTC-7) and December PST (UTC-8) with Shanghai assertions (not US-only); test fixture starts_at values confirm backend computed via zoneinfo (Oct 16 02:30Z, Dec 16 03:30Z from 19:30 local)"
     - "code: Code review APPROVED (0 issues); tz.ts contains ONLY formatting (Intl.DateTimeFormat with IANA names), no wall-time→instant reverse conversion in JS; CoursesClient holds selectedId state only, selected derived via useMemo from prop (no local copy per student-write lesson); STATE_LABEL badge mapping pending→success/done→muted/cancelled→danger matches design script; all verbatim strings byte-for-byte match mocks (导入时按这些写法匹配到本课程, 还没有排课。加一个上课时间后，这门课才会出现在报课的场次选项里。, 上课时间 · 每场独立讲师与学员)"
   fix_tasks: []
+
+- group: 6
+  attempt: 1
+  scores: {spec: 70, runtime: 65, code: 50}
+  total: 64
+  status: RETRY
+  findings:
+    - "spec: Course name required field validation works; alias sync hint shown; edit-on-done warning displays; teacher dedup & new-teacher input work. BUT: inline session editing has no error display on write failures (contract 必填: 保存中降透明度、失败就近提示并保留用户输入). Opacity-on-save works, input preservation works via draft state, but error messages are routed only to CourseModal and never displayed during inline edits. Deducted 30."
+    - "runtime: 81/81 tests pass; build successful. BUT: zero tests for session action error returns (contrast: alias tests include ok:false cases). addSessionAction/updateSessionAction/deleteSessionAction/followDateAction all mocked with ok:true only (CoursesClient.write.test.tsx:132-133). The missing error-scenario coverage explains why the silent-failure bug exists in production code. Deducted 35."
+    - "code: Server Actions correctly check site password independently; ActionResult return-value pattern used consistently; modal doesn't mutate props; no wall-time-to-instant conversion in frontend. BUT HIGH: session error display completely missing. SessionRowsProps has no error field, SessionRow has no error slot, saveError from write() is stored but rendered only inside CourseModal (line 174 CoursesClient.tsx) which is closed during inline session editing. User gets zero feedback when updateSessionAction/deleteSessionAction/followDateAction return ok:false. Deducted 50."
+  fix_tasks:
+    - "6.F1 FIX — Add session-specific error state to CoursesClient (separate from courseSaveError); thread sessionError & sessionErrorId into SessionRows/SessionRow props"
+    - "6.F2 FIX — Add error display slot in SessionRow inline edit UI; show error inline when session action fails, independent of course modal state"
+    - "6.F3 FIX — Add test cases to CoursesClient.write.test.tsx for all session action error paths (updateSessionAction ok:false, deleteSessionAction ok:false, etc.)"

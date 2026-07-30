@@ -201,3 +201,72 @@ describe("scheduling sessions", () => {
 function sessionRow(id: string): HTMLElement {
   return document.querySelector(`[data-session="${id}"]`) as HTMLElement;
 }
+
+describe("a session write that fails", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("shows the failure next to the session, not inside a closed modal", async () => {
+    // 行内编辑时弹窗是关的。把失败信息只渲染在弹窗里，等于保存失败了什么都不说 ——
+    // 而调用方已经把 message 返回回来了。
+    actions.updateSessionAction.mockResolvedValue({ ok: false, message: "没保存上。" });
+    const user = userEvent.setup();
+    render(<CoursesClient courses={[course]} teachers={["讲师甲"]} />);
+
+    await user.click(within(sessionRow("s-done")).getByRole("button", { name: "修正" }));
+    await user.click(within(sessionRow("s-done")).getByRole("button", { name: "保存这一场" }));
+
+    await waitFor(() =>
+      expect(within(sessionRow("s-done")).getByText("没保存上。")).toBeInTheDocument(),
+    );
+  });
+
+  it("reports a failed delete instead of looking like it worked", async () => {
+    actions.deleteSessionAction.mockResolvedValue({ ok: false, message: "删不掉。" });
+    const user = userEvent.setup();
+    render(<CoursesClient courses={[course]} teachers={[]} />);
+
+    await user.click(within(sessionRow("s-done")).getByRole("button", { name: "修正" }));
+    await user.click(within(sessionRow("s-done")).getByRole("button", { name: "删除这一场" }));
+
+    await waitFor(() =>
+      expect(within(sessionRow("s-done")).getByText("删不掉。")).toBeInTheDocument(),
+    );
+  });
+
+  it("reports a failed add next to the form that submitted it", async () => {
+    actions.addSessionAction.mockResolvedValue({ ok: false, message: "日期不对。" });
+    const user = userEvent.setup();
+    render(<CoursesClient courses={[course]} teachers={["讲师甲"]} />);
+
+    await user.click(screen.getByRole("button", { name: "+ 添加上课时间" }));
+    await user.type(screen.getByLabelText(/上课日期/), "2026-11-05");
+    await user.type(screen.getByLabelText(/时间（美西）/), "19:30");
+    await user.click(screen.getByRole("button", { name: "讲师甲" }));
+    await user.click(screen.getByRole("button", { name: "添加这一场" }));
+
+    await waitFor(() => expect(screen.getByText("日期不对。")).toBeInTheDocument());
+  });
+});
+
+describe("the add-session form", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("closes once the session is added but stays open on failure", async () => {
+    actions.addSessionAction.mockResolvedValue({ ok: true });
+    const user = userEvent.setup();
+    render(<CoursesClient courses={[course]} teachers={["讲师甲"]} />);
+
+    await user.click(screen.getByRole("button", { name: "+ 添加上课时间" }));
+    await user.type(screen.getByLabelText(/上课日期/), "2026-11-05");
+    await user.type(screen.getByLabelText(/时间（美西）/), "19:30");
+    await user.click(screen.getByRole("button", { name: "讲师甲" }));
+    await user.click(screen.getByRole("button", { name: "添加这一场" }));
+
+    // 成功后收起来：新场次会出现在上面的列表里，表单留着只会让人以为没提交成功。
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "添加这一场" })).not.toBeInTheDocument(),
+    );
+  });
+});

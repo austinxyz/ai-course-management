@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Badge, Button, Input } from "@/components/ui";
 import { cn } from "@/lib/cn";
@@ -36,13 +36,28 @@ interface SessionRowsProps {
   onFollowDate: (sessionId: string) => void;
   onAdd: (body: Record<string, string>) => void;
   busy: boolean;
+  /**
+   * 按场次 id 存的失败信息，`new` 是新增表单那一条。
+   *
+   * 就近显示，不走课程弹窗那条通道：行内编辑时弹窗关着，
+   * 而"看着像存上了、其实没存"是这套界面最不该有的失败方式。
+   */
+  errors: Record<string, string>;
+  /** 新增成功的计数。变化即表示刚存上了一条，表单该收起。 */
+  added: number;
 }
 
 export function SessionRows({
-  course, teachers, onSave, onDelete, onFollowDate, onAdd, busy,
+  course, teachers, onSave, onDelete, onFollowDate, onAdd, busy, errors, added,
 }: SessionRowsProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+
+  // 只在成功后收起。提交即关掉的话，失败信息会跟着表单一起消失，
+  // 而那正是最需要它留下来的时候。
+  useEffect(() => {
+    setAdding(false);
+  }, [added]);
 
   return (
     <div className="mt-3 flex flex-col gap-2">
@@ -63,6 +78,7 @@ export function SessionRows({
             onDelete={() => onDelete(session.id)}
             onFollowDate={() => onFollowDate(session.id)}
             busy={busy}
+            error={errors[session.id] ?? null}
           />
         ))
       )}
@@ -71,11 +87,9 @@ export function SessionRows({
         <AddSession
           teachers={teachers}
           onCancel={() => setAdding(false)}
-          onAdd={(body) => {
-            onAdd(body);
-            setAdding(false);
-          }}
+          onAdd={(body) => onAdd(body)}
           busy={busy}
+          error={errors.new ?? null}
         />
       ) : (
         <div>
@@ -89,7 +103,7 @@ export function SessionRows({
 }
 
 function SessionRow({
-  session, index, teachers, editing, onToggleEdit, onSave, onDelete, onFollowDate, busy,
+  session, index, teachers, editing, onToggleEdit, onSave, onDelete, onFollowDate, busy, error,
 }: {
   session: CourseSession;
   index: number;
@@ -100,6 +114,7 @@ function SessionRow({
   onDelete: () => void;
   onFollowDate: () => void;
   busy: boolean;
+  error: string | null;
 }) {
   const state = STATE_LABEL[session.state];
   const base = session.tz;
@@ -144,6 +159,10 @@ function SessionRow({
           {editing ? "完成" : past ? "修正" : "改这一场"}
         </button>
       </div>
+
+      {error && (
+        <span className="font-sans text-[11.5px] text-danger">{error}</span>
+      )}
 
       {!editing && (
         <>
@@ -290,11 +309,13 @@ function AddSession({
   onCancel,
   onAdd,
   busy,
+  error,
 }: {
   teachers: string[];
   onCancel: () => void;
   onAdd: (body: Record<string, string>) => void;
   busy: boolean;
+  error: string | null;
 }) {
   const [draft, setDraft] = useState({
     local_date: "",
@@ -351,6 +372,7 @@ function AddSession({
           onChange={(e) => setDraft({ ...draft, note: e.target.value })}
         />
       </label>
+      {error && <span className="font-sans text-[11.5px] text-danger">{error}</span>}
       <div className="flex items-center justify-end gap-2">
         <Button variant="secondary" onClick={onCancel}>
           取消

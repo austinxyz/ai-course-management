@@ -145,7 +145,10 @@
 - [x] 6.8 RED — vitest：场次行内编辑；编辑一场 `done` 的场次时先出现「这一场已经上过…」警示；讲师选项来自已有场次去重且可新增
 - [x] 6.9 GREEN — `SessionRows.tsx` 行内编辑与新增一场表单
 - [x] 6.10 VISUAL DIFF — 起 dev stack，对着 `.dc.html` 比课程弹窗与场次编辑态：字段分组、副文案位置、chip 选中态、警示条样式
-- [ ] 6.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-6.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 70 → PASS; < 70 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
+- [x] 6.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-6.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 70 → PASS; < 70 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
+- [x] 6.F1 FIX — 场次行内编辑失败时错误不可见。Session write failures 无反馈：`updateSessionAction`/`deleteSessionAction`/`followDateAction` 返回 `ok:false` 时错误被存进 `saveError` 但仅在 `CourseModal`（不可见于行内编辑时）渲染。需在 `CoursesClient` 分出 `sessionError`/`sessionErrorId`，传入 `SessionRows`/`SessionRow`；在行内编辑 UI 里就近显示
+- [x] 6.F2 FIX — 在 `SessionRow` 编辑态 UI 加错误显示槽位，独立于课程弹窗的 `error` 显示。失败就近提示是学员详情面板那套必备，这里缺了
+- [x] 6.F3 FIX — 补测试：`CoursesClient.write.test.tsx` 里所有 session 写操作都要覆盖 `ok:false` 路径，对标现有的别名占用测试。当前行 132-133 只测 `ok:true`，导致这个静默失败的 bug 没被发现
 
 ## 7. 验证与上线
 

@@ -42,16 +42,43 @@ export function CoursesClient({ courses, teachers }: CoursesClientProps) {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [aliasDraft, setAliasDraft] = useState("");
   const [aliasError, setAliasError] = useState<string | null>(null);
+  /**
+   * 场次写入的失败信息，按场次分开存；`null` 那个键是"新增一场"表单。
+   *
+   * 不能与课程弹窗的 saveError 共用一个格子：行内编辑时弹窗是关的，
+   * 而 saveError 只在弹窗里渲染 —— 那等于保存失败了什么都不说。
+   */
+  const [sessionErrors, setSessionErrors] = useState<Record<string, string>>({});
+  /**
+   * 每次新增成功就 +1。新增表单据此收起 —— 失败时不动，用户输入与错误信息都留在原处。
+   */
+  const [sessionAdded, setSessionAdded] = useState(0);
+
+  function failSession(key: string | null, message: string) {
+    setSessionErrors((prev) => ({ ...prev, [key ?? "new"]: message }));
+  }
+
+  function clearSession(key: string | null) {
+    setSessionErrors((prev) => {
+      const { [key ?? "new"]: _dropped, ...rest } = prev;
+      return rest;
+    });
+  }
   const [busy, startWrite] = useTransition();
 
   /**
    * 所有写入走这里。预期内的失败是**返回值**，不是异常 ——
    * 生产构建会把 Server Action 抛出的 message 抹成 digest，客户端拿不到内容。
    */
-  function write(operation: () => Promise<ActionResult>, onFail: (message: string) => void) {
+  function write(
+    operation: () => Promise<ActionResult>,
+    onFail: (message: string) => void,
+    onDone?: () => void,
+  ) {
     startWrite(async () => {
       const result = await operation();
-      if (!result.ok) onFail(result.message);
+      if (result.ok) onDone?.();
+      else onFail(result.message);
     });
   }
 
@@ -145,18 +172,37 @@ export function CoursesClient({ courses, teachers }: CoursesClientProps) {
                   setAliasError(null);
                   setModal({ course: selected, form: formFrom(selected) });
                 }}
-                onSaveSession={(sessionId, patch) =>
-                  write(() => updateSessionAction(selected.id, sessionId, patch), setSaveError)
-                }
-                onDeleteSession={(sessionId) =>
-                  write(() => deleteSessionAction(selected.id, sessionId), setSaveError)
-                }
-                onFollowDate={(sessionId) =>
-                  write(() => followDateAction(selected.id, sessionId), setSaveError)
-                }
-                onAddSession={(body) =>
-                  write(() => addSessionAction(selected.id, body), setSaveError)
-                }
+                sessionErrors={sessionErrors}
+                onSaveSession={(sessionId, patch) => {
+                  clearSession(sessionId);
+                  write(
+                    () => updateSessionAction(selected.id, sessionId, patch),
+                    (message) => failSession(sessionId, message),
+                  );
+                }}
+                onDeleteSession={(sessionId) => {
+                  clearSession(sessionId);
+                  write(
+                    () => deleteSessionAction(selected.id, sessionId),
+                    (message) => failSession(sessionId, message),
+                  );
+                }}
+                onFollowDate={(sessionId) => {
+                  clearSession(sessionId);
+                  write(
+                    () => followDateAction(selected.id, sessionId),
+                    (message) => failSession(sessionId, message),
+                  );
+                }}
+                sessionAdded={sessionAdded}
+                onAddSession={(body) => {
+                  clearSession(null);
+                  write(
+                    () => addSessionAction(selected.id, body),
+                    (message) => failSession(null, message),
+                    () => setSessionAdded((n) => n + 1),
+                  );
+                }}
               />
             )}
           </>
@@ -198,6 +244,10 @@ interface CourseDetailProps {
   course: Course;
   teachers: string[];
   busy: boolean;
+  /** 按场次 id 存的失败信息；`new` 是新增表单那一条。 */
+  sessionErrors: Record<string, string>;
+  /** 新增成功的计数，用来收起新增表单。 */
+  sessionAdded: number;
   onEdit: () => void;
   onSaveSession: (sessionId: string, patch: Record<string, string>) => void;
   onDeleteSession: (sessionId: string) => void;
@@ -209,6 +259,8 @@ function CourseDetail({
   course,
   teachers,
   busy,
+  sessionErrors,
+  sessionAdded,
   onEdit,
   onSaveSession,
   onDeleteSession,
@@ -297,6 +349,8 @@ function CourseDetail({
           course={course}
           teachers={teachers}
           busy={busy}
+          errors={sessionErrors}
+          added={sessionAdded}
           onSave={onSaveSession}
           onDelete={onDeleteSession}
           onFollowDate={onFollowDate}
