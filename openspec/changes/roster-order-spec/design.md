@@ -57,10 +57,12 @@ students = session.exec(
 ## Risks / Trade-offs
 
 - **[承诺了在读与已归档同规则]** → 实现上本就是同一条 `select`（`clause` 只切换归档过滤），
-  所以事实成立；但写进需求即是承诺。若将来想让已归档按归档时间倒序，这句话要按
-  REMOVED + ADDED 改，不能原地改标题
+  事实成立；但写进需求即是承诺，而**当时没有任何测试覆盖它**。apply 阶段据此补了
+  `test_archived_list_uses_the_same_order`（本 change 唯一的代码改动，且只在测试里）——
+  spec 不得声称未被测试的行为，否则它看起来覆盖得比实际多。
+  若将来想让已归档按归档时间倒序，这句话要按 REMOVED + ADDED 改，不能原地改标题
 - **[spec-only change 的 apply 阶段没有 RED/GREEN]** → 没有代码可写就不造代码。
-  验证方式改为：跑测试确认原样通过，并断言 `git diff` 在 backend/ 与 frontend/ 下为空
+  验证方式改为：跑测试确认原样通过，并断言生产代码零改动（新增测试除外）
 
 ## Migration Plan
 

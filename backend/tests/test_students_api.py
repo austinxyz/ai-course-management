@@ -87,6 +87,33 @@ def test_list_order_breaks_name_ties_deterministically(client, db_session):
     assert second_pass == first_pass
 
 
+def test_archived_list_uses_the_same_order(client, db_session):
+    """The archived roster is the same endpoint with a different filter, so it
+    gets the same order — a rule that holds for one list and not the other is
+    two rules, and the spec says it is one."""
+    db_session.exec(delete(Student))
+    for email, name in [
+        ("b@example.com", "Bravo"),
+        ("c@example.com", "Charlie"),
+        ("a@example.com", "Alpha"),
+    ]:
+        client.post(
+            "/api/students",
+            json={
+                "email": email,
+                "name": name,
+                "region": "美东",
+                "level": "小白",
+                "source": "讲武堂",
+            },
+        )
+        client.post(f"/api/students/{email}/archive")
+
+    archived = client.get("/api/students", params={"archived": "true"}).json()
+
+    assert [s["name"] for s in archived] == ["Alpha", "Bravo", "Charlie"]
+
+
 def test_get_student_by_email_case_insensitive(client):
     resp = client.get("/api/students/CHEN.JIAHE@EXAMPLE.COM")
     assert resp.status_code == 200
