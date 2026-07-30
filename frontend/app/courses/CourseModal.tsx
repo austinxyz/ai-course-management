@@ -171,6 +171,7 @@ export function CourseModal(props: CourseModalProps) {
                   <button
                     type="button"
                     aria-label={`删除别名 ${alias.raw}`}
+                    disabled={saving}
                     onClick={() => onRemoveAlias(alias.raw)}
                     className="border-0 bg-transparent font-sans text-[12px] text-muted-foreground"
                   >
@@ -185,8 +186,14 @@ export function CourseModal(props: CourseModalProps) {
                 placeholder="平台里的另一种写法"
                 onChange={(e) => onAliasDraft(e.target.value)}
               />
-              {/* flex-none + nowrap：输入框会把按钮压到"添加别 / 名"两行。 */}
-              <Button variant="secondary" className="flex-none whitespace-nowrap" onClick={onAddAlias}>
+              {/* flex-none + nowrap：输入框会把按钮压到"添加别 / 名"两行。
+                  disabled：busy 是全页共享的，连点会把同一个别名发两遍、第二次撞主键。 */}
+              <Button
+                variant="secondary"
+                className="flex-none whitespace-nowrap"
+                disabled={saving}
+                onClick={onAddAlias}
+              >
                 添加别名
               </Button>
             </div>
@@ -219,7 +226,9 @@ export function CourseModal(props: CourseModalProps) {
             已有报课不会因为改课程信息而变动
           </span>
           <div className="flex gap-2">
-            <Button variant="secondary" onClick={onClose}>
+            {/* 保存中禁用：弹窗一关，随后回来的失败信息就没有地方渲染 ——
+                与"提交即关窗"是同一个失败，只是从另一个出口漏出来。 */}
+            <Button variant="secondary" disabled={saving} onClick={onClose}>
               取消
             </Button>
             <Button variant="primary" onClick={onSave} disabled={saving}>

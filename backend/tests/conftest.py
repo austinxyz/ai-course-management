@@ -63,3 +63,23 @@ def anon_client(db_session):
         yield TestClient(app)
     finally:
         app.dependency_overrides.clear()
+
+
+@pytest.fixture(autouse=True)
+def empty_course_tables(db_session):
+    """课程三张表在每个测试开始时清空（仍在会被回滚的事务里）。
+
+    别名是**全库唯一**的，所以只要本地库里存着一门带 `S1` 的课，
+    任何用 `S1` 的测试就会 409 —— 而那门课可能是手工建的、截图用的、上次验收留下的。
+    学员那边不需要这条：邮箱唯一性只在同一封邮箱上撞，而测试用的是 @example.com。
+    这里清空而不是改用随机别名，是因为"别名撞了"本身就是被测行为之一，
+    随机化会把它一起绕过去。
+    """
+    from sqlmodel import delete
+
+    from app.models import Course, CourseAlias, CourseSession
+
+    db_session.exec(delete(CourseSession))
+    db_session.exec(delete(CourseAlias))
+    db_session.exec(delete(Course))
+    return db_session

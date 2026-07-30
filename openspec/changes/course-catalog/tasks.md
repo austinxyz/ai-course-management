@@ -152,10 +152,10 @@
 
 ## 7. 验证与上线
 
-- [ ] 7.1 Run backend test suite — `cd backend && uv run pytest`，确认无回归
-- [ ] 7.2 Run frontend test suite — `cd frontend && npm run test`，确认无回归；另跑 `npm run build`
-- [ ] 7.3 e2e — `project.e2e_command` 为空，本 change 不新增 e2e
-- [ ] 7.4 Run superpowers:verification-before-completion — 跑 `project.test_commands`；`grep -rn 'console.log' frontend/app frontend/lib`；跑 `project.custom_verification_checks`
+- [x] 7.1 Run backend test suite — `cd backend && uv run pytest`，确认无回归
+- [x] 7.2 Run frontend test suite — `cd frontend && npm run test`，确认无回归；另跑 `npm run build`
+- [x] 7.3 e2e — `project.e2e_command` 为空，本 change 不新增 e2e
+- [x] 7.4 Run superpowers:verification-before-completion — 跑 `project.test_commands`；`grep -rn 'console.log' frontend/app frontend/lib`；跑 `project.custom_verification_checks`
 - [ ] 7.5 上线顺序 —— **DB → 后端 → 前端**。push 后先确认 `.github/workflows/db-migrate.yml` 的 migration 跑绿，再验收页面；表不存在时后端能正常启动但接口 500，前端会整页错误态
 - [ ] 7.6 生产验收 —— 建一门真实课程 + 至少两场，其中一场排在 11 月之后；刷新确认落库；确认该场的亚洲时区行与 11 月前那场相差 1 小时
 - [ ] 7.7 生产验收 —— 给该课程加别名 `S1`（`grades.csv` 现用写法），为下一个 change 的导入匹配做准备

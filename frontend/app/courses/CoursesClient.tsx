@@ -227,8 +227,13 @@ export function CoursesClient({ courses, teachers }: CoursesClientProps) {
             const raw = aliasDraft.trim();
             if (!target || !raw) return;
             setAliasError(null);
-            write(() => addAliasAction(target.id, raw), (message) => setAliasError(message));
-            setAliasDraft("");
+            // 只在成功后清空输入。失败时留着用户刚敲的那个写法，
+            // 与课程表单保留输入是同一条原则。
+            write(
+              () => addAliasAction(target.id, raw),
+              (message) => setAliasError(message),
+              () => setAliasDraft(""),
+            );
           }}
           onRemoveAlias={(raw) => {
             const target = modal.course;

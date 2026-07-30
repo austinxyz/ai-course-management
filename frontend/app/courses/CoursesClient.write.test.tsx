@@ -321,3 +321,65 @@ describe("writes whose failure must survive the closing UI", () => {
     );
   });
 });
+
+describe("guards while a write is in flight", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("does not let 取消 close the modal mid-save", async () => {
+    // 保存中点取消，弹窗一走，随后回来的失败信息就没有地方渲染 ——
+    // 与"提交即关窗"是同一个失败，只是从另一个出口漏出来。
+    actions.createCourseAction.mockReturnValue(new Promise(() => {}));
+    const user = userEvent.setup();
+    render(<CoursesClient courses={[]} teachers={[]} />);
+
+    await user.click(screen.getByRole("button", { name: "新建课程" }));
+    await user.type(screen.getByPlaceholderText("如 Claude 实战入门"), "新课");
+    await user.click(screen.getByRole("button", { name: "创建课程" }));
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "取消" })).toBeDisabled());
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("disables the alias buttons while a write is pending", async () => {
+    // busy 是全页共享的：连点「添加别名」会把同一个别名发两遍，
+    // 第二次撞主键。session 那边刚补过这层，别名这边漏了。
+    actions.addAliasAction.mockReturnValue(new Promise(() => {}));
+    const user = userEvent.setup();
+    render(<CoursesClient courses={[course]} teachers={[]} />);
+    await openEditor();
+
+    await user.type(screen.getByPlaceholderText("平台里的另一种写法"), "S2");
+    await user.click(screen.getByRole("button", { name: "添加别名" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "添加别名" })).toBeDisabled(),
+    );
+    expect(screen.getByRole("button", { name: "删除别名 S1" })).toBeDisabled();
+  });
+
+  it("keeps the alias draft when the add fails", async () => {
+    actions.addAliasAction.mockResolvedValue({ ok: false, message: "别名被占了。" });
+    const user = userEvent.setup();
+    render(<CoursesClient courses={[course]} teachers={[]} />);
+    await openEditor();
+
+    await user.type(screen.getByPlaceholderText("平台里的另一种写法"), "S2");
+    await user.click(screen.getByRole("button", { name: "添加别名" }));
+
+    await waitFor(() => expect(screen.getByText("别名被占了。")).toBeInTheDocument());
+    // 失败就把用户刚敲的清掉，和课程表单那边的做法自相矛盾
+    expect(screen.getByPlaceholderText("平台里的另一种写法")).toHaveValue("S2");
+  });
+
+  it("keeps an edit-course failure on screen too", async () => {
+    actions.updateCourseAction.mockResolvedValue({ ok: false, message: "改不上。" });
+    const user = userEvent.setup();
+    render(<CoursesClient courses={[course]} teachers={[]} />);
+    await openEditor();
+
+    await user.click(screen.getByRole("button", { name: "保存课程" }));
+
+    await waitFor(() => expect(screen.getByText("改不上。")).toBeInTheDocument());
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+});

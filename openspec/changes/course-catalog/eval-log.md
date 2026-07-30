@@ -76,3 +76,14 @@
     - "6.F1 FIX — Add session-specific error state to CoursesClient (separate from courseSaveError); thread sessionError & sessionErrorId into SessionRows/SessionRow props"
     - "6.F2 FIX — Add error display slot in SessionRow inline edit UI; show error inline when session action fails, independent of course modal state"
     - "6.F3 FIX — Add test cases to CoursesClient.write.test.tsx for all session action error paths (updateSessionAction ok:false, deleteSessionAction ok:false, etc.)"
+
+- group: 6
+  attempt: 2
+  scores: {spec: 100, runtime: 100, code: 100}
+  total: 100
+  status: PASS
+  findings:
+    - "spec: All contract SHALLs satisfied — course name required with validation; abbreviation shows '—' when empty; alias sync hint shown without auto-modification; edit-on-done warning displays; teacher dedup works with new-teacher input. Critical fix verified: session write failures now display error inline next to affected session (not inside modal). Modal stays open on course create/update failure; user input preserved; only closes on success."
+    - "runtime: 88/88 tests pass (up from 81); build successful; comprehensive error-path coverage added: updateSessionAction, deleteSessionAction, addSessionAction, followDateAction all tested with ok:false returns. Modal failure retention tested (error message + input persists). Form collapse behavior tested (closes only on success via added counter increment). No regressions."
+    - "code: SessionErrors state properly separated from courseSaveError (line 51 CoursesClient); errors keyed by session id, threaded into SessionRows/SessionRow via props (line 354, 81 SessionRows). SessionRow renders error inline at line 164-166. Modal closure logic correct: onDone callback (line 102) only fires when write() gets ok:true result (line 80). clearSession() properly clears old errors before each write (lines 178-207). All buttons disabled via busy flag during write. No mutations of props (spread patterns used). Server Actions check password independently (line 44 actions.ts). No reverse wall-time conversion in frontend (tz.ts line 6 comment explicit). TYPE-SAFE throughout."
+  fix_tasks: []
