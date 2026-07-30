@@ -43,6 +43,10 @@ export const BLANK_FORM: NewStudentForm = {
 };
 
 export const FIELDS: { key: EditableFieldKeyLike; label: string; type: "text" | "enum" | "ro"; mono?: boolean; placeholder?: string }[] = [
+  // The panel header shows the name too, but that is a display slot. The edit
+  // entry point lives here with every other field so one set of rules — inline
+  // edit, saving, failure keeps your input — covers all of them.
+  { key: "name", label: "姓名", type: "text" },
   { key: "wechat", label: "微信号", type: "text", mono: true, placeholder: "未对齐" },
   { key: "wxName", label: "微信名", type: "text" },
   { key: "nick", label: "微信昵称", type: "text" },

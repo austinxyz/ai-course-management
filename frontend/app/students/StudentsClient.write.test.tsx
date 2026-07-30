@@ -337,3 +337,56 @@ describe("creating a student", () => {
     );
   });
 });
+
+describe("editing the name", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("commits the name through the same per-field channel as every other field", async () => {
+    // Imported records carry group-chat nicknames rather than real names.
+    // Without this row the only correction was archive-and-recreate, which
+    // discards the note — the least reproducible data in the system.
+    actions.updateStudentField.mockResolvedValue(undefined);
+
+    render(<StudentsClient students={[student]} archivedStudents={[]} />);
+    await editField("name", "真名");
+
+    await waitFor(() =>
+      expect(actions.updateStudentField).toHaveBeenCalledWith(student.email, {
+        name: "真名",
+      }),
+    );
+  });
+
+  it("keeps the typed name when the save fails", async () => {
+    actions.updateStudentField.mockRejectedValue(new Error("boom"));
+
+    render(<StudentsClient students={[student]} archivedStudents={[]} />);
+    await editField("name", "改了一半");
+
+    const row = await waitFor(() => {
+      const el = fieldRow("name");
+      expect(within(el).getByRole("textbox")).toBeInTheDocument();
+      return el;
+    });
+    expect(within(row).getByRole("textbox")).toHaveValue("改了一半");
+  });
+
+  it("keeps the selection on the same email after a rename", async () => {
+    // The list is ordered by name, so a rename moves the row. The selection is
+    // keyed by email precisely so the detail panel does not follow the row
+    // position and land on somebody else. Anyone switching it to an index
+    // would break that silently.
+    actions.updateStudentField.mockResolvedValue(undefined);
+    const other: Student = { ...student, name: "阿甲", email: "jia@example.com" };
+
+    render(<StudentsClient students={[other, student]} archivedStudents={[]} />);
+    const user = userEvent.setup();
+    await user.click(screen.getByText(student.name));
+    await editField("name", "zzz 排到最后");
+
+    await waitFor(() => expect(actions.updateStudentField).toHaveBeenCalled());
+    expect(within(fieldRow("wechat")).getByText(student.wechat)).toBeInTheDocument();
+  });
+});

@@ -20,7 +20,7 @@ export interface Student {
 }
 
 export type StudentOverride = Partial<
-  Pick<Student, "wechat" | "wxName" | "nick" | "region" | "level" | "source" | "industry" | "gender" | "age" | "note" | "tags">
+  Pick<Student, "name" | "wechat" | "wxName" | "nick" | "region" | "level" | "source" | "industry" | "gender" | "age" | "note" | "tags">
 >;
 
 /**
@@ -57,6 +57,7 @@ export interface NewStudentForm {
 }
 
 export type EditableFieldKey =
+  | "name"
   | "wechat"
   | "wxName"
   | "nick"

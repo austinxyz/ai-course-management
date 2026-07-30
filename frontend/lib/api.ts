@@ -133,6 +133,7 @@ export async function getStudent(email: string): Promise<Student | null> {
 export type StudentPatch = Partial<
   Pick<
     Student,
+    | "name"
     | "wechat"
     | "wxName"
     | "nick"

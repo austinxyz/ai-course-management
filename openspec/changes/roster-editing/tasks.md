@@ -22,7 +22,7 @@
 - [x] 1.7 GREEN — `StudentCreate.name` 改用同一个 `StudentName` 别名（不新写 validator）
 - [x] 1.8 RED — 姓名首尾空白被 trim 后落库（`"  张三  "` → `"张三"`）；更新姓名不影响备注/标签/微信号；微信号仍可清空为 `""`（证明非空约束没有波及其它字段）
 - [x] 1.9 GREEN — 使 1.8 通过（若 1.5 已满足则确认无需改动，并在提交信息里说明）
-- [ ] 1.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-1.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
+- [x] 1.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-1.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 2. 前端：姓名编辑入口
 
@@ -37,14 +37,14 @@
   - 列表按 `ORDER BY name, email`，改名会让该行移位；选中态以邮箱为键，必须有测试钉住"改名后选中的仍是同一封邮箱"，防止将来被改成按索引选中
 - **Threshold**: 70
 
-- [ ] 2.0 CONTRACT — write openspec/changes/roster-editing/contracts/group-2.md with the ### Contract block above
-- [ ] 2.1 RED — vitest：详情面板存在「姓名」字段行且可进入编辑态；提交后调用写入通道并携带 `name`
-- [ ] 2.2 GREEN — `FIELDS` 首位加 `{ key: "name", label: "姓名", type: "text" }`；`EditableFieldKey` 增 `"name"`
-- [ ] 2.3 RED — vitest：姓名保存失败时字段留在编辑态、用户输入不被旧值覆盖（复用既有 `FieldStatus.failed` 机制）
-- [ ] 2.4 GREEN — 最小实现通过 2.3
-- [ ] 2.5 RED — vitest：改名后选中态仍指向同一封邮箱（不因列表重排而跳到别人身上）
-- [ ] 2.6 GREEN — 使 2.5 通过（若既有实现已以邮箱为键则确认无需改动并说明）
-- [ ] 2.7 VISUAL DIFF — 起 dev stack（`npm run dev --prefix frontend`），打开学员详情面板，肉眼确认姓名行与其余字段行同构（间距/字号/编辑图标一致），改一条记录的姓名确认落库与重排。**无 mock 可比**——本 change 的 mocks 是 stub（`HAS_UI_SURFACE: no`），比对基准是相邻字段行本身
+- [x] 2.0 CONTRACT — write openspec/changes/roster-editing/contracts/group-2.md with the ### Contract block above
+- [x] 2.1 RED — vitest：详情面板存在「姓名」字段行且可进入编辑态；提交后调用写入通道并携带 `name`
+- [x] 2.2 GREEN — `FIELDS` 首位加 `{ key: "name", label: "姓名", type: "text" }`；`EditableFieldKey` 增 `"name"`
+- [x] 2.3 RED — vitest：姓名保存失败时字段留在编辑态、用户输入不被旧值覆盖（复用既有 `FieldStatus.failed` 机制）
+- [x] 2.4 GREEN — 最小实现通过 2.3
+- [x] 2.5 RED — vitest：改名后选中态仍指向同一封邮箱（不因列表重排而跳到别人身上）
+- [x] 2.6 GREEN — 使 2.5 通过（若既有实现已以邮箱为键则确认无需改动并说明）
+- [x] 2.7 VISUAL DIFF — 起 dev stack（`npm run dev --prefix frontend`），打开学员详情面板，肉眼确认姓名行与其余字段行同构（间距/字号/编辑图标一致），改一条记录的姓名确认落库与重排。**无 mock 可比**——本 change 的 mocks 是 stub（`HAS_UI_SURFACE: no`），比对基准是相邻字段行本身
 - [ ] 2.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-2.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 70 → PASS; < 70 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 3. 前端：检索范围扩至 5 字段
