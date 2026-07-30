@@ -1,0 +1,56 @@
+{
+  "_comment": [
+    "从 https://austinxyz.github.io/course-portal/ 人工转录（2026-07-30）。",
+    "门户是静态 HTML，四门课——写解析器的成本高于收益，且解析器会在门户改版时静默失效。",
+    "这里是课程的公开信息，不含任何学员数据，因此可以进仓库、可 review、可重跑。",
+    "匹配靠 aliases：脚本按别名找现有课程，命中就更新、没命中才新建。",
+    "价格与组合价不导——docs/requirements.md §2 明确不做支付/对账。"
+  ],
+  "defaults": {
+    "duration_minutes": 150,
+    "default_tz": "America/New_York",
+    "session_time": "20:30",
+    "teacher": "Austin Xu"
+  },
+  "courses": [
+    {
+      "short": "S1",
+      "name": "从零开始用 Claude 和 Cowork",
+      "aliases": ["S1", "Claude & Cowork from Zero"],
+      "tagline": "先搞懂 Claude 到底强在哪，再亲手搭一条真实的找工作 Agent 流水线",
+      "intro": "学员将理解 Claude 的核心能力，并构建真实求职自动化系统（分析职位描述、调研公司、撰写外联邮件、追踪投递）。完成后可手写 Agent 提示词并复用整条流程。",
+      "homework_title": "手写一次 Agent 提示词，复用整条流水线",
+      "sessions": [{ "date": "2026-06-28" }]
+    },
+    {
+      "short": "S2",
+      "name": "先造枪，再打子弹 — 用 Claude Code 建知识库",
+      "aliases": ["S2", "Build Your Own AI Tools with Claude Code"],
+      "tagline": "从「用工具」升级到「造工具」",
+      "intro": "本地安装 Claude Code，掌握 Skills 与 MCP 生态，将专业知识结构化为知识库。应用案例包括运行客户诊断流程和生成定制报告。",
+      "homework_title": "构建专业知识库并生成定制报告",
+      "sessions": [{ "date": "2026-07-12" }]
+    },
+    {
+      "short": "S3",
+      "name": "从一句话到成品：PPT、海报、网站，一个工具全搞定",
+      "aliases": ["S3", "From One Sentence to Finished Work: Slides, Posters, Websites"],
+      "tagline": "掌握 Claude Design 的全场景设计能力",
+      "intro": "学习 Claude Design 应用：PPT、海报、营销素材、UI 原型、品牌定制。核心项目为七步完成上线网站（从 Brief 到设计稿到 HTML 到 GitHub 到 Vercel）。",
+      "homework_title": "完整网站项目从设计到上线",
+      "sessions": [{ "date": "2026-07-19" }]
+    },
+    {
+      "short": "S4",
+      "name": "AI 炒股分析系统 — 从方法论到可运行 Skill",
+      "aliases": ["S4", "AI Stock Analysis System — From Methodology to Runnable Skill"],
+      "tagline": "从投资方法论到可复用智能系统",
+      "intro": "将多套投资方法论（热门赛道选股、SEPA 择时、BAIT 基本面评分、Moneyball 赔率）融合成专属框架。拆解两层架构（Python 数据层 + LLM 分析层）的设计决策。课堂现场手写 /ticker-scan；课后项目自建 /market-daily。",
+      "homework_title": "现场编写 /ticker-scan，课后独立构建 /market-daily",
+      "sessions": [
+        { "date": "2026-07-26", "note": "两场任选其一" },
+        { "date": "2026-07-31", "note": "两场任选其一" }
+      ]
+    }
+  ]
+}
