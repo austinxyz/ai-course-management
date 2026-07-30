@@ -87,3 +87,11 @@
     - "runtime: 88/88 tests pass (up from 81); build successful; comprehensive error-path coverage added: updateSessionAction, deleteSessionAction, addSessionAction, followDateAction all tested with ok:false returns. Modal failure retention tested (error message + input persists). Form collapse behavior tested (closes only on success via added counter increment). No regressions."
     - "code: SessionErrors state properly separated from courseSaveError (line 51 CoursesClient); errors keyed by session id, threaded into SessionRows/SessionRow via props (line 354, 81 SessionRows). SessionRow renders error inline at line 164-166. Modal closure logic correct: onDone callback (line 102) only fires when write() gets ok:true result (line 80). clearSession() properly clears old errors before each write (lines 178-207). All buttons disabled via busy flag during write. No mutations of props (spread patterns used). Server Actions check password independently (line 44 actions.ts). No reverse wall-time conversion in frontend (tz.ts line 6 comment explicit). TYPE-SAFE throughout."
   fix_tasks: []
+
+- group: 7
+  production_acceptance:
+    migration: "Deploy DB migrations workflow 30542119414 → success（三张表已建）"
+    course: "建成一门真实课程，简称 S1，别名 S1（grades.csv 现用写法，为报课导入匹配预留）"
+    sessions: "两场，均为美西 19:30 —— 10-15 与 12-15"
+    dst: "上海行分别为 10:30 次日 / 11:30 次日；美东两场都是 22:30（同日切换，验不出东西）"
+    note: "全程走界面，含 Server Actions；不是直连后端建的数据"
