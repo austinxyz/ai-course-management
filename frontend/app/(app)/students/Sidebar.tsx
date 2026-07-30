@@ -1,20 +1,32 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 import { cn } from "@/lib/cn";
 import { NAV } from "./vocab";
-import type { NavKey } from "./types";
 
 interface SidebarProps {
-  /** Section the current route belongs to. Derived from the path, not held as state. */
-  active: NavKey;
   /**
    * Omitted on pages that do not fetch the roster. The badge then shows `—`
    * rather than 0 — a page that never counted must not claim there are none.
+   * The same `—` is what shows while the count is still in flight.
    */
   studentCount?: number;
 }
 
-export function Sidebar({ active: activeKey, studentCount }: SidebarProps) {
+/**
+ * Highlight is derived from the route, never passed in and never held as state.
+ *
+ * As a prop it could only move once the destination page had rendered, so a
+ * click produced no feedback until the data arrived. As state it could drift
+ * from the URL after a back/forward. The route is the answer to "where am I",
+ * so read it directly.
+ */
+export function Sidebar({ studentCount }: SidebarProps) {
+  const pathname = usePathname();
+  const activeKey = NAV.find((item) => pathname.startsWith(item.href))?.key;
+
   return (
     <aside className="flex w-[216px] flex-none flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
       <div className="flex flex-col gap-[3px] border-b border-sidebar-border px-4 pb-4 pt-[18px]">

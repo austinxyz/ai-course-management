@@ -2,8 +2,8 @@
 // (Not using the `server-only` package guard — it throws unconditionally
 // outside Next's own build pipeline, which breaks unit testing this file
 // directly under vitest.)
-import type { Course } from "@/app/courses/types";
-import type { Student } from "@/app/students/types";
+import type { Course } from "@/app/(app)/courses/types";
+import type { Student } from "@/app/(app)/students/types";
 
 interface ApiStudent {
   email: string;

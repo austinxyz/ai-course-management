@@ -19,21 +19,21 @@
   - 迁移用 `git mv`（保 blame），测试文件与被测文件一起移动
 - **Threshold**: 80
 
-- [ ] 1.0 CONTRACT — write openspec/changes/course-page-boundaries/contracts/group-1.md with the ### Contract block above; confirm all three fields (Spec, Runtime, Code) are non-empty before proceeding
-- [ ] 1.1 RED — `Sidebar.test.tsx`：高亮由当前路由派生 —— mock `usePathname` 返回 `/courses`，
+- [x] 1.0 CONTRACT — write openspec/changes/course-page-boundaries/contracts/group-1.md with the ### Contract block above; confirm all three fields (Spec, Runtime, Code) are non-empty before proceeding
+- [x] 1.1 RED — `Sidebar.test.tsx`：高亮由当前路由派生 —— mock `usePathname` 返回 `/courses`，
       断言「课程」项处于高亮态，且**不再接受 `active` prop**（当前实现靠 prop，先红）
-- [ ] 1.2 GREEN — `Sidebar` 改为 `"use client"`，`active` 由 `usePathname()` 派生；
+- [x] 1.2 GREEN — `Sidebar` 改为 `"use client"`，`active` 由 `usePathname()` 派生；
       `NAV` 词表与 `NavKey` 不变
-- [ ] 1.3 RED — `Sidebar.test.tsx`：`studentCount` 未提供时徽标渲染 `—` 而非 `0`
+- [x] 1.3 RED — `Sidebar.test.tsx`：`studentCount` 未提供时徽标渲染 `—` 而非 `0`
       （既有行为，钉住它 —— 它同时是 Suspense fallback 的样子）
-- [ ] 1.4 GREEN — 若已满足则确认无需改动并说明；本条防止将来有人把占位改成 `0`
-- [ ] 1.5 GREEN — `git mv` 六个页面进 `app/(app)/`（students、courses、四个占位页），
+- [x] 1.4 GREEN — 若已满足则确认无需改动并说明；本条防止将来有人把占位改成 `0`
+- [x] 1.5 GREEN — `git mv` 六个页面进 `app/(app)/`（students、courses、四个占位页），
       连同它们的测试文件；新建 `(app)/layout.tsx` 渲染 `<Sidebar>`；六个 page 各自删掉
       自己那行 `<Sidebar>` 与外层 `h-screen` 容器
-- [ ] 1.6 RED — 断言 layout 的取数被 `<Suspense>` 隔离：徽标计数的 promise **挂住不 resolve**
+- [x] 1.6 RED — 断言 layout 的取数被 `<Suspense>` 隔离：徽标计数的 promise **挂住不 resolve**
       时，页面内容与侧边栏已经渲染、徽标显示 `—`。**用挂住的 promise，不要用已 resolve 的** ——
       只断言最终态的测试对"漏包 Suspense"完全盲，而漏包正是本 change 最隐蔽的失败模式
-- [ ] 1.7 GREEN — layout 里计数改为独立 async 子组件，包进 `<Suspense fallback={无计数的 Sidebar}>`
+- [x] 1.7 GREEN — layout 里计数改为独立 async 子组件，包进 `<Suspense fallback={无计数的 Sidebar}>`
 - [ ] 1.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-1.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 2. 加载态与错误态：课程页补齐，范围改为内容区

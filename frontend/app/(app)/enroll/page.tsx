@@ -1,5 +1,4 @@
-import { PlaceholderPage } from "@/app/students/PlaceholderPage";
-import { Sidebar } from "@/app/students/Sidebar";
+import { PlaceholderPage } from "@/app/(app)/students/PlaceholderPage";
 
 /**
  * 报课 has no design yet. It owns a route anyway: the section it will
@@ -7,9 +6,6 @@ import { Sidebar } from "@/app/students/Sidebar";
  */
 export default function EnrollPage() {
   return (
-    <div className="flex h-screen min-h-[640px] overflow-hidden bg-background">
-      <Sidebar active="enroll" />
       <PlaceholderPage view="enroll" />
-    </div>
   );
 }

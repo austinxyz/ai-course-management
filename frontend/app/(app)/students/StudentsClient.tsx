@@ -9,7 +9,6 @@ import {
   restoreStudentAction,
   updateStudentField,
 } from "./actions";
-import { Sidebar } from "./Sidebar";
 import { FilterBar } from "./FilterBar";
 import { StudentsTable, NoResultsState, EmptyDatabaseState } from "./StudentsTable";
 import { DetailPanel } from "./DetailPanel";
@@ -309,9 +308,9 @@ export function StudentsClient({ students, archivedStudents }: StudentsClientPro
   }
 
   return (
-    <div className="flex h-screen min-h-[640px] overflow-hidden bg-background">
-      <Sidebar active="students" studentCount={activeCount} />
-
+    // 侧边栏与整屏容器归 (app)/layout.tsx —— 放在这里的话，
+    // 学员页的 loading/error 会把侧边栏一起替掉。
+    <>
       <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <div className="flex min-h-0 flex-1 flex-col">
             <header className="flex flex-none items-end justify-between gap-5 border-b border-border bg-surface px-[22px] pb-[13px] pt-4">
@@ -437,6 +436,6 @@ export function StudentsClient({ students, archivedStudents }: StudentsClientPro
           onSaveAndContinue={() => canSave && saveStudent(true)}
         />
       )}
-    </div>
+    </>
   );
 }
