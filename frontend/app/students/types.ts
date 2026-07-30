@@ -1,6 +1,6 @@
 export type Region = "美西" | "美东" | "加拿大" | "其他地区";
 export type Level = "小白" | "会电脑" | "有基础" | "工程师";
-export type NavKey = "students" | "enroll" | "homework" | "nudge" | "interactions";
+export type NavKey = "students" | "courses" | "enroll" | "homework" | "nudge" | "interactions";
 
 export interface Student {
   name: string;

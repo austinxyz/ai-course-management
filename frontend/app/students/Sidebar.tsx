@@ -1,14 +1,20 @@
+import Link from "next/link";
+
 import { cn } from "@/lib/cn";
 import { NAV } from "./vocab";
 import type { NavKey } from "./types";
 
 interface SidebarProps {
-  view: NavKey;
-  onNavigate: (key: NavKey) => void;
-  studentCount: number;
+  /** Section the current route belongs to. Derived from the path, not held as state. */
+  active: NavKey;
+  /**
+   * Omitted on pages that do not fetch the roster. The badge then shows `—`
+   * rather than 0 — a page that never counted must not claim there are none.
+   */
+  studentCount?: number;
 }
 
-export function Sidebar({ view, onNavigate, studentCount }: SidebarProps) {
+export function Sidebar({ active: activeKey, studentCount }: SidebarProps) {
   return (
     <aside className="flex w-[216px] flex-none flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
       <div className="flex flex-col gap-[3px] border-b border-sidebar-border px-4 pb-4 pt-[18px]">
@@ -27,13 +33,14 @@ export function Sidebar({ view, onNavigate, studentCount }: SidebarProps) {
 
       <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto p-2">
         {NAV.map((item) => {
-          const active = view === item.key;
-          const count = item.key === "students" ? String(studentCount) : "—";
+          const active = activeKey === item.key;
+          const count =
+            item.key === "students" && studentCount !== undefined ? String(studentCount) : "—";
           return (
-            <button
+            <Link
               key={item.key}
-              type="button"
-              onClick={() => onNavigate(item.key)}
+              href={item.href}
+              aria-current={active ? "page" : undefined}
               className={cn(
                 "flex h-[34px] w-full items-center justify-between gap-2 rounded-token border-0 pr-2.5 text-left font-sans text-[13px]",
                 active
@@ -65,7 +72,7 @@ export function Sidebar({ view, onNavigate, studentCount }: SidebarProps) {
               >
                 {count}
               </span>
-            </button>
+            </Link>
           );
         })}
 

@@ -1,0 +1,12 @@
+### Contract
+- **Spec**:
+  - 每场 SHALL 记录上课日期、上课时间、讲师、状态与备注。日期、时间、讲师 SHALL 为必填，备注 SHALL 可空。讲师 SHALL 按场次各自记录。
+  - 场次时间 SHALL 以「美西本地日期 + 美西本地时间 + IANA 时区名」存储，SHALL NOT 存固定的 UTC 偏移小时数。
+  - 场次状态 SHALL 默认由上课日期与**美西当天**比较得出：未到为 `pending`，已过为 `done`。系统 SHALL 允许人工覆盖状态（含 `cancelled`），并 SHALL 允许清除覆盖以恢复跟随日期。判定「今天」SHALL 依据 `America/Los_Angeles` 的当前日期。
+- **Runtime**: `cd backend && uv run pytest tests/test_courses_sessions.py -q` → expected: 必填校验、按日期排序、状态三态与恢复跟随、`starts_at` 的夏令时断言（10 月与 12 月两场同为美西 19:30，上海分别为次日 10:30 / 11:30）全绿
+- **Code**:
+  - 「墙上时间 + 时区名 → 绝对时刻」用 Python `zoneinfo` 在**读取时**算，返回 `starts_at`；不入库，因为时区规则会变、墙上时间才是意图
+  - 状态派生：`state_override` 非空则用它，否则比 `local_date` 与 `datetime.now(ZoneInfo("America/Los_Angeles")).date()`；响应同时给 `state` 与 `state_is_override`
+  - **取"今天"的函数要单独可替换**（如 `_today_pt()`），测试注入固定日期；直接用真实当天写死断言的测试会在某天突然变红
+  - 验夏令时只能拿亚洲时区比 —— 美西与美东同日切换，PT↔ET 恒为 3 小时，那条断言必然通过、证明不了任何事
+- **Threshold**: 80

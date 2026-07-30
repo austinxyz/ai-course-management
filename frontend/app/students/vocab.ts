@@ -10,15 +10,17 @@ export const TAG_COLORS: Record<string, { bg: string; fg: string; border: string
   时区冲突: { bg: "#fbf0ee", fg: "#a33a2b", border: "#f0cfc9" },
 };
 
-export const NAV: { key: NavKey; label: string; icon: string }[] = [
-  { key: "students", label: "学员", icon: "M6 7.2a2.4 2.4 0 100-4.8 2.4 2.4 0 000 4.8zM1.8 13.6c0-2.3 1.9-3.6 4.2-3.6s4.2 1.3 4.2 3.6M11 3.2a2 2 0 010 4M12.4 10.4c1.2.4 1.9 1.4 1.9 3.2" },
-  { key: "enroll", label: "报课", icon: "M5.5 2.6h5v1.8h-5zM4 3.4H3.2v10.2h9.6V3.4H12M8 7.4v4M6 9.4h4" },
-  { key: "homework", label: "作业", icon: "M4 2h5l3 3v9H4zM9 2v3h3M6 9h4M6 11.5h4" },
-  { key: "nudge", label: "催作业", icon: "M8 2.4a3.4 3.4 0 00-3.4 3.4c0 3-1.2 4.2-1.2 4.2h9.2s-1.2-1.2-1.2-4.2A3.4 3.4 0 008 2.4zM6.6 12.4a1.6 1.6 0 002.8 0" },
-  { key: "interactions", label: "互动记录", icon: "M13.4 9.2c0 .9-.7 1.6-1.6 1.6H6.2L3 13.4v-2.6h-.4c-.9 0-1.6-.7-1.6-1.6V4.2c0-.9.7-1.6 1.6-1.6h9.2c.9 0 1.6.7 1.6 1.6z" },
+export const NAV: { key: NavKey; label: string; href: string; icon: string }[] = [
+  { key: "students", label: "学员", href: "/students", icon: "M6 7.2a2.4 2.4 0 100-4.8 2.4 2.4 0 000 4.8zM1.8 13.6c0-2.3 1.9-3.6 4.2-3.6s4.2 1.3 4.2 3.6M11 3.2a2 2 0 010 4M12.4 10.4c1.2.4 1.9 1.4 1.9 3.2" },
+  { key: "courses", label: "课程", href: "/courses", icon: "M3 3.4h4.2c.9 0 1.6.7 1.6 1.6v7.6c0-.7-.6-1.3-1.3-1.3H3zM13 3.4H8.8c-.9 0-1.6.7-1.6 1.6v7.6c0-.7.6-1.3 1.3-1.3H13z" },
+  { key: "enroll", label: "报课", href: "/enroll", icon: "M5.5 2.6h5v1.8h-5zM4 3.4H3.2v10.2h9.6V3.4H12M8 7.4v4M6 9.4h4" },
+  { key: "homework", href: "/homework", label: "作业", icon: "M4 2h5l3 3v9H4zM9 2v3h3M6 9h4M6 11.5h4" },
+  { key: "nudge", href: "/nudge", label: "催作业", icon: "M8 2.4a3.4 3.4 0 00-3.4 3.4c0 3-1.2 4.2-1.2 4.2h9.2s-1.2-1.2-1.2-4.2A3.4 3.4 0 008 2.4zM6.6 12.4a1.6 1.6 0 002.8 0" },
+  { key: "interactions", href: "/interactions", label: "互动记录", icon: "M13.4 9.2c0 .9-.7 1.6-1.6 1.6H6.2L3 13.4v-2.6h-.4c-.9 0-1.6-.7-1.6-1.6V4.2c0-.9.7-1.6 1.6-1.6h9.2c.9 0 1.6.7 1.6 1.6z" },
 ];
 
-export const PAGES: Record<Exclude<NavKey, "students">, { title: string; desc: string; cardTitle: string; cardDesc: string; bullets: string[] }> = {
+// 课程页与学员页都已实现，所以两者都不在占位表里。
+export const PAGES: Record<Exclude<NavKey, "students" | "courses">, { title: string; desc: string; cardTitle: string; cardDesc: string; bullets: string[] }> = {
   enroll: { title: "报课", desc: "把报课表里的报名记录对齐到学员库，邮箱重复即视为同一人。", cardTitle: "这一页还没设计", cardDesc: "先把学员名单做完，报课页会复用同一套表格 + 筛选骨架。", bullets: ["导入一批报课记录，按邮箱匹配已有学员", "未匹配的记录进入待处理队列", "报课记录挂在学员详情的「报课」区块下"] },
   homework: { title: "作业", desc: "按期次和作业轮次查看提交情况。", cardTitle: "这一页还没设计", cardDesc: "预计是「作业轮次 × 学员」的矩阵视图，未提交格子高亮。", bullets: ["按轮次切换，默认看最近一次", "未提交可直接勾选生成催作业名单", "点格子进入单份作业的批改视图"] },
   nudge: { title: "催作业", desc: "对未提交作业的学员按微信逐个跟进。", cardTitle: "这一页还没设计", cardDesc: "依赖学员的微信号字段，未对齐微信的学员会被单独列出。", bullets: ["从作业页生成待催名单", "未对齐微信的学员无法进入催办流程", "催办后写一条互动记录，避免重复打扰"] },

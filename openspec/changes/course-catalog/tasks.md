@@ -10,12 +10,12 @@
   - 本组**只改导航、不加功能**，单独提交，让回归面看得清
 - **Threshold**: 80
 
-- [ ] 1.0 CONTRACT — write openspec/changes/course-catalog/contracts/group-1.md with the ### Contract block above
-- [ ] 1.1 RED — vitest：`Sidebar` 渲染的是链接（`role="link"` 且 href 指向对应路由），当前实现是 button，因此先红
-- [ ] 1.2 GREEN — `Sidebar` 改 `next/link`，props 收为 `(active: NavKey, studentCount)`
-- [ ] 1.3 RED — vitest：`/enroll` 等占位路由各自渲染 `PlaceholderPage`（新增路由文件前先红）
-- [ ] 1.4 GREEN — 新增 `app/(placeholder)/enroll|homework|nudge|interactions/page.tsx`，复用 `PlaceholderPage`；`StudentsClient` 删掉 `view` state 与占位分支
-- [ ] 1.5 修既有测试 — `StudentsClient.test.tsx` / `.write.test.tsx` / `.search.test.tsx` 里凡断言过 `view` 切换或侧栏 button 的，改到新形状；跑全套确认无回归
+- [x] 1.0 CONTRACT — write openspec/changes/course-catalog/contracts/group-1.md with the ### Contract block above
+- [x] 1.1 RED — vitest：`Sidebar` 渲染的是链接（`role="link"` 且 href 指向对应路由），当前实现是 button，因此先红
+- [x] 1.2 GREEN — `Sidebar` 改 `next/link`，props 收为 `(active: NavKey, studentCount)`
+- [x] 1.3 RED — vitest：`/enroll` 等占位路由各自渲染 `PlaceholderPage`（新增路由文件前先红）
+- [x] 1.4 GREEN — 新增 `app/(placeholder)/enroll|homework|nudge|interactions/page.tsx`，复用 `PlaceholderPage`；`StudentsClient` 删掉 `view` state 与占位分支
+- [x] 1.5 修既有测试 — `StudentsClient.test.tsx` / `.write.test.tsx` / `.search.test.tsx` 里凡断言过 `view` 切换或侧栏 button 的，改到新形状；跑全套确认无回归
 - [ ] 1.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-1.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 2. schema 与只读接口

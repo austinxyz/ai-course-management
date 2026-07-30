@@ -1,0 +1,12 @@
+### Contract
+- **Spec**:
+  - 侧栏 SHALL 提供 `课程` 入口并指向课程页。
+  - 场次列表按上课日期升序呈现；界面 SHALL 为每场给出其它时区的对应时间，换算 SHALL 使用 IANA 时区名。
+  - 某门课还没有任何场次时，界面 SHALL 说明「还没有排课」，并说明排课后该课才会出现在报课的场次选项里。
+  - 已下线课程 SHALL 仍出现在课程页并带有可见标记。
+- **Runtime**: `cd frontend && npm run test` → expected: 课程列表/详情渲染、时区行格式化（10 月与 12 月两场的上海行不同）、空场次说明、已下线标记，全部通过；既有测试无回归
+- **Code**:
+  - 前端只把后端给的 `starts_at` 用 `Intl.DateTimeFormat({ timeZone })` 格式化 —— 不在 JS 里做"墙上时间→时刻"的反向换算（那需要试探偏移再迭代，是本 change 最容易写错的一段）
+  - 客户端组件只渲染 props，不持有数据副本（`student-write` 立下的规矩：本地副本会让页面显示从未写入的东西）
+  - 状态 Badge 映射 `pending → success` / `done → muted` / `cancelled → danger`（取自设计脚本，不要把「待上」改成灰色）
+- **Threshold**: 70

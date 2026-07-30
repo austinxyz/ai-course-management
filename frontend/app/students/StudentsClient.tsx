@@ -14,11 +14,9 @@ import { FilterBar } from "./FilterBar";
 import { StudentsTable, NoResultsState, EmptyDatabaseState } from "./StudentsTable";
 import { DetailPanel } from "./DetailPanel";
 import { NewStudentModal } from "./NewStudentModal";
-import { PlaceholderPage } from "./PlaceholderPage";
 import type {
   EditableFieldKey,
   FieldStatus,
-  NavKey,
   NewStudentForm,
   Student,
   StudentOverride,
@@ -42,7 +40,6 @@ function fieldKey(email: string, field: string): string {
 }
 
 export function StudentsClient({ students, archivedStudents }: StudentsClientProps) {
-  const [view, setView] = useState<NavKey>("students");
   const [scope, setScope] = useState<"active" | "archived">("active");
   const [query, setQuery] = useState("");
   const [align, setAlign] = useState<"all" | "aligned" | "unaligned">("all");
@@ -313,11 +310,10 @@ export function StudentsClient({ students, archivedStudents }: StudentsClientPro
 
   return (
     <div className="flex h-screen min-h-[640px] overflow-hidden bg-background">
-      <Sidebar view={view} onNavigate={setView} studentCount={activeCount} />
+      <Sidebar active="students" studentCount={activeCount} />
 
       <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        {view === "students" ? (
-          <div className="flex min-h-0 flex-1 flex-col">
+        <div className="flex min-h-0 flex-1 flex-col">
             <header className="flex flex-none items-end justify-between gap-5 border-b border-border bg-surface px-[22px] pb-[13px] pt-4">
               <div className="flex min-w-0 flex-col gap-1">
                 <div className="flex items-baseline gap-2.5">
@@ -422,10 +418,7 @@ export function StudentsClient({ students, archivedStudents }: StudentsClientPro
                 />
               )}
             </div>
-          </div>
-        ) : (
-          <PlaceholderPage view={view} onBackToStudents={() => setView("students")} />
-        )}
+        </div>
       </main>
 
       {showNew && (

@@ -1,0 +1,11 @@
+### Contract
+- **Spec**:
+  - 系统 SHALL 支持新建与编辑课程。课程名 SHALL 为必填；简称、一句话定位、课程介绍、每场时长、作业题目 SHALL 可为空并可事后补填。课程 SHALL 以与课程名、简称都无关的独立标识为主键，使课程名与简称都可以被修改而不影响任何引用。
+  - 别名 SHALL 在**全库**唯一——同一别名 SHALL NOT 同时指向两门课。唯一性与匹配 SHALL 按「去首尾空白后转小写」判定。
+- **Runtime**: `cd backend && uv run pytest tests/test_courses_model.py -q` → expected: 建表、外键、别名唯一约束、级联删除各自的断言全绿；`supabase db reset` 后 migration 可重放
+- **Code**:
+  - `course_aliases` 的主键就是归一化后的别名 → 全局唯一由结构保证，不靠应用层先查再写（与 `students` 的 `lower(email)` 唯一索引同源）
+  - `raw` 单独存，界面显示用户原样写法，匹配只看 `alias`
+  - 场次存 `local_date` / `local_time` / `tz`，**不存固定 UTC 偏移**；派生的绝对时刻不入库
+  - 纯新增三张表，不改 `students`；回滚是人工 `drop table course_sessions, course_aliases, courses;`
+- **Threshold**: 80

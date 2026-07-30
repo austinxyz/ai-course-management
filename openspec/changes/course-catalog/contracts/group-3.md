@@ -1,0 +1,11 @@
+### Contract
+- **Spec**:
+  - 课程名 SHALL 为必填。系统 SHALL NOT 提供课程删除；停止招生通过「已下线」表达，历史数据 SHALL 保留。
+  - 课程 SHALL 可挂任意多个平台别名。别名 SHALL 在全库唯一。唯一性与匹配 SHALL 按「去首尾空白后转小写」判定，使 `S1`、`s1`、` S1 ` 视为同一别名。
+  - 课程名的修改 SHALL NOT 自动修改别名。
+- **Runtime**: `cd backend && uv run pytest tests/test_courses_write.py -q` → expected: 创建/编辑/空名拒绝/别名占用拒绝/大小写去重/删除别名，全部通过；无删除课程的端点
+- **Code**:
+  - 课程名校验复用 `roster-editing` 立下的形状：`Annotated[str, AfterValidator(trim+非空)]` 类型别名，创建与更新共用（只拦一边等于留洞）
+  - 写请求体的枚举用 Pydantic `Literal`，只读响应用 `str`
+  - 别名冲突返回 409 并带上占用它的课程标识，让界面能引导过去；**不覆盖**已有别名的 `raw`（先到先得）
+- **Threshold**: 80

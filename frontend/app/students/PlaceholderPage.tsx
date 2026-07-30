@@ -1,13 +1,14 @@
-import { Badge, Button, Card } from "@/components/ui";
+import Link from "next/link";
+
+import { Badge, Card } from "@/components/ui";
 import { PAGES } from "./vocab";
 import type { NavKey } from "./types";
 
 interface PlaceholderPageProps {
-  view: Exclude<NavKey, "students">;
-  onBackToStudents: () => void;
+  view: Exclude<NavKey, "students" | "courses">;
 }
 
-export function PlaceholderPage({ view, onBackToStudents }: PlaceholderPageProps) {
+export function PlaceholderPage({ view }: PlaceholderPageProps) {
   const page = PAGES[view];
 
   return (
@@ -35,9 +36,12 @@ export function PlaceholderPage({ view, onBackToStudents }: PlaceholderPageProps
               </div>
             ))}
           </div>
-          <Button variant="secondary" onClick={onBackToStudents}>
+          <Link
+            href="/students"
+            className="inline-flex h-8 w-fit items-center rounded-token border border-border bg-surface-muted px-3 font-sans text-[12.5px] font-medium text-foreground"
+          >
             返回学员名单
-          </Button>
+          </Link>
         </Card>
         <div className="grid max-w-[640px] grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
           <div className="h-24 rounded-token border border-dashed border-border bg-surface-muted/60" />
