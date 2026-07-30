@@ -16,7 +16,7 @@
 - [x] 1.3 RED — vitest：`/enroll` 等占位路由各自渲染 `PlaceholderPage`（新增路由文件前先红）
 - [x] 1.4 GREEN — 新增 `app/(placeholder)/enroll|homework|nudge|interactions/page.tsx`，复用 `PlaceholderPage`；`StudentsClient` 删掉 `view` state 与占位分支
 - [x] 1.5 修既有测试 — `StudentsClient.test.tsx` / `.write.test.tsx` / `.search.test.tsx` 里凡断言过 `view` 切换或侧栏 button 的，改到新形状；跑全套确认无回归
-- [ ] 1.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-1.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
+- [x] 1.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-1.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 2. schema 与只读接口
 
@@ -32,12 +32,12 @@
   - 纯新增三张表，不改 `students`；回滚是人工 `drop table course_sessions, course_aliases, courses;`
 - **Threshold**: 80
 
-- [ ] 2.0 CONTRACT — write openspec/changes/course-catalog/contracts/group-2.md with the ### Contract block above
-- [ ] 2.1 RED — `backend/tests/test_courses_model.py`：三张表可插入、`course_aliases` 同一归一化别名二次插入被拒、删除课程级联删除其别名与场次（表不存在，先红）
-- [ ] 2.2 GREEN — 写 `supabase/migrations/<ts>_create_courses.sql` 三张表 + 外键 + 主键；`supabase db reset` 重放后**重启后端进程**（连接池会全废、进程仍在监听）
-- [ ] 2.3 GREEN — `backend/app/models.py` 增 `Course` / `CourseAlias` / `CourseSession`
-- [ ] 2.4 RED — `backend/tests/test_courses_api.py`：`GET /api/courses` 返回课程数组，每条带别名与场次；空库返回 `[]` 而非 404/500
-- [ ] 2.5 GREEN — `backend/app/routers/courses.py` 只读端点 + 挂载到 `main.py`；响应枚举字段用 `str` 不用 `Literal`（响应上用 `Literal` 会让一行脏数据 500 掉整个列表）
+- [x] 2.0 CONTRACT — write openspec/changes/course-catalog/contracts/group-2.md with the ### Contract block above
+- [x] 2.1 RED — `backend/tests/test_courses_model.py`：三张表可插入、`course_aliases` 同一归一化别名二次插入被拒、删除课程级联删除其别名与场次（表不存在，先红）
+- [x] 2.2 GREEN — 写 `supabase/migrations/<ts>_create_courses.sql` 三张表 + 外键 + 主键；`supabase db reset` 重放后**重启后端进程**（连接池会全废、进程仍在监听）
+- [x] 2.3 GREEN — `backend/app/models.py` 增 `Course` / `CourseAlias` / `CourseSession`
+- [x] 2.4 RED — `backend/tests/test_courses_api.py`：`GET /api/courses` 返回课程数组，每条带别名与场次；空库返回 `[]` 而非 404/500
+- [x] 2.5 GREEN — `backend/app/routers/courses.py` 只读端点 + 挂载到 `main.py`；响应枚举字段用 `str` 不用 `Literal`（响应上用 `Literal` 会让一行脏数据 500 掉整个列表）
 - [ ] 2.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-2.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 3. 后端：课程写入与别名唯一

@@ -1,3 +1,5 @@
+import uuid
+from datetime import date, time
 from typing import Annotated, Literal
 
 from pydantic import AfterValidator, BaseModel, field_validator
@@ -146,3 +148,48 @@ class StudentUpdate(BaseModel):
         if value is None:
             raise ValueError("null is not a valid value; omit the field instead")
         return value
+
+
+class AliasRead(BaseModel):
+    """别名回给界面的形状。
+
+    只给 `raw`——用户当初的写法。归一化后的匹配键是内部实现，界面拿它没有用，
+    露出去只会诱导前端拿它当标识。
+    """
+
+    raw: str
+
+
+class SessionRead(BaseModel):
+    """一场的只读形状。
+
+    墙上时间与时区名都给，因为编辑表单要回填它们。派生的绝对时刻与状态在后续
+    task 里补上——它们是算出来的，不是存下来的。
+    """
+
+    id: uuid.UUID
+    local_date: date
+    local_time: time
+    tz: str
+    teacher: str
+    note: str
+
+
+class CourseRead(BaseModel):
+    """课程 + 别名 + 场次。
+
+    `hours` 用 int、其余枚举性质的字段用 str：只读响应上不放 Literal。
+    一行落在枚举外会让整个列表接口 500，而不是那一行出错（见 student-management
+    的 pitfall）。
+    """
+
+    id: uuid.UUID
+    name: str
+    short: str
+    tagline: str
+    intro: str
+    hours: int
+    homework_title: str
+    offline: bool
+    aliases: list[AliasRead]
+    sessions: list[SessionRead]
