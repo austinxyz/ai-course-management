@@ -14,6 +14,6 @@ import { Sidebar } from "./students/Sidebar";
  * placeholder sections. Passing the promise keeps the shell synchronous and
  * confines the wait to the badge.
  */
-export function SidebarWithCount({ count }: { count: Promise<number> }) {
+export function SidebarWithCount({ count }: { count: Promise<number | undefined> }) {
   return <Sidebar studentCount={use(count)} />;
 }

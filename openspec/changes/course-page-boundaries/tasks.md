@@ -58,19 +58,19 @@
     `(app)/layout.tsx` 自身的错与组外页面（侧边栏不在）
 - **Threshold**: 70
 
-- [ ] 2.0 CONTRACT — write openspec/changes/course-page-boundaries/contracts/group-2.md with the ### Contract block above
-- [ ] 2.1 MOCK — 读 `docs/superpowers/specs/mocks/2026-07-30-course-page-boundaries-mocks.html`：
+- [x] 2.0 CONTRACT — write openspec/changes/course-page-boundaries/contracts/group-2.md with the ### Contract block above
+- [x] 2.1 MOCK — 读 `docs/superpowers/specs/mocks/2026-07-30-course-page-boundaries-mocks.html`：
       记下「加载/错误态占多大面积」「三态时序」两节，以及末尾「验收时最容易漏的一条」
-- [ ] 2.2 RED — `courses/loading.test.tsx`：课程页加载态渲染，文案含等待时长说明
+- [x] 2.2 RED — `courses/loading.test.tsx`：课程页加载态渲染，文案含等待时长说明
       （约 1 分钟量级），而非仅"加载中"（文件不存在，先红）
-- [ ] 2.3 GREEN — 新建 `(app)/courses/loading.tsx`，与学员页那份同构、文案换成课程
-- [ ] 2.4 RED — `(app)/error.test.tsx`：点击「重试」调用 `unstable_retry`，
+- [x] 2.3 GREEN — 新建 `(app)/courses/loading.tsx`，与学员页那份同构、文案换成课程
+- [x] 2.4 RED — `(app)/error.test.tsx`：点击「重试」调用 `unstable_retry`，
       **且不调用 `reset`**。两个断言都要有 —— 只断言"点了有反应"分不出用的是哪个
-- [ ] 2.5 GREEN — `git mv` 学员页的 `loading.tsx` / `error.tsx` 进路由组，
+- [x] 2.5 GREEN — `git mv` 学员页的 `loading.tsx` / `error.tsx` 进路由组，
       `error.tsx` 提到 `(app)/` 层并去掉文案里的"学员"字样；容器由 `min-h-screen` 改为内容区内居中
-- [ ] 2.6 RED — 根 `app/error.test.tsx`：组外错误渲染中文说明与重试入口（文件不存在，先红）
-- [ ] 2.7 GREEN — 新建 `app/error.tsx`
-- [ ] 2.8 VISUAL DIFF — `npm run dev --prefix frontend`，对着 mocks 的「三态时序」验：
+- [x] 2.6 RED — 根 `app/error.test.tsx`：组外错误渲染中文说明与重试入口（文件不存在，先红）
+- [x] 2.7 GREEN — 新建 `app/error.tsx`
+- [x] 2.8 VISUAL DIFF — `npm run dev --prefix frontend`，对着 mocks 的「三态时序」验：
       切 tab 时**侧边栏不消失**、高亮**点了就亮**、加载卡片在内容区内。
       **本地后端是毫秒级，什么都看不出来** —— 必须人为制造慢：停掉后端看错误态，
       或在 `lib/api.ts` 临时加 sleep 看加载态（验完删掉）

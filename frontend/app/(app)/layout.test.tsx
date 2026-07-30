@@ -29,4 +29,23 @@ describe("AppLayout", () => {
 
     expect(getStudents).toHaveBeenCalled();
   });
+
+  /**
+   * The shell must outlive its own fetch failing.
+   *
+   * `SidebarWithCount` is rendered *by* this layout, and `(app)/error.tsx` does
+   * not wrap the layout of its own segment — a rejection therefore takes down
+   * the entire shell and lands on the root error page with no sidebar at all.
+   * That is the cold-start case, the one this change exists to survive. So the
+   * promise handed down must never reject; an unknown count is `undefined`,
+   * which the sidebar already renders as `—`.
+   */
+  it("hands down an unknown count rather than a rejection when the fetch fails", async () => {
+    getStudents.mockRejectedValueOnce(new Error("backend unreachable"));
+
+    const element = AppLayout({ children: null }) as { props: { children: unknown[] } };
+    const suspense = element.props.children[0] as { props: { children: { props: { count: Promise<unknown> } } } };
+
+    await expect(suspense.props.children.props.count).resolves.toBeUndefined();
+  });
 });

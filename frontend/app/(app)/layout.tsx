@@ -21,7 +21,15 @@ import { SidebarWithCount } from "./SidebarWithCount";
  * and an unknown count must not be rendered as 0.
  */
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const count = getStudents().then((students) => students.length);
+  // The rejection is swallowed on purpose. This promise is consumed by a
+  // component the layout renders itself, and `(app)/error.tsx` does not wrap
+  // the layout of its own segment — so letting it throw takes down the whole
+  // shell and lands on the root error page with no sidebar, exactly when the
+  // backend is cold. A badge is not worth the shell: an unknown count renders
+  // as `—`, which is what it already means elsewhere.
+  const count = getStudents()
+    .then((students): number | undefined => students.length)
+    .catch(() => undefined);
 
   return (
     <div className="flex h-screen min-h-[640px] overflow-hidden bg-background">

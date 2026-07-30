@@ -2,7 +2,7 @@
 
 import { Button, Card } from "@/components/ui";
 
-interface StudentsErrorProps {
+interface AppErrorProps {
   error: Error & { digest?: string };
   /**
    * Re-fetches and re-renders the segment. Deliberately not `reset` — that one
@@ -13,7 +13,7 @@ interface StudentsErrorProps {
   unstable_retry: () => void;
 }
 
-export default function StudentsError({ unstable_retry }: StudentsErrorProps) {
+export default function AppError({ unstable_retry }: AppErrorProps) {
   return (
     <div className="flex min-w-0 flex-1 items-center justify-center overflow-y-auto bg-background p-6">
       <Card className="w-[420px] max-w-full">
@@ -34,7 +34,7 @@ export default function StudentsError({ unstable_retry }: StudentsErrorProps) {
         </div>
 
         <h1 className="m-0 mb-1.5 font-sans text-[15px] font-semibold">
-          暂时无法加载学员数据
+          暂时无法加载数据
         </h1>
 
         {/* Copy must hold whether the backend is merely waking or genuinely
