@@ -197,9 +197,10 @@ class CourseRead(BaseModel):
     short: str
     tagline: str
     intro: str
-    hours: int
+    duration_minutes: int
     homework_title: str
     offline: bool
+    default_tz: str
     aliases: list[AliasRead]
     sessions: list[SessionRead]
 
@@ -228,8 +229,24 @@ CourseName = Annotated[str, AfterValidator(_strip_and_require)]
 AliasRaw = Annotated[str, AfterValidator(_strip_and_require_alias)]
 
 
-# 每场时长。0 小时的课不是课，上限 4 取自设计里的选项。
-CourseHours = Annotated[int, Field(ge=1, le=4)]
+def _known_timezone(value: str) -> str:
+    """时区名必须是 zoneinfo 认识的键。
+
+    写错了不会当场出错——它会在读取时炸在换算上，那时离写入点已经很远。
+    """
+    try:
+        ZoneInfo(value)
+    except (ZoneInfoNotFoundError, ValueError) as exc:
+        raise ValueError(f"unknown timezone: {value!r}") from exc
+    return value
+
+
+TimezoneName = Annotated[str, AfterValidator(_known_timezone)]
+
+
+# 每场时长，单位分钟。下限 15 挡住 0 与负数，上限 600 挡住手滑多打一个 0。
+# 不再限制成整小时——真实课程就是 150 分钟，那正是上一版存不下的值。
+CourseDurationMinutes = Annotated[int, Field(ge=15, le=600)]
 
 
 class CourseCreate(BaseModel):
@@ -239,9 +256,11 @@ class CourseCreate(BaseModel):
     short: str = ""
     tagline: str = ""
     intro: str = ""
-    hours: CourseHours = 2
+    duration_minutes: CourseDurationMinutes = 120
     homework_title: str = ""
     offline: bool = False
+    # 新增场次时预选它。写错的时区名会在读取时炸在换算上，所以在边界上校验。
+    default_tz: TimezoneName = "America/Los_Angeles"
 
 
 class CourseUpdate(BaseModel):
@@ -255,9 +274,10 @@ class CourseUpdate(BaseModel):
     short: str | None = None
     tagline: str | None = None
     intro: str | None = None
-    hours: CourseHours | None = None
+    duration_minutes: CourseDurationMinutes | None = None
     homework_title: str | None = None
     offline: bool | None = None
+    default_tz: TimezoneName | None = None
 
     @field_validator("*")
     @classmethod
@@ -301,7 +321,9 @@ class SessionCreate(BaseModel):
     local_date: date
     local_time: time
     teacher: TeacherName
-    tz: TimezoneName = "America/Los_Angeles"
+    # 不传就取课程的默认时区（端点里解析）。这里不能给一个具体默认值——
+    # 那样"课程默认时区"对通过 API 建的场次就毫无作用了。
+    tz: TimezoneName | None = None
     note: str = ""
 
 

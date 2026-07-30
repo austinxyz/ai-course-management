@@ -38,10 +38,13 @@ class Course(SQLModel, table=True):
     short: str = Field(default="")
     tagline: str = Field(default="")
     intro: str = Field(default="")
-    hours: int = Field(default=2)
+    # 分钟，不是小时：真实课程 150 分钟，整小时表达不了。
+    duration_minutes: int = Field(default=120)
     homework_title: str = Field(default="")
     # 上架 / 已下线。课程没有删除——已下线仍列出，历史报课与作业不受影响。
     offline: bool = Field(default=False)
+    # 新增场次时的预选时区。只影响将来——不回溯已有场次。
+    default_tz: str = Field(default="America/Los_Angeles")
     # created_at 有意不映射：DB 有 now() 默认值，应用既不读也不写它。
     # 映射成可空字段会让 SQLModel 插入显式 NULL，撞上 NOT NULL。
 

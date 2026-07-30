@@ -122,3 +122,26 @@ def test_session_requires_a_course_that_exists(db_session):
     with pytest.raises(IntegrityError):
         db_session.commit()
     db_session.rollback()
+
+
+def test_duration_defaults_to_two_hours_in_minutes(db_session):
+    """新建课程不填时长时是 120 分钟 —— 与改列前的默认值（2 小时）等价。"""
+    course = make_course(db_session)
+
+    assert db_session.get(Course, course.id).duration_minutes == 120
+
+
+def test_the_hours_column_is_gone(db_session):
+    """替换不并存：留着旧列就会有两个"这门课多长"的来源，
+    而它们必然有一天不一致。"""
+    columns = {c.name for c in Course.__table__.columns}
+
+    assert "duration_minutes" in columns
+    assert "hours" not in columns
+
+
+def test_default_timezone_is_a_neutral_pacific(db_session):
+    """DB 默认不写入某一个用户的排课习惯。四门真实课程的美东由导入脚本显式设置。"""
+    course = make_course(db_session)
+
+    assert db_session.get(Course, course.id).default_tz == "America/Los_Angeles"

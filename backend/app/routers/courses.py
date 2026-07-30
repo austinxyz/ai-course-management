@@ -85,9 +85,10 @@ def _to_course_read(
         short=course.short,
         tagline=course.tagline,
         intro=course.intro,
-        hours=course.hours,
+        duration_minutes=course.duration_minutes,
         homework_title=course.homework_title,
         offline=course.offline,
+        default_tz=course.default_tz,
         aliases=[AliasRead(raw=a.raw) for a in aliases],
         sessions=[_to_session_read(s) for s in sessions],
     )
@@ -255,7 +256,11 @@ def add_session(
     course_id: uuid.UUID, body: SessionCreate, session: Session = Depends(get_session)
 ):
     course = _load(course_id, session)
-    session.add(CourseSession(course_id=course.id, **body.model_dump()))
+    fields = body.model_dump()
+    # 缺省取课程的默认时区：讲师给这门课设过"通常按哪个时区排"，
+    # 新增时就不该再退回某个写死的值。
+    fields["tz"] = fields.get("tz") or course.default_tz
+    session.add(CourseSession(course_id=course.id, **fields))
     session.commit()
     return _read_one(course, session)
 

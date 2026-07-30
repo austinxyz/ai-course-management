@@ -18,12 +18,19 @@ from sqlalchemy import create_engine  # noqa: E402
 from sqlmodel import Session  # noqa: E402
 
 
+# One engine for the whole run. The per-test version leaked a pool each time —
+# the connections were never disposed, so around the hundredth test Postgres
+# started refusing with "remaining connection slots are reserved for roles with
+# the SUPERUSER attribute", and it surfaced as an unrelated test erroring at
+# setup rather than as anything about connections.
+_engine = create_engine(DATABASE_URL)
+
+
 @pytest.fixture
 def db_session():
     """Yields a session bound to a transaction that is rolled back after
     the test, so tests never leave data behind in the local Supabase DB."""
-    engine = create_engine(DATABASE_URL)
-    connection = engine.connect()
+    connection = _engine.connect()
     transaction = connection.begin()
     session = Session(bind=connection)
     try:

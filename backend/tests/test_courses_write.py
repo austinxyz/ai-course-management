@@ -193,7 +193,45 @@ def test_alias_race_falls_back_to_409_not_500(client, db_session, monkeypatch):
     assert resp.status_code == 409
 
 
-def test_hours_must_be_positive(client, db_session):
-    """0 小时的课不是课；负数更不是。"""
-    assert create(client, hours=0).status_code == 422
-    assert create(client, hours=-1).status_code == 422
+
+
+def test_duration_is_recorded_in_minutes(client, db_session):
+    """真实课程是 150 分钟。整小时表达不了 2.5 小时——不是边缘情况，是全部四门课。"""
+    cid = create(client, duration_minutes=150).json()["id"]
+
+    assert client.get("/api/courses").json()[0]["duration_minutes"] == 150
+
+    patched = client.patch(f"/api/courses/{cid}", json={"duration_minutes": 90})
+    assert patched.status_code == 200
+    assert client.get("/api/courses").json()[0]["duration_minutes"] == 90
+
+
+@pytest.mark.parametrize("bad", [0, -1, 14, 601])
+def test_duration_out_of_range_is_rejected(client, db_session, bad):
+    """0 与负数不是课；上限防手滑多打一个 0。下限 15 分钟。"""
+    assert create(client, duration_minutes=bad).status_code == 422
+
+    cid = create(client, name="另一门课").json()["id"]
+    before = client.get("/api/courses").json()
+    assert client.patch(f"/api/courses/{cid}", json={"duration_minutes": bad}).status_code == 422
+    assert client.get("/api/courses").json() == before
+
+
+def test_course_has_a_default_timezone(client, db_session):
+    """课程记住它通常按哪个时区排；新增场次时预选它。"""
+    cid = create(client).json()["id"]
+    assert client.get("/api/courses").json()[0]["default_tz"] == "America/Los_Angeles"
+
+    resp = client.patch(f"/api/courses/{cid}", json={"default_tz": "America/New_York"})
+
+    assert resp.status_code == 200
+    assert client.get("/api/courses").json()[0]["default_tz"] == "America/New_York"
+
+
+@pytest.mark.parametrize("bad_tz", ["Mars/Olympus", ""])
+def test_unknown_default_timezone_is_rejected(client, db_session, bad_tz):
+    """写错的时区名会在读取时炸在换算上，那时离写入点已经很远。两条写入路径都要拦。"""
+    assert create(client, default_tz=bad_tz).status_code == 422
+
+    cid = create(client, name="第三门课").json()["id"]
+    assert client.patch(f"/api/courses/{cid}", json={"default_tz": bad_tz}).status_code == 422

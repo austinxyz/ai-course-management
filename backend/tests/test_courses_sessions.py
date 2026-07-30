@@ -216,3 +216,53 @@ def test_unknown_timezone_is_rejected(client, db_session, bad_tz):
     sid = add_session(client, cid, local_date="2026-11-05").json()["sessions"][-1]["id"]
     patched = client.patch(f"/api/courses/{cid}/sessions/{sid}", json={"tz": bad_tz})
     assert patched.status_code == 422
+
+
+def test_changing_the_course_default_timezone_leaves_sessions_alone(client, db_session):
+    """默认值影响将来，不影响过去。
+
+    若改一个叫"默认"的字段会回溯改写已排场次的时区，那就是用一次配置修改
+    静默改掉了"六月那场到底几点上的"。
+    """
+    cid = make_course(client)
+    add_session(client, cid, local_date="2026-10-15")
+    before = sessions_of(client)[0]
+
+    client.patch(f"/api/courses/{cid}", json={"default_tz": "America/New_York"})
+
+    after = sessions_of(client)[0]
+    assert after["tz"] == before["tz"] == "America/Los_Angeles"
+    assert after["starts_at"] == before["starts_at"]
+
+
+def test_a_session_recorded_in_eastern_converts_by_eastern(client, db_session):
+    """换算基准是场次自己的时区，不是写死的美西。
+
+    日期写死 2026-07-31（夏令时内）：同样是美东 20:30，12 月那场的上海行是 09:30 次日，
+    不锁日期的断言会在换季后自己变红。
+    """
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    cid = make_course(client)
+    add_session(
+        client, cid, local_date="2026-07-31", local_time="20:30", tz="America/New_York"
+    )
+
+    starts_at = datetime.fromisoformat(sessions_of(client)[0]["starts_at"])
+    pacific = starts_at.astimezone(ZoneInfo("America/Los_Angeles"))
+    shanghai = starts_at.astimezone(ZoneInfo("Asia/Shanghai"))
+
+    assert (pacific.date().isoformat(), pacific.strftime("%H:%M")) == ("2026-07-31", "17:30")
+    assert (shanghai.date().isoformat(), shanghai.strftime("%H:%M")) == ("2026-08-01", "08:30")
+
+
+def test_a_new_session_defaults_to_the_courses_timezone(client, db_session):
+    """不传 tz 时取课程的默认时区，而不是 schema 里写死的美西 ——
+    否则"课程默认时区"这个字段对通过 API 建的场次毫无作用。"""
+    cid = make_course(client)
+    client.patch(f"/api/courses/{cid}", json={"default_tz": "America/New_York"})
+
+    add_session(client, cid, local_date="2026-08-05", local_time="20:30")
+
+    assert sessions_of(client)[0]["tz"] == "America/New_York"

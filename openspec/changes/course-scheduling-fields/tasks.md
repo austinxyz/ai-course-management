@@ -11,16 +11,16 @@
   - `default_tz` 复用既有 `TimezoneName` 校验器（zoneinfo 认得的键才收）；DB 默认留 `America/Los_Angeles`，不写入某个用户的排课习惯
 - **Threshold**: 80
 
-- [ ] 1.0 CONTRACT — write openspec/changes/course-scheduling-fields/contracts/group-1.md with the ### Contract block above
-- [ ] 1.1 RED — `backend/tests/test_courses_write.py`：课程时长设为 150 落库并回显；0 / -1 / 601 被拒 422 且库中值不变（当前列是 `hours` 且限 1–4，因此先红）
-- [ ] 1.2 GREEN — migration：`courses` 加 `duration_minutes int not null default 120`、回填 `hours * 60`、删 `hours`；`supabase db reset` 后**重启后端进程**（连接池会全废、进程仍在监听）
-- [ ] 1.3 GREEN — `models.py` / `schemas.py` 字段改名与校验（15–600），`CourseRead` 同步
-- [ ] 1.4 RED — `backend/tests/test_courses_model.py`：migration 回填正确性 —— 直接插入一条并断言默认值为 120；另断言表上**不再有** `hours` 列
-- [ ] 1.5 GREEN — 使 1.4 通过（若 1.2 已满足则确认无需改动并在提交信息里说明）
-- [ ] 1.6 RED — 课程可设 `default_tz`；设为 `America/New_York` 后回显；设为 `Mars/Olympus` 或空串被拒（创建与更新两条路径各一条断言）
-- [ ] 1.7 GREEN — `courses.default_tz` 列 + schema 字段（复用 `TimezoneName`）
-- [ ] 1.8 RED — 改课程 `default_tz` **不改变**已有场次的 `tz` 与 `starts_at`
-- [ ] 1.9 GREEN — 确认实现满足 1.8（`default_tz` 只被新增表单读取，后端不做任何回溯写入）
+- [x] 1.0 CONTRACT — write openspec/changes/course-scheduling-fields/contracts/group-1.md with the ### Contract block above
+- [x] 1.1 RED — `backend/tests/test_courses_write.py`：课程时长设为 150 落库并回显；0 / -1 / 601 被拒 422 且库中值不变（当前列是 `hours` 且限 1–4，因此先红）
+- [x] 1.2 GREEN — migration：`courses` 加 `duration_minutes int not null default 120`、回填 `hours * 60`、删 `hours`；`supabase db reset` 后**重启后端进程**（连接池会全废、进程仍在监听）
+- [x] 1.3 GREEN — `models.py` / `schemas.py` 字段改名与校验（15–600），`CourseRead` 同步
+- [x] 1.4 RED — `backend/tests/test_courses_model.py`：migration 回填正确性 —— 直接插入一条并断言默认值为 120；另断言表上**不再有** `hours` 列
+- [x] 1.5 GREEN — 使 1.4 通过（若 1.2 已满足则确认无需改动并在提交信息里说明）
+- [x] 1.6 RED — 课程可设 `default_tz`；设为 `America/New_York` 后回显；设为 `Mars/Olympus` 或空串被拒（创建与更新两条路径各一条断言）
+- [x] 1.7 GREEN — `courses.default_tz` 列 + schema 字段（复用 `TimezoneName`）
+- [x] 1.8 RED — 改课程 `default_tz` **不改变**已有场次的 `tz` 与 `starts_at`
+- [x] 1.9 GREEN — 确认实现满足 1.8（`default_tz` 只被新增表单读取，后端不做任何回溯写入）
 - [ ] 1.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-1.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 2. 后端：按任意时区录入的场次换算正确
@@ -36,11 +36,11 @@
   - 时区名校验在创建与更新两条路径都要生效（group 4 已加，本组确认不回退）
 - **Threshold**: 80
 
-- [ ] 2.0 CONTRACT — write openspec/changes/course-scheduling-fields/contracts/group-2.md with the ### Contract block above
-- [ ] 2.1 RED — `test_courses_sessions.py`：以 `tz=America/New_York`、`2026-07-31 20:30` 建一场，断言其 `starts_at` 换算到美西是同日 17:30、到上海是次日 08:30
-- [ ] 2.2 GREEN — 使 2.1 通过（若既有实现已满足，明确记录"无需改动"并说明为什么这条断言仍有价值：它钉住的是"基准是场次自己的 tz"）
-- [ ] 2.3 RED — 新增场次时不传 `tz`，落库取的是**课程的 `default_tz`** 而非 schema 写死的美西
-- [ ] 2.4 GREEN — 新增场次的 `tz` 缺省从所属课程取
+- [x] 2.0 CONTRACT — write openspec/changes/course-scheduling-fields/contracts/group-2.md with the ### Contract block above
+- [x] 2.1 RED — `test_courses_sessions.py`：以 `tz=America/New_York`、`2026-07-31 20:30` 建一场，断言其 `starts_at` 换算到美西是同日 17:30、到上海是次日 08:30
+- [x] 2.2 GREEN — 使 2.1 通过（若既有实现已满足，明确记录"无需改动"并说明为什么这条断言仍有价值：它钉住的是"基准是场次自己的 tz"）
+- [x] 2.3 RED — 新增场次时不传 `tz`，落库取的是**课程的 `default_tz`** 而非 schema 写死的美西
+- [x] 2.4 GREEN — 新增场次的 `tz` 缺省从所属课程取
 - [ ] 2.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-2.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 3. 前端：时长输入、默认时区、场次时区选择
