@@ -79,7 +79,6 @@ export function DetailPanel(props: DetailPanelProps) {
   } = props;
 
   const noWechat = !student.wechat && !isArchived;
-  const sid = "stu_" + student.email.split("@")[0].replace(/\./g, "_");
 
   const statusOf = (field: string): FieldStatus | undefined =>
     fieldStatus[`${student.email}:${field}`];
@@ -156,7 +155,7 @@ export function DetailPanel(props: DetailPanelProps) {
         <div className="-mt-1.5 flex flex-col overflow-hidden rounded-token border border-border">
           {FIELDS.map((fd, i) => {
             const editing = editKey === fd.key;
-            const raw = fd.key === "sid" ? sid : (student as unknown as Record<string, string>)[fd.key];
+            const raw = student[fd.key] as string;
             const empty = !raw || raw === "—";
             const warn = fd.key === "wechat" && empty;
             const shown = fd.key === "region" ? `${student.region} · ${student.tz}` : empty ? fd.placeholder ?? "未填" : raw;
@@ -225,7 +224,7 @@ export function DetailPanel(props: DetailPanelProps) {
                   ) : (
                     <button
                       type="button"
-                      onClick={() => fd.type !== "ro" && onStartEdit(fd.key as EditableFieldKey, raw === "—" ? "" : raw)}
+                      onClick={() => onStartEdit(fd.key as EditableFieldKey, raw === "—" ? "" : raw)}
                       className={cn(
                         "block w-full border-0 bg-transparent py-0.5 text-left text-[12.5px] leading-relaxed",
                         fd.mono ? "font-mono" : "font-sans",
@@ -238,7 +237,7 @@ export function DetailPanel(props: DetailPanelProps) {
                             : empty
                               ? "text-muted-foreground/70"
                               : "text-foreground",
-                        fd.type === "ro" ? "cursor-default" : "cursor-text",
+                        "cursor-text",
                       )}
                     >
                       {shown}

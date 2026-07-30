@@ -30,4 +30,14 @@ describe("StudentsClient", () => {
     const badges = screen.getAllByText("未对齐微信");
     expect(badges.some((el) => el.className.match(/bg-danger/))).toBe(true);
   });
+
+  it("does not show a synthesized 学员 ID", () => {
+    // The row displayed "stu_" + the email local part — an identifier the
+    // database does not have. Email is the student's primary key here, and a
+    // value that merely looks like a key invites being used as one.
+    render(<StudentsClient students={[unalignedStudent]} archivedStudents={[]} />);
+
+    expect(screen.queryByText("学员 ID")).not.toBeInTheDocument();
+    expect(document.querySelector('[data-field="sid"]')).toBeNull();
+  });
 });

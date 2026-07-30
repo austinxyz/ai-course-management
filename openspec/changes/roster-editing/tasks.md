@@ -80,10 +80,10 @@
   - 在 `TZ_BY_REGION` 上方加注释指明 `backend/app/schemas.py` 有同源副本、两边需同步——本 change 不统一，但必须留线索
 - **Threshold**: 70
 
-- [ ] 4.0 CONTRACT — write openspec/changes/roster-editing/contracts/group-4.md with the ### Contract block above
-- [ ] 4.1 搬迁 — `git mv frontend/app/students/mock-data.ts frontend/app/students/vocab.ts`，更新全部 import（`StudentsClient` / `FilterBar` / `DetailPanel` / `NewStudentModal` / `StudentsTable` / `Sidebar` / `PlaceholderPage` 及各测试文件），加 `TZ_BY_REGION` 重复说明注释。**只移动不改内容**，`npm run build` + 前端测试全绿即为通过；单独提交
-- [ ] 4.2 RED — vitest：详情面板**不**渲染标签为「学员 ID」的字段行（当前会渲染，因此此测试先失败）
-- [ ] 4.3 GREEN — 删 `FIELDS` 里的 `sid` 行、`DetailPanel` 里合成 `sid` 的代码与三元分支、死掉的 `ro` 分支；`EditableFieldKeyLike` 收缩为 `keyof Student`；单独提交
+- [x] 4.0 CONTRACT — write openspec/changes/roster-editing/contracts/group-4.md with the ### Contract block above
+- [x] 4.1 搬迁 — `git mv frontend/app/students/mock-data.ts frontend/app/students/vocab.ts`，更新全部 import（`StudentsClient` / `FilterBar` / `DetailPanel` / `NewStudentModal` / `StudentsTable` / `Sidebar` / `PlaceholderPage` 及各测试文件），加 `TZ_BY_REGION` 重复说明注释。**只移动不改内容**，`npm run build` + 前端测试全绿即为通过；单独提交
+- [x] 4.2 RED — vitest：详情面板**不**渲染标签为「学员 ID」的字段行（当前会渲染，因此此测试先失败）
+- [x] 4.3 GREEN — 删 `FIELDS` 里的 `sid` 行、`DetailPanel` 里合成 `sid` 的代码与三元分支、死掉的 `ro` 分支；`EditableFieldKeyLike` 收缩为 `keyof Student`；单独提交
 - [ ] 4.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-4.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 70 → PASS; < 70 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 5. 验证与上线

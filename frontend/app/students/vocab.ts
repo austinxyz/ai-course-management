@@ -47,7 +47,7 @@ export const BLANK_FORM: NewStudentForm = {
   note: "",
 };
 
-export const FIELDS: { key: EditableFieldKeyLike; label: string; type: "text" | "enum" | "ro"; mono?: boolean; placeholder?: string }[] = [
+export const FIELDS: { key: keyof Student; label: string; type: "text" | "enum"; mono?: boolean; placeholder?: string }[] = [
   // The panel header shows the name too, but that is a display slot. The edit
   // entry point lives here with every other field so one set of rules — inline
   // edit, saving, failure keeps your input — covers all of them.
@@ -61,7 +61,5 @@ export const FIELDS: { key: EditableFieldKeyLike; label: string; type: "text" | 
   { key: "industry", label: "行业", type: "text" },
   { key: "gender", label: "性别", type: "enum" },
   { key: "age", label: "年龄", type: "text" },
-  { key: "sid", label: "学员 ID", type: "ro", mono: true },
 ];
 
-type EditableFieldKeyLike = keyof Student | "sid";
