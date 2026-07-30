@@ -233,3 +233,27 @@ Postgres 按堆顺序返回，而 `UPDATE` 是写一条新元组到堆尾——�
 **Playwright 的 `waitUntil: "networkidle"` 在会冷启动的后端上可能永远不达成**（course-catalog 生产验收）。
 Render 免费档唤醒期间请求持续在飞，`networkidle` 等到超时，而报错指向后面那个 `waitFor`，
 看着像"页面没渲染出来"。用 `domcontentloaded` + 等一段**只有数据到位才会出现的文案**。
+
+**设计稿里的示例值不是真实约束**（course-scheduling-fields，导入真实课程时才发现）。
+`course-catalog` 的两个字段是照稿子做的：稿上画了 1/2/3/4 小时四个 chip，列就成了 `hours int` 限 1–4；
+稿上写着「时间（美西）」，美西就成了 schema 默认值与换算基准。
+而真实课程是 **150 分钟、8:30 PM 美东** —— 两个都存不下，且不是边缘情况，是全部四门课。
+**实现枚举/范围类字段前，先拿一条真实数据比对**；拿不到真实数据就把范围放宽到"显然够用"，
+而不是照抄稿子里那几个示例。稿子表达的是布局与语气，不是取值域。
+
+**openspec 的 MODIFIED 按标题匹配，改标题会让 archive 中止**（course-scheduling-fields 归档时撞到）。
+delta 里把「场次时间按**美西**记录…」改成「按**所属时区**记录…」，`openspec archive` 报
+`MODIFIED failed for header ... - not found` 并**回滚整次归档**（不留半成品，这点是好的）。
+需求标题本身就是一句断言，行为变了就该改标题 —— 正确表达是 **REMOVED（旧标题 + Reason/Migration）+ ADDED（新标题）**，
+不是把标题改回去迁就工具。另：archive 会把 ADDED 的条目追加到文件末尾并留下 `---` 分隔线，需要手工归位。
+
+**pytest fixture 每次新建 engine 却不 dispose，第 ~100 个测试开始连接被拒**（course-scheduling-fields）。
+`create_engine()` 写在 per-test fixture 里，连接池随测试数累积，Postgres 报
+`remaining connection slots are reserved for roles with the SUPERUSER attribute`。
+**症状与原因毫无关系**：报错落在某个不相干的测试的 setup 阶段，看着像那个测试坏了。
+engine 提到模块级共用一个即可（顺带快一倍）。测试数量跨过某个阈值才出现的失败，先怀疑资源泄漏。
+
+**migration 的回填在本地永远跑在 0 行上**（course-scheduling-fields）。
+`supabase db reset` 是在空库上重放，seed 里没有对应数据，所以 `update ... set x = y * 60` 这类回填
+**不被任何本地测试覆盖** —— 绿灯不代表回填写对了。真实证据只能来自生产那几行既有数据，
+因此这类 migration 的生产验收必须专门列一条"确认既有行的值被正确转换"，而不是只看页面能打开。

@@ -23,13 +23,15 @@
 
 ### `course-catalog` ✅ 已实现 · 🌐 已上线
 **用户故事**: 作为讲师，我想把课建到系统里并给它排多场——报满后加的第二场、为亚洲时区加的晚场，每场讲师可能都不是同一个人；我按美西时间排课，但要直接看到各时区对应时间，**而且不想在夏令时切换后发现所有时间都错了一小时**；平台里这门课的各种写法也要登记下来，下次导入报课数据不用手工对
-**覆盖需求**: docs/superpowers/specs/2026-07-29-course-catalog-requirements.md
+**覆盖需求**:
+- docs/superpowers/specs/2026-07-29-course-catalog-requirements.md（课程、别名、场次）
+- docs/superpowers/specs/2026-07-30-course-scheduling-fields-requirements.md（时长改分钟、按所选时区录入）
 **设计基准**: docs/superpowers/specs/mocks/2026-07-29-course-enrollment-design.dc.html（`sc-if isCourses` 与 `showCourse` 两个分支）
 
-**后台**: 三张表 —— `courses`（独立 uuid 主键，课程名与简称都可改）、`course_aliases`（**主键就是归一化后的别名**，全库唯一由结构保证 + CHECK 约束兜底绕过 API 的直写）、`course_sessions`（`local_date` + `local_time` + IANA `tz`，**无 UTC 偏移列**）；FastAPI `GET /api/courses`（课程+别名+场次一次取全，内存归拢避免 N+1）、`GET /api/courses/teachers`（场次讲师去重）、课程与场次的 POST/PATCH/DELETE、别名增删、`POST .../sessions/{id}/follow-date`（清除状态覆盖是动作而非 PATCH null）
-**前台**: `frontend/app/courses/`（独立路由；侧栏从 `setView` 改为 `next/link`，占位页各自成路由）；`CoursesClient` 只渲染 props、不留数据副本；`CourseModal` 新建/编辑 + 别名增删；`SessionRows` 行内编辑、新增一场、讲师 chip 可当场新增；`lib/tz.ts` **只做格式化**
+**后台**: 三张表 —— `courses`（独立 uuid 主键，课程名与简称都可改）、`course_aliases`（**主键就是归一化后的别名**，全库唯一由结构保证 + CHECK 约束兜底绕过 API 的直写）、`course_sessions`（`local_date` + `local_time` + **该场自己的** IANA `tz`，**无 UTC 偏移列**）；FastAPI `GET /api/courses`（课程+别名+场次一次取全，内存归拢避免 N+1）、`GET /api/courses/teachers`（场次讲师去重）；课程带 `duration_minutes`（分钟，15–600，**不是整小时** —— 真实课程 150 分钟）与 `default_tz`（新增场次的预选时区，不回溯已有场次）；课程与场次的 POST/PATCH/DELETE、别名增删、`POST .../sessions/{id}/follow-date`（清除状态覆盖是动作而非 PATCH null）
+**前台**: `frontend/app/courses/`（独立路由；侧栏从 `setView` 改为 `next/link`，占位页各自成路由）；`CoursesClient` 只渲染 props、不留数据副本；`CourseModal` 新建/编辑 + 别名增删；`SessionRows` 行内编辑、新增一场、讲师 chip 可当场新增、**时区 chip（取自 `ZONE_ROWS`，与换算行同一份来源）**且时间标签跟随所选时区；`lib/tz.ts` **只做格式化**
 **关键性质**: 场次时间存墙上时间、绝对时刻读取时用 `zoneinfo` 派生（时区规则会变，墙上时间才是讲师的意图）；状态 = 派生 + 可覆盖三态（`state_override` 为 null 即"跟随日期"），"今天"取 `America/Los_Angeles` 而非服务器时区；课程无删除，只有上架/已下线
-**验收标准**: 两场同为「美西 19:30」、分别在 10 月与 12 月时，**上海行为 10:30 次日 / 11:30 次日**（美东两场都是 22:30——美国两地同日切换，拿它比验不出任何东西）；场次写入失败就近显示、失败保留用户输入；生产已建真实课程与两场并通过上述断言
+**验收标准**: 两场同为「美西 19:30」、分别在 10 月与 12 月时，**上海行为 10:30 次日 / 11:30 次日**；以**美东** 20:30 录入的 2026-07-31 一场，美西行 17:30 同日、上海行 08:30 次日（换算基准是该场自己的时区）（美东两场都是 22:30——美国两地同日切换，拿它比验不出任何东西）；场次写入失败就近显示、失败保留用户输入；生产已建真实课程与两场并通过上述断言
 
 > **本能力不提供**：报课（场次卡片上的「已报 N 人」因此**不显示**，而不是显示 0）、作业评分维度（课程上只有"作业题目"一条元数据）、讲师实体（讲师是场次上的字符串）、批量排课、课程删除。
 >
