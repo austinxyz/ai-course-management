@@ -199,3 +199,9 @@ Postgres 按堆顺序返回，而 `UPDATE` 是写一条新元组到堆尾——�
 `uv python install 3.12 && uv sync` 即可重建。这类失败与"依赖没装"外观相似但成因不同，
 别急着 `pip install`；同理 `python -m uvicorn` 报 `No module named uvicorn` 时，
 先确认自己用的是不是项目那个 venv 的解释器。
+
+**`openspec archive` 按 UTC 命名目录，本机在 PT —— 傍晚归档会命名成明天**（roster-editing，PT 21:00 归档时发现）。
+这台机器与项目全部时间基准都是 PT（PDT，UTC-7）：`date`、git commit 时间戳、`docs/log/` 文件名都是 PT 日期，
+只有归档目录名走 UTC，于是 **PT 17:00 之后归档，目录名比其余一切早一天**。
+表现为归档目录与同一次归档提交里的开发日志差一天，看着像手误。
+归档后核一眼目录名；不对就 `git mv` 并同步改 `.openspec.yaml` 的 `created`。
