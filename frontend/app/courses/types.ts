@@ -3,7 +3,7 @@ export type SessionState = "pending" | "done" | "cancelled";
 
 export interface CourseSession {
   id: string;
-  /** 美西当地日期与时间。存墙上时间而非 UTC 偏移，夏令时切换后它不变。 */
+  /** 该场次所属时区的当地日期与时间（时区见下方 tz）。存墙上时间而非 UTC 偏移，夏令时切换后它不变。 */
   local_date: string;
   local_time: string;
   tz: string;

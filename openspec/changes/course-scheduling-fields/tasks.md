@@ -71,14 +71,14 @@
 - [x] 3.10 RED — vitest：课程详情的「这门课」事实行显示 `150 分钟`
 - [x] 3.11 GREEN — 事实行改为分钟
 - [x] 3.12 VISUAL DIFF — 起 dev stack，进 `/courses`：确认时长输入、默认时区 chip、新增场次的时区 chip 与标签跟随；建一场美东 20:30 的场次，肉眼确认美西行 17:30 同日、上海行 08:30 次日
-- [ ] 3.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-3.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 70 → PASS; < 70 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
+- [x] 3.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-3.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 70 → PASS; < 70 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 4. 验证与上线
 
-- [ ] 4.1 Run backend test suite — `cd backend && uv run pytest`，确认无回归
-- [ ] 4.2 Run frontend test suite — `cd frontend && npm run test`；另跑 `npm run build`
-- [ ] 4.3 e2e — `project.e2e_command` 为空，本 change 不新增 e2e
-- [ ] 4.4 Run superpowers:verification-before-completion — 跑 `project.test_commands`；`grep -rn 'console.log' frontend/app frontend/lib`；跑 `project.custom_verification_checks`
+- [x] 4.1 Run backend test suite — `cd backend && uv run pytest`，确认无回归
+- [x] 4.2 Run frontend test suite — `cd frontend && npm run test`；另跑 `npm run build`
+- [x] 4.3 e2e — `project.e2e_command` 为空，本 change 不新增 e2e
+- [x] 4.4 Run superpowers:verification-before-completion — 跑 `project.test_commands`；`grep -rn 'console.log' frontend/app frontend/lib`；跑 `project.custom_verification_checks`
 - [ ] 4.5 上线顺序 —— **DB → 后端 → 前端**。push 后先确认 `.github/workflows/db-migrate.yml` 绿再验收页面（`duration_minutes` 不存在时后端 500、前端整页错误态）
 - [ ] 4.6 生产验收 —— 生产那门课的时长显示为分钟且与 migration 前等价（`2 小时` → `120 分钟`）
 - [ ] 4.7 生产验收 —— 在生产按**美东** 20:30 建一场（日期 2026-07-31），刷新确认美西行 17:30 同日、上海行 08:30 次日。这一场随后会被导入脚本的真实场次取代，或由人删除

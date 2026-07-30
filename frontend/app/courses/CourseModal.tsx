@@ -140,6 +140,8 @@ export function CourseModal(props: CourseModalProps) {
             </span>
             <Input
               type="number"
+              min={15}
+              max={600}
               value={String(form.duration_minutes)}
               onChange={(e) => set("duration_minutes", Number(e.target.value))}
             />
