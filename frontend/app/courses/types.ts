@@ -27,9 +27,12 @@ export interface Course {
   short: string;
   tagline: string;
   intro: string;
-  hours: number;
+  /** 分钟，不是小时：真实课程 150 分钟，整小时表达不了。 */
+  duration_minutes: number;
   homework_title: string;
   offline: boolean;
+  /** 新增场次时预选的时区。只影响将来，不回溯已有场次。 */
+  default_tz: string;
   aliases: CourseAlias[];
   sessions: CourseSession[];
 }

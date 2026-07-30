@@ -2,6 +2,7 @@
 
 import { Badge, Button, Input } from "@/components/ui";
 import { cn } from "@/lib/cn";
+import { ZONE_ROWS } from "@/lib/tz";
 import type { Course } from "./types";
 
 export interface CourseForm {
@@ -9,9 +10,10 @@ export interface CourseForm {
   short: string;
   tagline: string;
   intro: string;
-  hours: number;
+  duration_minutes: number;
   homework_title: string;
   offline: boolean;
+  default_tz: string;
 }
 
 export const BLANK_COURSE: CourseForm = {
@@ -19,14 +21,16 @@ export const BLANK_COURSE: CourseForm = {
   short: "",
   tagline: "",
   intro: "",
-  hours: 2,
+  duration_minutes: 120,
   homework_title: "",
   offline: false,
+  default_tz: "America/Los_Angeles",
 };
 
 export function formFrom(course: Course): CourseForm {
-  const { name, short, tagline, intro, hours, homework_title, offline } = course;
-  return { name, short, tagline, intro, hours, homework_title, offline };
+  const { name, short, tagline, intro, duration_minutes, homework_title, offline, default_tz } =
+    course;
+  return { name, short, tagline, intro, duration_minutes, homework_title, offline, default_tz };
 }
 
 interface CourseModalProps {
@@ -128,14 +132,33 @@ export function CourseModal(props: CourseModalProps) {
 
         <div className="flex flex-col gap-1.5 border-t border-border pt-3">
           <span className="font-mono text-[11px] text-muted-foreground">默认上课设置</span>
+          <label className="flex flex-col gap-1">
+            {/* 输入框而非 chip：chip 一旦不够用就退化成"选个最接近的"，
+                而那正是这次要修的毛病——四门真实课程都是 150 分钟。 */}
+            <span className="font-sans text-[12px] text-foreground">
+              每场时长 <span className="text-muted-foreground">分钟 · 默认时区可在下方设定</span>
+            </span>
+            <Input
+              type="number"
+              value={String(form.duration_minutes)}
+              onChange={(e) => set("duration_minutes", Number(e.target.value))}
+            />
+          </label>
+
           <div className="flex flex-col gap-1">
             <span className="font-sans text-[12px] text-foreground">
-              每场时长 <span className="text-muted-foreground">上课时间统一按美西记</span>
+              默认时区{" "}
+              <span className="text-muted-foreground">新增场次时预选它，不影响已排好的场次</span>
             </span>
-            <div className="flex gap-1.5">
-              {[1, 2, 3, 4].map((h) => (
-                <button key={h} type="button" onClick={() => set("hours", h)} className={chip(form.hours === h)}>
-                  {h} 小时
+            <div className="flex flex-wrap gap-1.5">
+              {ZONE_ROWS.map((zone) => (
+                <button
+                  key={zone.timeZone}
+                  type="button"
+                  onClick={() => set("default_tz", zone.timeZone)}
+                  className={chip(form.default_tz === zone.timeZone)}
+                >
+                  {zone.label}
                 </button>
               ))}
             </div>

@@ -19,6 +19,39 @@ const STATE_LABEL: Record<SessionState, { text: string; variant: "success" | "mu
 
 const STATES: SessionState[] = ["pending", "done", "cancelled"];
 
+/** 时区标签用界面上的短名（美东），存的是 IANA 名（America/New_York）。 */
+function zoneLabel(timeZone: string): string {
+  return ZONE_ROWS.find((z) => z.timeZone === timeZone)?.label ?? timeZone;
+}
+
+function ZonePicker({
+  value,
+  onPick,
+}: {
+  value: string;
+  onPick: (timeZone: string) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="font-mono text-[11px] text-muted-foreground">时区</span>
+      <div className="flex flex-wrap gap-1.5">
+        {/* 与场次卡片下方那几行换算共用 ZONE_ROWS —— 两份清单会漂移成
+            "能选、但换算行里不显示这个时区"。 */}
+        {ZONE_ROWS.map((zone) => (
+          <button
+            key={zone.timeZone}
+            type="button"
+            onClick={() => onPick(zone.timeZone)}
+            className={chip(zone.timeZone === value)}
+          >
+            {zone.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function chip(active: boolean): string {
   return cn(
     "inline-flex h-[24px] items-center rounded-token border px-2 font-sans text-[11.5px]",
@@ -90,6 +123,7 @@ export function SessionRows({
           onAdd={(body) => onAdd(body)}
           busy={busy}
           error={errors.new ?? null}
+          defaultTz={course.default_tz}
         />
       ) : (
         <div>
@@ -122,6 +156,9 @@ function SessionRow({
   const [draft, setDraft] = useState({
     local_date: session.local_date,
     local_time: session.local_time.slice(0, 5),
+    // 这一场自己的时区，不是课程默认——取错的话，打开一个美西的旧场次再保存
+    // 就把它静默改成了课程默认，时间看着没变、实际差三小时。
+    tz: session.tz,
     teacher: session.teacher,
     note: session.note,
   });
@@ -197,13 +234,16 @@ function SessionRow({
               />
             </label>
             <label className="flex flex-col gap-1">
-              <span className="font-mono text-[11px] text-muted-foreground">时间</span>
+              <span className="font-mono text-[11px] text-muted-foreground">
+                时间（{zoneLabel(draft.tz)}）
+              </span>
               <Input
                 value={draft.local_time}
                 onChange={(e) => setDraft({ ...draft, local_time: e.target.value })}
               />
             </label>
           </div>
+          <ZonePicker value={draft.tz} onPick={(tz) => setDraft({ ...draft, tz })} />
           <div className="flex flex-col gap-1">
             <span className="font-mono text-[11px] text-muted-foreground">讲师</span>
             <TeacherPicker
@@ -314,16 +354,20 @@ function AddSession({
   onAdd,
   busy,
   error,
+  defaultTz,
 }: {
   teachers: string[];
   onCancel: () => void;
   onAdd: (body: Record<string, string>) => void;
   busy: boolean;
   error: string | null;
+  /** 课程的默认时区。预选它，讲师就不必把美东 20:30 先换算成美西 17:30。 */
+  defaultTz: string;
 }) {
   const [draft, setDraft] = useState({
     local_date: "",
     local_time: "",
+    tz: defaultTz,
     teacher: "",
     note: "",
   });
@@ -332,7 +376,7 @@ function AddSession({
   return (
     <div className="flex flex-col gap-2 rounded-token border border-dashed border-border bg-surface-muted/40 px-3 py-2.5">
       <div className="font-sans text-[12.5px] font-medium">
-        新增一场 · 时间按美西填，其他时区自动换算
+        新增一场 · 按所选时区填，其他时区自动换算
       </div>
       <div className="flex flex-wrap items-end gap-2">
         <label className="flex flex-col gap-1">
@@ -347,7 +391,7 @@ function AddSession({
         </label>
         <label className="flex flex-col gap-1">
           <span className="font-mono text-[11px] text-muted-foreground">
-            时间（美西） <span className="text-danger">*</span>
+            时间（{zoneLabel(draft.tz)}） <span className="text-danger">*</span>
           </span>
           <Input
             value={draft.local_time}
@@ -356,6 +400,7 @@ function AddSession({
           />
         </label>
       </div>
+      <ZonePicker value={draft.tz} onPick={(tz) => setDraft({ ...draft, tz })} />
       <div className="flex flex-col gap-1">
         <span className="font-mono text-[11px] text-muted-foreground">
           讲师 <span className="text-danger">*</span>

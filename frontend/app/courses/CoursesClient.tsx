@@ -89,6 +89,12 @@ export function CoursesClient({ courses, teachers }: CoursesClientProps) {
       setSaveError("课程名不能为空");
       return;
     }
+    const minutes = modal.form.duration_minutes;
+    if (!Number.isFinite(minutes) || minutes < 15 || minutes > 600) {
+      // 前端拦一道少一次往返；判据仍在后端（同样的 15–600）。
+      setSaveError("每场时长应在 15–600 分钟之间");
+      return;
+    }
     setSaveError(null);
     const target = modal.course;
     write(
@@ -321,7 +327,7 @@ function CourseDetail({
         <div className="mt-3.5 flex flex-col gap-1.5 border-t border-border pt-3">
           <div className="font-mono text-[11px] tracking-wide text-muted-foreground">这门课</div>
           <div className="flex flex-wrap gap-x-6 gap-y-1">
-            <Fact label="每场时长" value={`${course.hours} 小时`} />
+            <Fact label="每场时长" value={`${course.duration_minutes} 分钟`} />
             <Fact label="场次" value={`${course.sessions.length} 场`} />
             <Fact label="简称" value={course.short || "—"} />
           </div>
@@ -348,7 +354,7 @@ function CourseDetail({
         <div className="flex flex-col gap-1">
           <div className="font-sans text-sm font-semibold">上课时间 · 每场独立讲师与学员</div>
           <span className="font-sans text-[11.5px] text-muted-foreground">
-            时间按美西记，下面一行是各时区对应时间
+            时间按每场自己的时区记，下面一行是其它时区对应时间
           </span>
         </div>
 

@@ -58,19 +58,19 @@
   - 文案改动见 mocks 导览：`时间（美西）` → 跟随所选、`时间按美西填` → `按所选时区填`、`上课时间统一按美西记` → `默认时区可在下方设定`
 - **Threshold**: 70
 
-- [ ] 3.0 CONTRACT — write openspec/changes/course-scheduling-fields/contracts/group-3.md with the ### Contract block above
-- [ ] 3.1 MOCK — 读 `docs/superpowers/specs/mocks/2026-07-30-course-scheduling-fields-mocks.html`：记下两处偏离设计稿的地方与新文案；视觉基准仍是 `.dc.html` 的 `isCourses` / `showCourse` 分支
-- [ ] 3.2 RED — vitest：课程弹窗的时长是输入框，填 150 提交后 `updateCourseAction` 收到 `duration_minutes: 150`；填 0 被拦并给出提示
-- [ ] 3.3 GREEN — `CourseModal` 时长输入 + 前端范围检查；`types.ts` 字段改名
-- [ ] 3.4 RED — vitest：课程弹窗有默认时区 chip，选美东后提交带 `default_tz: "America/New_York"`
-- [ ] 3.5 GREEN — 默认时区 chip（取自 `ZONE_ROWS`）
-- [ ] 3.6 RED — vitest：课程默认时区为美东时，打开「+ 添加上课时间」预选美东且标签为 `时间（美东）`；把 chip 切到美西后标签变 `时间（美西）`，提交带 `tz: "America/Los_Angeles"`
-- [ ] 3.7 GREEN — 新增场次表单的时区 chip 与跟随标签
-- [ ] 3.8 RED — vitest：编辑一场 `tz=America/Los_Angeles` 的既有场次（课程默认是美东），chip 初始选中**美西**；不改时区直接保存，提交的 `tz` 仍是美西
-- [ ] 3.9 GREEN — 编辑态时区 chip 初始值取场次自己的 `tz`
-- [ ] 3.10 RED — vitest：课程详情的「这门课」事实行显示 `150 分钟`
-- [ ] 3.11 GREEN — 事实行改为分钟
-- [ ] 3.12 VISUAL DIFF — 起 dev stack，进 `/courses`：确认时长输入、默认时区 chip、新增场次的时区 chip 与标签跟随；建一场美东 20:30 的场次，肉眼确认美西行 17:30 同日、上海行 08:30 次日
+- [x] 3.0 CONTRACT — write openspec/changes/course-scheduling-fields/contracts/group-3.md with the ### Contract block above
+- [x] 3.1 MOCK — 读 `docs/superpowers/specs/mocks/2026-07-30-course-scheduling-fields-mocks.html`：记下两处偏离设计稿的地方与新文案；视觉基准仍是 `.dc.html` 的 `isCourses` / `showCourse` 分支
+- [x] 3.2 RED — vitest：课程弹窗的时长是输入框，填 150 提交后 `updateCourseAction` 收到 `duration_minutes: 150`；填 0 被拦并给出提示
+- [x] 3.3 GREEN — `CourseModal` 时长输入 + 前端范围检查；`types.ts` 字段改名
+- [x] 3.4 RED — vitest：课程弹窗有默认时区 chip，选美东后提交带 `default_tz: "America/New_York"`
+- [x] 3.5 GREEN — 默认时区 chip（取自 `ZONE_ROWS`）
+- [x] 3.6 RED — vitest：课程默认时区为美东时，打开「+ 添加上课时间」预选美东且标签为 `时间（美东）`；把 chip 切到美西后标签变 `时间（美西）`，提交带 `tz: "America/Los_Angeles"`
+- [x] 3.7 GREEN — 新增场次表单的时区 chip 与跟随标签
+- [x] 3.8 RED — vitest：编辑一场 `tz=America/Los_Angeles` 的既有场次（课程默认是美东），chip 初始选中**美西**；不改时区直接保存，提交的 `tz` 仍是美西
+- [x] 3.9 GREEN — 编辑态时区 chip 初始值取场次自己的 `tz`
+- [x] 3.10 RED — vitest：课程详情的「这门课」事实行显示 `150 分钟`
+- [x] 3.11 GREEN — 事实行改为分钟
+- [x] 3.12 VISUAL DIFF — 起 dev stack，进 `/courses`：确认时长输入、默认时区 chip、新增场次的时区 chip 与标签跟随；建一场美东 20:30 的场次，肉眼确认美西行 17:30 同日、上海行 08:30 次日
 - [ ] 3.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-3.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 70 → PASS; < 70 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 4. 验证与上线

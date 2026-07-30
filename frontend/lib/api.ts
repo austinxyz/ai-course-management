@@ -249,7 +249,8 @@ export interface CoursePatch {
   short?: string;
   tagline?: string;
   intro?: string;
-  hours?: number;
+  duration_minutes?: number;
+  default_tz?: string;
   homework_title?: string;
   offline?: boolean;
 }
@@ -257,6 +258,7 @@ export interface CoursePatch {
 export interface SessionPatch {
   local_date?: string;
   local_time?: string;
+  tz?: string;
   teacher?: string;
   note?: string;
   state_override?: "pending" | "done" | "cancelled";

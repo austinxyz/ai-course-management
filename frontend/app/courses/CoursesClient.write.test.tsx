@@ -35,7 +35,8 @@ const course: Course = {
   short: "入门",
   tagline: "定位",
   intro: "介绍",
-  hours: 2,
+  duration_minutes: 150,
+  default_tz: "America/Los_Angeles",
   homework_title: "作业题目",
   offline: false,
   aliases: [{ raw: "S1" }],
@@ -381,5 +382,119 @@ describe("guards while a write is in flight", () => {
 
     await waitFor(() => expect(screen.getByText("改不上。")).toBeInTheDocument());
     expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+});
+
+describe("duration and timezone fields", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    actions.updateCourseAction.mockResolvedValue({ ok: true });
+    actions.addSessionAction.mockResolvedValue({ ok: true });
+    actions.updateSessionAction.mockResolvedValue({ ok: true });
+  });
+
+  it("takes the duration in minutes, not whole hours", async () => {
+    // 真实课程是 150 分钟。整小时的 chip 存不下它 —— 那正是这次要修的。
+    const user = userEvent.setup();
+    render(<CoursesClient courses={[course]} teachers={[]} />);
+    await openEditor();
+
+    const minutes = screen.getByLabelText(/每场时长/);
+    await user.clear(minutes);
+    await user.type(minutes, "150");
+    await user.click(screen.getByRole("button", { name: "保存课程" }));
+
+    await waitFor(() =>
+      expect(actions.updateCourseAction).toHaveBeenCalledWith(
+        course.id,
+        expect.objectContaining({ duration_minutes: 150 }),
+      ),
+    );
+  });
+
+  it("refuses a duration outside 15-600 without calling the server", async () => {
+    const user = userEvent.setup();
+    render(<CoursesClient courses={[course]} teachers={[]} />);
+    await openEditor();
+
+    const minutes = screen.getByLabelText(/每场时长/);
+    await user.clear(minutes);
+    await user.type(minutes, "0");
+    await user.click(screen.getByRole("button", { name: "保存课程" }));
+
+    expect(actions.updateCourseAction).not.toHaveBeenCalled();
+    expect(screen.getByText("每场时长应在 15–600 分钟之间")).toBeInTheDocument();
+  });
+
+  it("carries the course's default timezone", async () => {
+    const user = userEvent.setup();
+    render(<CoursesClient courses={[course]} teachers={[]} />);
+    await openEditor();
+
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "美东" }));
+    await user.click(screen.getByRole("button", { name: "保存课程" }));
+
+    await waitFor(() =>
+      expect(actions.updateCourseAction).toHaveBeenCalledWith(
+        course.id,
+        expect.objectContaining({ default_tz: "America/New_York" }),
+      ),
+    );
+  });
+
+  it("preselects the course's timezone when adding a session", async () => {
+    // 讲师的课排在美东。表单还固定写「时间（美西）」的话，
+    // 他得自己把 20:30 换算成 17:30 —— 而不用手算正是这个功能的意义。
+    const eastern = { ...course, default_tz: "America/New_York" };
+    const user = userEvent.setup();
+    render(<CoursesClient courses={[eastern]} teachers={["讲师甲"]} />);
+
+    await user.click(screen.getByRole("button", { name: "+ 添加上课时间" }));
+
+    expect(screen.getByLabelText(/时间（美东）/)).toBeInTheDocument();
+  });
+
+  it("sends the timezone the user picked", async () => {
+    const eastern = { ...course, default_tz: "America/New_York" };
+    const user = userEvent.setup();
+    render(<CoursesClient courses={[eastern]} teachers={["讲师甲"]} />);
+
+    await user.click(screen.getByRole("button", { name: "+ 添加上课时间" }));
+    await user.type(screen.getByLabelText(/上课日期/), "2026-08-05");
+    await user.type(screen.getByLabelText(/时间（美东）/), "20:30");
+    await user.click(screen.getByRole("button", { name: "讲师甲" }));
+    await user.click(screen.getByRole("button", { name: "添加这一场" }));
+
+    await waitFor(() =>
+      expect(actions.addSessionAction).toHaveBeenCalledWith(
+        eastern.id,
+        expect.objectContaining({ tz: "America/New_York", local_time: "20:30" }),
+      ),
+    );
+  });
+
+  it("edits a session with that session's own timezone preselected", async () => {
+    // 课程默认美东，但这一场是美西的。若 chip 初始值取课程默认，
+    // 打开旧场次再保存就把它静默改成了美东 —— 时间看着没变，实际差三小时。
+    const eastern = { ...course, default_tz: "America/New_York" };
+    const user = userEvent.setup();
+    render(<CoursesClient courses={[eastern]} teachers={[]} />);
+
+    await user.click(within(sessionRow("s-done")).getByRole("button", { name: "修正" }));
+    await user.click(within(sessionRow("s-done")).getByRole("button", { name: "保存这一场" }));
+
+    await waitFor(() =>
+      expect(actions.updateSessionAction).toHaveBeenCalledWith(
+        eastern.id,
+        "s-done",
+        expect.objectContaining({ tz: "America/Los_Angeles" }),
+      ),
+    );
+  });
+
+  it("shows the duration in minutes on the course facts", () => {
+    render(<CoursesClient courses={[{ ...course, duration_minutes: 150 }]} teachers={[]} />);
+
+    expect(screen.getByText("150 分钟")).toBeInTheDocument();
   });
 });
