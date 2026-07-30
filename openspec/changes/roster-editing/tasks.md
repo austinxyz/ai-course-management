@@ -84,7 +84,7 @@
 - [x] 4.1 搬迁 — `git mv frontend/app/students/mock-data.ts frontend/app/students/vocab.ts`，更新全部 import（`StudentsClient` / `FilterBar` / `DetailPanel` / `NewStudentModal` / `StudentsTable` / `Sidebar` / `PlaceholderPage` 及各测试文件），加 `TZ_BY_REGION` 重复说明注释。**只移动不改内容**，`npm run build` + 前端测试全绿即为通过；单独提交
 - [x] 4.2 RED — vitest：详情面板**不**渲染标签为「学员 ID」的字段行（当前会渲染，因此此测试先失败）
 - [x] 4.3 GREEN — 删 `FIELDS` 里的 `sid` 行、`DetailPanel` 里合成 `sid` 的代码与三元分支、死掉的 `ro` 分支；`EditableFieldKeyLike` 收缩为 `keyof Student`；单独提交
-- [ ] 4.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-4.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 70 → PASS; < 70 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
+- [x] 4.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-4.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 70 → PASS; < 70 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 5. 验证与上线
 

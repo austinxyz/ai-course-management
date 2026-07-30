@@ -187,7 +187,7 @@ export function DetailPanel(props: DetailPanelProps) {
                           key={o}
                           type="button"
                           onClick={() => onPickEnum(fd.key as EditableFieldKey, o)}
-                          className={pillClass((student as unknown as Record<string, string>)[fd.key] === o)}
+                          className={pillClass(raw === o)}
                         >
                           {o}
                         </button>
