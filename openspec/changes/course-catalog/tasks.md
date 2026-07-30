@@ -63,7 +63,7 @@
 - [x] 3.6 GREEN — 别名端点 + 归一化函数（trim + lower），冲突走 409
 - [x] 3.7 RED — 不存在删除课程的端点（`DELETE /api/courses/{id}` 返回 405/404），且已下线课程仍出现在列表里
 - [x] 3.8 GREEN — 上下架用 `PATCH` 的 `offline` 字段；确认没有实现删除
-- [ ] 3.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-3.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
+- [x] 3.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-3.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 4. 后端：场次、状态派生与时区换算
 

@@ -152,3 +152,48 @@ def test_database_refuses_a_non_normalized_alias(db_session):
     with pytest.raises(IntegrityError):
         db_session.commit()
     db_session.rollback()
+
+
+def test_alias_cannot_be_deleted_through_another_course(client, db_session):
+    """守卫必须被测到：删除路径带 course_id，若不校验归属，
+    B 课的请求就能删掉 A 课的别名——而两边都返回 200，看不出出事。"""
+    a = create(client, name="课程甲").json()["id"]
+    b = create(client, name="课程乙").json()["id"]
+    client.post(f"/api/courses/{a}/aliases", json={"raw": "S1"})
+
+    resp = client.delete(f"/api/courses/{b}/aliases/S1")
+
+    assert resp.status_code == 404
+    by_name = {c["name"]: c for c in client.get("/api/courses").json()}
+    assert [x["raw"] for x in by_name["课程甲"]["aliases"]] == ["S1"]
+
+
+def test_deleting_a_missing_alias_is_404_not_a_silent_ok(client, db_session):
+    """200 会让调用方以为删掉了。"什么都没发生"和"删成功"必须能区分。"""
+    cid = create(client).json()["id"]
+
+    assert client.delete(f"/api/courses/{cid}/aliases/nope").status_code == 404
+
+
+def test_alias_race_falls_back_to_409_not_500(client, db_session, monkeypatch):
+    """两个请求同时加同一个别名时，两边都能通过预查，然后其中一个撞主键。
+
+    未捕获的 IntegrityError 会变成 500——而这在语义上仍然是"别名已被占用"。
+    这里把预查打成永远返回 None 来走到那条分支上。
+    """
+    from app.routers import courses as courses_router
+
+    a = create(client, name="课程甲").json()["id"]
+    b = create(client, name="课程乙").json()["id"]
+    client.post(f"/api/courses/{a}/aliases", json={"raw": "S1"})
+    monkeypatch.setattr(courses_router, "_existing_alias", lambda session, key: None)
+
+    resp = client.post(f"/api/courses/{b}/aliases", json={"raw": "S1"})
+
+    assert resp.status_code == 409
+
+
+def test_hours_must_be_positive(client, db_session):
+    """0 小时的课不是课；负数更不是。"""
+    assert create(client, hours=0).status_code == 422
+    assert create(client, hours=-1).status_code == 422

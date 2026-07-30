@@ -1,6 +1,7 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from app.db import get_session
@@ -126,6 +127,23 @@ def update_course(
     return _read_one(course, session)
 
 
+def _existing_alias(session: Session, key: str) -> CourseAlias | None:
+    """预查占用者。单独一个函数，好让测试把它打掉、走到撞主键那条分支上。"""
+    return session.get(CourseAlias, key)
+
+
+def _alias_taken(session: Session, key: str) -> HTTPException:
+    existing = _existing_alias(session, key)
+    shown = existing.raw if existing is not None else key
+    owner = session.get(Course, existing.course_id) if existing is not None else None
+    detail = (
+        f"别名 {shown} 已属于课程「{owner.name}」"
+        if owner is not None
+        else f"别名 {shown} 已被占用"
+    )
+    return HTTPException(status_code=409, detail=detail)
+
+
 @router.post("/{course_id}/aliases", response_model=CourseRead, status_code=201)
 def add_alias(
     course_id: uuid.UUID, body: AliasCreate, session: Session = Depends(get_session)
@@ -138,18 +156,17 @@ def add_alias(
     course = _load(course_id, session)
     key = normalize_alias(body.raw)
 
-    existing = session.get(CourseAlias, key)
-    if existing is not None:
-        owner = session.get(Course, existing.course_id)
-        detail = (
-            f"别名 {existing.raw} 已属于课程「{owner.name}」"
-            if owner is not None
-            else f"别名 {existing.raw} 已被占用"
-        )
-        raise HTTPException(status_code=409, detail=detail)
+    if _existing_alias(session, key) is not None:
+        raise _alias_taken(session, key)
 
     session.add(CourseAlias(alias=key, raw=body.raw, course_id=course.id))
-    session.commit()
+    try:
+        session.commit()
+    except IntegrityError:
+        # 两个请求同时加同一别名时都能通过上面的预查，其中一个在这里撞主键。
+        # 未捕获就是 500，而语义上它仍然是"这个别名已被占用"。
+        session.rollback()
+        raise _alias_taken(session, key) from None
     return _read_one(course, session)
 
 
@@ -159,7 +176,10 @@ def remove_alias(
 ):
     course = _load(course_id, session)
     alias = session.get(CourseAlias, normalize_alias(raw))
-    if alias is not None and alias.course_id == course.id:
-        session.delete(alias)
-        session.commit()
+    # 归属不符也当作找不到：路径里带着 course_id，B 课的请求不该删掉 A 课的别名。
+    # 返回 200 会让"什么都没发生"和"删成功"长得一模一样。
+    if alias is None or alias.course_id != course.id:
+        raise HTTPException(status_code=404, detail="alias not found on this course")
+    session.delete(alias)
+    session.commit()
     return _read_one(course, session)

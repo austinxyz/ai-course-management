@@ -2,7 +2,7 @@ import uuid
 from datetime import date, time
 from typing import Annotated, Literal
 
-from pydantic import AfterValidator, BaseModel, field_validator
+from pydantic import AfterValidator, BaseModel, Field, field_validator
 
 
 def _strip_and_require(value: str) -> str:
@@ -219,6 +219,10 @@ CourseName = Annotated[str, AfterValidator(_strip_and_require)]
 AliasRaw = Annotated[str, AfterValidator(_strip_and_require_alias)]
 
 
+# 每场时长。0 小时的课不是课，上限 4 取自设计里的选项。
+CourseHours = Annotated[int, Field(ge=1, le=4)]
+
+
 class CourseCreate(BaseModel):
     """新建课程。只有课程名必填——其余字段讲师往往之后才补。"""
 
@@ -226,7 +230,7 @@ class CourseCreate(BaseModel):
     short: str = ""
     tagline: str = ""
     intro: str = ""
-    hours: int = 2
+    hours: CourseHours = 2
     homework_title: str = ""
     offline: bool = False
 
@@ -242,7 +246,7 @@ class CourseUpdate(BaseModel):
     short: str | None = None
     tagline: str | None = None
     intro: str | None = None
-    hours: int | None = None
+    hours: CourseHours | None = None
     homework_title: str | None = None
     offline: bool | None = None
 
