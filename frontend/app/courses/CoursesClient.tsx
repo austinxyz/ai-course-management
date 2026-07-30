@@ -294,7 +294,7 @@ function CourseDetail({
   onAddSession,
 }: CourseDetailProps) {
   return (
-    <div className="flex max-w-[860px] flex-col gap-3.5">
+    <div className="flex flex-col gap-3.5">
       <Card>
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 flex-col gap-1.5">
@@ -309,7 +309,7 @@ function CourseDetail({
               {course.intro}
             </p>
           </div>
-          <Button variant="secondary" onClick={onEdit}>
+          <Button variant="secondary" className="shrink-0" onClick={onEdit}>
             编辑课程
           </Button>
         </div>

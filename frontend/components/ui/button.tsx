@@ -28,7 +28,8 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       <button
         ref={ref}
         className={cn(
-          "inline-flex items-center justify-center rounded-token font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none",
+          // whitespace-nowrap：按钮是 flex 子项时会被挤压，文案换行成两行
+          "inline-flex items-center justify-center whitespace-nowrap rounded-token font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none",
           variantClasses[variant],
           sizeClasses[size],
           className,
