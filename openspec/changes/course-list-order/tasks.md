@@ -51,5 +51,5 @@
 - [x] 3.3 e2e — `project.e2e_command` 为空，本 change 不新增 e2e
 - [x] 3.4 Run superpowers:verification-before-completion — 跑 `project.test_commands`；`grep -rn 'console.log' frontend/app frontend/lib`；跑 `project.custom_verification_checks`
 - [x] 3.5 上线 —— 无 schema 变更，前后端各自部署，顺序不敏感
-- [ ] 3.6 生产验收 —— 四门课顺序为 S4（7/26）→ S3（7/19）→ S2（7/12）→ S1（6/28）
-- [ ] 3.7 生产验收 —— 页面为左右两栏，与设计稿一致
+- [x] 3.6 生产验收 —— 顺序为 S4（7/26）→ S3（7/19）→ S2（6/14）→ S1（6/07）。日期与提案里写的不同：用户已在生产补录 S1/S2 更早的场次，排序键取最早那一场，故 S1 落到末位
+- [x] 3.7 生产验收 —— 页面为左右两栏，与设计稿一致
