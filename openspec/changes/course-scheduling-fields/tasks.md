@@ -79,6 +79,6 @@
 - [x] 4.2 Run frontend test suite — `cd frontend && npm run test`；另跑 `npm run build`
 - [x] 4.3 e2e — `project.e2e_command` 为空，本 change 不新增 e2e
 - [x] 4.4 Run superpowers:verification-before-completion — 跑 `project.test_commands`；`grep -rn 'console.log' frontend/app frontend/lib`；跑 `project.custom_verification_checks`
-- [ ] 4.5 上线顺序 —— **DB → 后端 → 前端**。push 后先确认 `.github/workflows/db-migrate.yml` 绿再验收页面（`duration_minutes` 不存在时后端 500、前端整页错误态）
-- [ ] 4.6 生产验收 —— 生产那门课的时长显示为分钟且与 migration 前等价（`2 小时` → `120 分钟`）
-- [ ] 4.7 生产验收 —— 在生产按**美东** 20:30 建一场（日期 2026-07-31），刷新确认美西行 17:30 同日、上海行 08:30 次日。这一场随后会被导入脚本的真实场次取代，或由人删除
+- [x] 4.5 上线顺序 —— **DB → 后端 → 前端**。push 后先确认 `.github/workflows/db-migrate.yml` 绿再验收页面（`duration_minutes` 不存在时后端 500、前端整页错误态）
+- [x] 4.6 生产验收 —— 生产那门课的时长显示为分钟且与 migration 前等价（`2 小时` → `120 分钟`）
+- [x] 4.7 生产验收 —— 在生产按**美东** 20:30 建一场（日期 2026-07-31），刷新确认美西行 17:30 同日、上海行 08:30 次日。这一场随后会被导入脚本的真实场次取代，或由人删除

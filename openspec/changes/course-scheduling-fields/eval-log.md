@@ -246,3 +246,11 @@ findings:
 
 fix_tasks: []
 ```
+
+- group: 4
+  production_acceptance:
+    migration: "Deploy DB migrations workflow 30559635026 → success"
+    backfill: "生产那门课显示「每场时长 120 分钟」—— hours=2 → 120，回填在真实数据上得到验证（本地重放时表是空的，回填跑在 0 行上，这是单元测试覆盖不到的一环）"
+    eastern_session: "按美东 20:30 建 2026-07-31 一场 → 美西 17:30 同日、上海 08:30 次日"
+    mixed_zones: "同页另两场美西 19:30 仍为上海 10:30 / 11:30 次日 —— 换算基准跟着每场自己的 tz"
+    note: "全程走界面（含 Server Actions），不是直连后端建的数据"
