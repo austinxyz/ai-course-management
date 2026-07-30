@@ -177,3 +177,25 @@ Playwright 默认 5s，而 Render 免费档冷启动要几十秒——**超时�
 `StudentUpdate` 每个字段是 `str | None = None`，`None` 表示"这次请求没提到它"（配合 `exclude_unset`）。
 但客户端显式传 `{"wechat": null}` 时 Pydantic 照收，`None` 被写进 NOT NULL 列 → 未捕获的 500。
 哨兵值和合法值撞了，且没有第三种状态可用，只能在边界上拒绝。
+
+**操作"当前选中项"的脚本会改错人，因为改名会让列表重排**（roster-editing，本地实测毁了两条 seed 记录）。
+列表按 `ORDER BY name, email`，改名后该行移位；reload 之后详情面板选中的是**排序首条**（初始选中固定为首行）。
+我的"改名 → reload → 改回原名"脚本第三步于是把另一个人的姓名覆盖成了第一个人的原名，
+且两步都返回 200、看不出异常。**任何写脚本都要按邮箱（主键）重新定位目标**，
+不能沿用上一步打开的面板。系统不留痕，改错没有第二处可查——原值必须先读出来存好。
+
+**列表接口没有 `ORDER BY` 时，编辑过的记录会跑到名单最后**（roster-editing）。
+Postgres 按堆顺序返回，而 `UPDATE` 是写一条新元组到堆尾——于是"位置"记录的是最后一次写入时间，
+而不是数据本身的任何属性。表现为"改了个字段，这人就从名单中间消失了"。
+排序键要能打破并列（本项目 `name, email`），否则同名两人的相对顺序仍会随任何写入抖动。
+
+**生产站点密码与本地 `.env.local` 那份不同，用错只表现为 401**（roster-editing，验收时撞到）。
+`SITE_PASSWORD` 在 Vercel 环境变量里，与本地开发那份不是一个值。自动化验收脚本拿本地值去打生产
+会一路 401，而 401 长得跟"还没部署完"、"realm 不对"、"用户名错了"完全一样，看不出是哪份凭据的问题。
+判据要选**只有新构建才有的可观察差异**（本次用搜索框 placeholder 文案），而不是"页面能打开"。
+
+**`uv` 托管的 Python 被清理后，`.venv` 变成空壳且报错指向不存在的路径**（roster-editing 开工第一步就撞到）。
+`uv run` 报 `No Python at '...cpython-3.12.13-windows-x86_64-none\python.exe'`——venv 还在、指向的解释器没了。
+`uv python install 3.12 && uv sync` 即可重建。这类失败与"依赖没装"外观相似但成因不同，
+别急着 `pip install`；同理 `python -m uvicorn` 报 `No module named uvicorn` 时，
+先确认自己用的是不是项目那个 venv 的解释器。
