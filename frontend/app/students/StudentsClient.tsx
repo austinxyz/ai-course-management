@@ -77,7 +77,19 @@ export function StudentsClient({ students, archivedStudents }: StudentsClientPro
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
     const filtered = data.filter((s) => {
-      if (q && !(s.name.toLowerCase().includes(q) || s.email.toLowerCase().includes(q))) return false;
+      // Five fields, plain substring, nothing cleverer. Search here serves one
+      // workflow — matching a WeChat group roster against the roster by hand —
+      // and in that moment the nickname is the only handle available: the real
+      // name may differ and the email is unknown (requirements §5). Fuzzy
+      // matching, pinyin or similarity ranking would turn recognition
+      // assistance into the system guessing who someone is, and a nickname
+      // cannot identify a person.
+      //
+      // Notes and tags stay out: notes hold long pasted write-ups that would
+      // drown the signal, and tags already have their own filter, so matching
+      // them would make "why is this row in my results" unanswerable.
+      const haystack = [s.name, s.email, s.nick, s.wxName, s.wechat];
+      if (q && !haystack.some((v) => v.toLowerCase().includes(q))) return false;
       if (align === "aligned" && !s.wechat) return false;
       if (align === "unaligned" && s.wechat) return false;
       if (tag.length && !tag.every((t) => s.tags.includes(t))) return false;

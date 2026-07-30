@@ -91,7 +91,11 @@ export function FilterBar(props: FilterBarProps) {
         <Input
           value={query}
           onChange={(e) => onQuery(e.target.value)}
-          placeholder="搜索姓名或邮箱"
+          // The only place the WeChat fields being searchable is discoverable.
+          // Someone who believes the box covers name and email alone will never
+          // try a nickname — which is the field the alignment workflow starts
+          // from.
+          placeholder="搜索姓名 / 邮箱 / 微信"
           className="h-9 pl-[31px]"
         />
       </div>

@@ -45,7 +45,7 @@
 - [x] 2.5 RED — vitest：改名后选中态仍指向同一封邮箱（不因列表重排而跳到别人身上）
 - [x] 2.6 GREEN — 使 2.5 通过（若既有实现已以邮箱为键则确认无需改动并说明）
 - [x] 2.7 VISUAL DIFF — 起 dev stack（`npm run dev --prefix frontend`），打开学员详情面板，肉眼确认姓名行与其余字段行同构（间距/字号/编辑图标一致），改一条记录的姓名确认落库与重排。**无 mock 可比**——本 change 的 mocks 是 stub（`HAS_UI_SURFACE: no`），比对基准是相邻字段行本身
-- [ ] 2.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-2.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 70 → PASS; < 70 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
+- [x] 2.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-2.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 70 → PASS; < 70 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 3. 前端：检索范围扩至 5 字段
 
@@ -60,12 +60,12 @@
   - 已知边缘：`nick`/`wxName` 未采集时默认值是 `—`，查询串 `—` 会命中所有未采集者，**有意不特殊处理**
 - **Threshold**: 80
 
-- [ ] 3.0 CONTRACT — write openspec/changes/roster-editing/contracts/group-3.md with the ### Contract block above
-- [ ] 3.1 RED — vitest：按 `nick` 片段、`wxName` 片段、`wechat` 片段各命中一条；大小写不一致仍命中
-- [ ] 3.2 RED — vitest：查询串只出现在备注或标签中时**不**命中；按姓名/邮箱搜索仍命中（回归保护）
-- [ ] 3.3 GREEN — 改 `StudentsClient.tsx` 的筛选 `useMemo`，五字段 `some(...includes)`
-- [ ] 3.4 RED — vitest：检索框 placeholder 为 `搜索姓名 / 邮箱 / 微信`（verbatim 字符串，用户知道"能搜昵称"的唯一途径）
-- [ ] 3.5 GREEN — 改 `FilterBar.tsx` 的 placeholder
+- [x] 3.0 CONTRACT — write openspec/changes/roster-editing/contracts/group-3.md with the ### Contract block above
+- [x] 3.1 RED — vitest：按 `nick` 片段、`wxName` 片段、`wechat` 片段各命中一条；大小写不一致仍命中
+- [x] 3.2 RED — vitest：查询串只出现在备注或标签中时**不**命中；按姓名/邮箱搜索仍命中（回归保护）
+- [x] 3.3 GREEN — 改 `StudentsClient.tsx` 的筛选 `useMemo`，五字段 `some(...includes)`
+- [x] 3.4 RED — vitest：检索框 placeholder 为 `搜索姓名 / 邮箱 / 微信`（verbatim 字符串，用户知道"能搜昵称"的唯一途径）
+- [x] 3.5 GREEN — 改 `FilterBar.tsx` 的 placeholder
 - [ ] 3.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-3.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 4. 前端：词表搬迁与删除合成 ID
