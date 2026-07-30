@@ -62,3 +62,12 @@
   - "Runtime: Test suite passes with 58/58 tests green (9 test files pass), no regressions; new test StudentsClient.test.tsx:34-42 correctly verifies sid field is gone; TypeScript build passes (5.6s); Next.js build succeeds without errors; import rewrites from mock-data to vocab verified across 7 files"
   - "Code: git mv properly used (commit shows R093 rename, not delete+add); imports updated in separate commit from vocab.ts changes; TZ_BY_REGION comment correctly documents backend/app/schemas.py duplicate (contract requirement for leaving sync note). Code review found 1 MEDIUM issue: type safety inconsistency — line 158 uses `student[fd.key] as string` cast which is still unsafe (fd.key has full `keyof Student` union including tags:string[]) while line 190 still uses original `(student as unknown as Record<string,string>)[fd.key]` pattern, creating two different cast approaches side-by-side instead of uniform tightening. No CRITICAL/HIGH issues. Test for sid removal is well-written with clear comment explaining why email is the real key."
   - "Threshold met: 97 >= 70 ✓"
+
+- group: 5
+  production_acceptance:
+    build: "placeholder 搜索姓名 / 邮箱 / 微信 present -> new build live"
+    sid_row: "absent"
+    rows: 20
+    nickname_search: pass
+    rename_round_trip: "pass — renamed, reload-verified, restored, reload-verified"
+    note: "lookups keyed by email through the search box; renaming reorders the list, so trusting the open panel edits the wrong person"
