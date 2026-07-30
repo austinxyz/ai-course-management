@@ -2,7 +2,7 @@ import { Card } from "@/components/ui";
 
 export default function StudentsLoading() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-6">
+    <div className="flex min-w-0 flex-1 items-center justify-center overflow-y-auto bg-background p-6">
       <Card className="w-[420px] max-w-full">
         <div className="mb-3.5 flex h-9 w-9 items-center justify-center rounded-token border border-border bg-surface-muted">
           <div className="flex items-center gap-[5px]" aria-hidden="true">

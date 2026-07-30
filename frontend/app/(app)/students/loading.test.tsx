@@ -19,4 +19,18 @@ describe("students loading state", () => {
     expect(body).toContain("1 分钟");
     expect(body).toContain("不必刷新");
   });
+
+  /**
+   * The shell is a flex row: sidebar, then this. Sizing to the viewport
+   * (`min-h-screen`) made the card sit hard against the sidebar and overflow
+   * the shell's own height — the state has to fill the space left over, not
+   * the window.
+   */
+  it("fills the content area rather than the viewport", () => {
+    const { container } = render(<Loading />);
+
+    const root = container.firstElementChild as HTMLElement;
+    expect(root.className).toContain("flex-1");
+    expect(root.className).not.toContain("min-h-screen");
+  });
 });

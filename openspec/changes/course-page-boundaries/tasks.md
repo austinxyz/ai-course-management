@@ -34,7 +34,8 @@
       时，页面内容与侧边栏已经渲染、徽标显示 `—`。**用挂住的 promise，不要用已 resolve 的** ——
       只断言最终态的测试对"漏包 Suspense"完全盲，而漏包正是本 change 最隐蔽的失败模式
 - [x] 1.7 GREEN — layout 里计数改为独立 async 子组件，包进 `<Suspense fallback={无计数的 Sidebar}>`
-- [ ] 1.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-1.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
+- [x] 1.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-1.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
+- [x] 1.F1 FIX — 更新 `app/(app)/students/loading.tsx` 与 `error.tsx` 容器：将 `min-h-screen` 改为 `flex-1`，外层补 `w-full` 或用 `<main className="flex-1">` 包裹，使加载/错误卡片填满内容区而非整屏
 
 ## 2. 加载态与错误态：课程页补齐，范围改为内容区
 
