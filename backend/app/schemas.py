@@ -1,5 +1,6 @@
 import uuid
-from datetime import date, time
+from datetime import date, datetime, time
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from typing import Annotated, Literal
 
 from pydantic import AfterValidator, BaseModel, Field, field_validator
@@ -163,8 +164,12 @@ class AliasRead(BaseModel):
 class SessionRead(BaseModel):
     """一场的只读形状。
 
-    墙上时间与时区名都给，因为编辑表单要回填它们。派生的绝对时刻与状态在后续
-    task 里补上——它们是算出来的，不是存下来的。
+    墙上时间与时区名都给，因为编辑表单要回填它们；`starts_at` 与 `state` 是算出来的，
+    不在库里。前端拿 `starts_at` 直接 `Intl` 格式化成各时区那几行——
+    "墙上时间→时刻"这步换算只在后端做一次，JS 里做需要试探偏移再迭代，容易错。
+
+    `state` 用 `str` 而非 `Literal`：只读响应上放 `Literal` 时，一行落在枚举外
+    会让整个列表接口 500，而不是那一行出错。
     """
 
     id: uuid.UUID
@@ -173,6 +178,10 @@ class SessionRead(BaseModel):
     tz: str
     teacher: str
     note: str
+    starts_at: datetime
+    state: str
+    # 界面据此显示「跟随日期」还是「恢复跟随日期」。
+    state_is_override: bool
 
 
 class CourseRead(BaseModel):
@@ -262,3 +271,57 @@ class AliasCreate(BaseModel):
     """加一个平台别名。存的是用户写法，匹配用归一化后的值。"""
 
     raw: AliasRaw
+
+
+SessionState = Literal["pending", "done", "cancelled"]
+
+
+def _known_timezone(value: str) -> str:
+    """时区名必须是 zoneinfo 认识的键。
+
+    写错了不会当场出错——它会在读取时炸在换算上，那时离写入点已经很远。
+    """
+    try:
+        ZoneInfo(value)
+    except (ZoneInfoNotFoundError, ValueError) as exc:
+        raise ValueError(f"unknown timezone: {value!r}") from exc
+    return value
+
+
+TimezoneName = Annotated[str, AfterValidator(_known_timezone)]
+TeacherName = Annotated[str, AfterValidator(_strip_and_require)]
+
+
+class SessionCreate(BaseModel):
+    """新增一场。日期、时间、讲师必填——一场课缺哪个都排不成。
+
+    `tz` 有默认值：设计里时间统一按美西填，其他时区是换算出来的。
+    """
+
+    local_date: date
+    local_time: time
+    teacher: TeacherName
+    tz: TimezoneName = "America/Los_Angeles"
+    note: str = ""
+
+
+class SessionUpdate(BaseModel):
+    """改一场。`None` = 本次请求没提到该字段。
+
+    清除状态覆盖不走这里——显式 null 在此被拒，而"恢复跟随日期"是个动作，
+    有自己的端点。
+    """
+
+    local_date: date | None = None
+    local_time: time | None = None
+    teacher: TeacherName | None = None
+    tz: TimezoneName | None = None
+    state_override: SessionState | None = None
+    note: str | None = None
+
+    @field_validator("*")
+    @classmethod
+    def _reject_explicit_null(cls, value: object) -> object:
+        if value is None:
+            raise ValueError("null is not a valid value; omit the field instead")
+        return value

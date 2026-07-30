@@ -1,4 +1,6 @@
 import uuid
+from datetime import UTC, date, datetime
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.exc import IntegrityError
@@ -12,16 +14,58 @@ from app.schemas import (
     CourseCreate,
     CourseRead,
     CourseUpdate,
+    SessionCreate,
     SessionRead,
+    SessionUpdate,
     normalize_alias,
 )
+
+PACIFIC = ZoneInfo("America/Los_Angeles")
+
+
+def utcnow() -> datetime:
+    """现在。单独一个函数，好让测试注入"UTC 已跨日、美西未跨日"那一刻。"""
+    return datetime.now(UTC)
+
+
+def today_pt() -> date:
+    """美西的今天。
+
+    服务器在 Render 上跑 UTC。按服务器日期判断状态时，UTC 已跨日而美西还没跨日的
+    那几个小时里，今晚的课会被提前标成「已上」。
+    """
+    return utcnow().astimezone(PACIFIC).date()
+
+
+def _derive_state(row: CourseSession) -> tuple[str, bool]:
+    """状态：人工覆盖优先，否则跟随日期。
+
+    返回 (状态, 是否人工覆盖) —— 界面靠第二个值决定显示「跟随日期」还是
+    「恢复跟随日期」。这两种情况都不是"某个状态"，所以一个 state 列表达不了。
+    """
+    if row.state_override is not None:
+        return row.state_override, True
+    return ("done" if row.local_date < today_pt() else "pending"), False
 
 router = APIRouter(prefix="/api/courses", tags=["courses"])
 
 
+def _starts_at(row: CourseSession) -> datetime:
+    """墙上时间 + 时区名 → 绝对时刻，读取时算。
+
+    存下来就冻结了当时的时区规则，而规则会改；墙上时间才是讲师的意图，
+    时刻是派生物。zoneinfo 处理夏令时，这里不出现任何偏移小时数。
+    """
+    return datetime.combine(row.local_date, row.local_time, tzinfo=ZoneInfo(row.tz))
+
+
 def _to_session_read(row: CourseSession) -> SessionRead:
+    state, is_override = _derive_state(row)
     return SessionRead(
         id=row.id,
+        starts_at=_starts_at(row),
+        state=state,
+        state_is_override=is_override,
         local_date=row.local_date,
         local_time=row.local_time,
         tz=row.tz,
@@ -181,5 +225,87 @@ def remove_alias(
     if alias is None or alias.course_id != course.id:
         raise HTTPException(status_code=404, detail="alias not found on this course")
     session.delete(alias)
+    session.commit()
+    return _read_one(course, session)
+
+
+def _load_session(
+    course: Course, session_id: uuid.UUID, session: Session
+) -> CourseSession:
+    row = session.get(CourseSession, session_id)
+    # 归属不符按找不到处理：路径里带着 course_id，B 课的请求不该改到 A 课的场次。
+    if row is None or row.course_id != course.id:
+        raise HTTPException(status_code=404, detail="session not found on this course")
+    return row
+
+
+@router.get("/teachers", response_model=list[str])
+def list_teachers(session: Session = Depends(get_session)):
+    """讲师选项 = 已有场次上出现过的名字去重。
+
+    讲师不是实体（见 design）：就讲师本人与合作伙伴几个，一张表换不来什么。
+    界面拿这个列表当选项，并允许当场录入新名字。
+    """
+    rows = session.exec(select(CourseSession.teacher).distinct()).all()
+    return sorted(rows)
+
+
+@router.post("/{course_id}/sessions", response_model=CourseRead, status_code=201)
+def add_session(
+    course_id: uuid.UUID, body: SessionCreate, session: Session = Depends(get_session)
+):
+    course = _load(course_id, session)
+    session.add(CourseSession(course_id=course.id, **body.model_dump()))
+    session.commit()
+    return _read_one(course, session)
+
+
+@router.patch("/{course_id}/sessions/{session_id}", response_model=CourseRead)
+def update_session(
+    course_id: uuid.UUID,
+    session_id: uuid.UUID,
+    body: SessionUpdate,
+    session: Session = Depends(get_session),
+):
+    course = _load(course_id, session)
+    row = _load_session(course, session_id, session)
+    for field, value in body.model_dump(exclude_unset=True).items():
+        setattr(row, field, value)
+    session.add(row)
+    session.commit()
+    return _read_one(course, session)
+
+
+@router.post(
+    "/{course_id}/sessions/{session_id}/follow-date", response_model=CourseRead
+)
+def follow_date(
+    course_id: uuid.UUID, session_id: uuid.UUID, session: Session = Depends(get_session)
+):
+    """清除人工覆盖，状态回到跟随日期。
+
+    是个动作而不是"把 state_override 设为 null"的 PATCH：更新请求里的显式 null
+    被拒（它与"没提到这个字段"撞同一个值），所以清除需要自己的入口。
+    """
+    course = _load(course_id, session)
+    row = _load_session(course, session_id, session)
+    row.state_override = None
+    session.add(row)
+    session.commit()
+    return _read_one(course, session)
+
+
+@router.delete("/{course_id}/sessions/{session_id}", response_model=CourseRead)
+def remove_session(
+    course_id: uuid.UUID, session_id: uuid.UUID, session: Session = Depends(get_session)
+):
+    """删一场。
+
+    本 change 没有报课表，所以删除没有连带影响。报课能力落地时**必须**补上
+    "删除已有报课的场次要被拒绝"，否则报课记录会指向不存在的场次。
+    """
+    course = _load(course_id, session)
+    row = _load_session(course, session_id, session)
+    session.delete(row)
     session.commit()
     return _read_one(course, session)

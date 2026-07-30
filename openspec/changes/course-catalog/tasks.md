@@ -80,17 +80,17 @@
   - 验夏令时只能拿亚洲时区比 —— 美西与美东同日切换，PT↔ET 恒为 3 小时，那条断言必然通过、证明不了任何事
 - **Threshold**: 80
 
-- [ ] 4.0 CONTRACT — write openspec/changes/course-catalog/contracts/group-4.md with the ### Contract block above
-- [ ] 4.1 RED — 新增场次：日期/时间/讲师齐全可建；缺任一被拒；备注可空；同课程多场可各自不同讲师
-- [ ] 4.2 GREEN — `SessionCreate` + 端点
-- [ ] 4.3 RED — 列表按 `local_date` 升序（乱序创建后断言顺序）
-- [ ] 4.4 GREEN — 查询加 `order_by`（无 `ORDER BY` 时 `UPDATE` 会把改过的行写到堆尾，这个坑在 roster-editing 踩过）
-- [ ] 4.5 RED — `starts_at` 的夏令时断言：两场同填 `19:30`，一场 2026-10-15、一场 2026-12-15；断言其 UTC 时刻分别对应上海次日 10:30 与 11:30，且两场的美西墙上时间都仍是 `19:30`
-- [ ] 4.6 GREEN — 用 `zoneinfo` 在响应里算 `starts_at`
-- [ ] 4.7 RED — 状态派生：未到为 `pending`、已过为 `done`、覆盖为 `cancelled` 且 `state_is_override` 为真、清除覆盖后回到跟随；另一条：注入"美西还没跨日但服务器已跨日"的今天，断言仍为 `pending`
-- [ ] 4.8 GREEN — 派生逻辑 + `_today_pt()` 可替换
-- [ ] 4.9 RED — 修改与删除场次；删除后同课程其余场次不受影响
-- [ ] 4.10 GREEN — `PATCH` / `DELETE` 端点
+- [x] 4.0 CONTRACT — write openspec/changes/course-catalog/contracts/group-4.md with the ### Contract block above
+- [x] 4.1 RED — 新增场次：日期/时间/讲师齐全可建；缺任一被拒；备注可空；同课程多场可各自不同讲师
+- [x] 4.2 GREEN — `SessionCreate` + 端点
+- [x] 4.3 RED — 列表按 `local_date` 升序（乱序创建后断言顺序）
+- [x] 4.4 GREEN — 查询加 `order_by`（无 `ORDER BY` 时 `UPDATE` 会把改过的行写到堆尾，这个坑在 roster-editing 踩过）
+- [x] 4.5 RED — `starts_at` 的夏令时断言：两场同填 `19:30`，一场 2026-10-15、一场 2026-12-15；断言其 UTC 时刻分别对应上海次日 10:30 与 11:30，且两场的美西墙上时间都仍是 `19:30`
+- [x] 4.6 GREEN — 用 `zoneinfo` 在响应里算 `starts_at`
+- [x] 4.7 RED — 状态派生：未到为 `pending`、已过为 `done`、覆盖为 `cancelled` 且 `state_is_override` 为真、清除覆盖后回到跟随；另一条：注入"美西还没跨日但服务器已跨日"的今天，断言仍为 `pending`
+- [x] 4.8 GREEN — 派生逻辑 + `_today_pt()` 可替换
+- [x] 4.9 RED — 修改与删除场次；删除后同课程其余场次不受影响
+- [x] 4.10 GREEN — `PATCH` / `DELETE` 端点
 - [ ] 4.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-4.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 5. 前端：课程页（列表、详情、场次与时区行）
