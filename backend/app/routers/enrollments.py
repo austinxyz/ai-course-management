@@ -79,6 +79,20 @@ def list_enrollments(
     ]
 
 
+def _require_session_of(course: Course, session_id: uuid.UUID | None, session: Session) -> None:
+    """场次必须属于这门课。
+
+    状态是从"所属场次"派生的，所以挂错课的场次会让这条报课按一个毫不相干的日期
+    显示已完成。数据库层表达不了这条（外键只能指向 course_sessions.id，
+    管不到它的 course_id），所以只能在边界上挡。
+    """
+    if session_id is None:
+        return
+    row = session.get(CourseSession, session_id)
+    if row is None or row.course_id != course.id:
+        raise HTTPException(status_code=422, detail="这一场不属于这门课")
+
+
 def _load(enrollment_id: uuid.UUID, session: Session) -> Enrollment:
     row = session.get(Enrollment, enrollment_id)
     if row is None:
@@ -113,6 +127,7 @@ def create_enrollment(
     course = _load_course(payload.course_id, session)
     if course.offline:
         raise HTTPException(status_code=409, detail="这门课已下线，不能新建报课")
+    _require_session_of(course, payload.session_id, session)
 
     row = Enrollment(
         student_email=payload.student_email,
@@ -149,6 +164,7 @@ def update_enrollment(
     given = payload.model_fields_set
 
     if "session_id" in given:
+        _require_session_of(_load_course(row.course_id, session), payload.session_id, session)
         row.session_id = payload.session_id
     if "status" in given:
         if payload.status not in {"enrolled", "withdrawn"}:

@@ -389,3 +389,16 @@ class EnrollmentUpdate(BaseModel):
     status: str | None = None
     enrolled_at: date | None = None
     note: str | None = None
+
+    @field_validator("status", "enrolled_at", "note")
+    @classmethod
+    def _reject_explicit_null(cls, value: object) -> object:
+        # 同 StudentUpdate / SessionUpdate：`None` 表示"没提到这个字段"，
+        # 而这三项背后的列都是 NOT NULL，显式 null 放进去就是未捕获的 500。
+        # 没有第三种状态可编码，只能在边界上拒绝。
+        #
+        # `session_id` **不在**这个列表里：它本来就可空，显式 null 是合法的
+        # "清空场次"，也是补课流程唯一的表达方式。
+        if value is None:
+            raise ValueError("null is not a valid value; omit the field instead")
+        return value

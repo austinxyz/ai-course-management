@@ -292,3 +292,58 @@ def test_existing_enrollments_of_an_offline_course_still_show(client, db_session
     db_session.commit()
 
     assert read_states(client, student.email) == ["enrolled"]
+
+
+def test_a_session_from_another_course_is_rejected(client, db_session):
+    """场次必须属于这条报课的课程。
+
+    不校验的话，A 课的场次能挂到 B 课的报课上，而状态是从"所属场次"派生的——
+    于是这条报课会按一个毫不相干的日期显示已完成。库里没有跨表的复合外键
+    能表达这条，所以只能在边界上挡。
+    """
+    student = seed_student(db_session)
+    mine = seed_course(db_session, "课程甲")
+    other = seed_course(db_session, "课程乙")
+    stranger = seed_session(db_session, other)
+
+    resp = client.post(
+        "/api/enrollments",
+        json={
+            "student_email": student.email,
+            "course_id": str(mine.id),
+            "session_id": str(stranger.id),
+            "enrolled_at": "2026-05-04",
+        },
+    )
+
+    assert resp.status_code == 422
+
+
+def test_moving_to_a_session_of_another_course_is_rejected(client, db_session):
+    student = seed_student(db_session)
+    mine = seed_course(db_session, "课程甲")
+    other = seed_course(db_session, "课程乙")
+    stranger = seed_session(db_session, other)
+    row = enroll(db_session, student, mine, None)
+
+    resp = client.patch(f"/api/enrollments/{row.id}", json={"session_id": str(stranger.id)})
+
+    assert resp.status_code == 422
+
+
+def test_explicit_null_on_a_not_null_column_is_refused(client, db_session):
+    """`None` 表示"这次请求没提到它"（配合 model_fields_set）。
+
+    客户端显式传 null 解析成同一个值却是另一个意思，而这两列都是 NOT NULL——
+    放进去就是未捕获的 500。没有第三种状态可编码，只能在边界上拒绝。
+
+    `session_id` 不在此列：它本来就可空，显式 null 是合法的"清空场次"。
+    """
+    student = seed_student(db_session)
+    course = seed_course(db_session)
+    row = enroll(db_session, student, course, None)
+
+    assert client.patch(f"/api/enrollments/{row.id}", json={"enrolled_at": None}).status_code == 422
+    assert client.patch(f"/api/enrollments/{row.id}", json={"note": None}).status_code == 422
+    # 对照：场次上的显式 null 仍然是合法的清空
+    assert client.patch(f"/api/enrollments/{row.id}", json={"session_id": None}).status_code == 200

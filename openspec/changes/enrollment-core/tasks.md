@@ -60,6 +60,11 @@
 - [x] 2.6 GREEN — `POST/PATCH/DELETE /api/enrollments`
 - [x] 2.7 RED — 补录到已下线课程被拒绝；但既有的、指向已下线课程的报课照常返回
 - [x] 2.8 GREEN — 补录时校验课程未下线
+- [x] 2.F1 FIX — 校验 `session_id` 属于该报课的课程（POST 与 PATCH 两处）；
+      DB 层表达不了（外键管不到 course_id），只能在边界上挡
+- [x] 2.F2 FIX — `EnrollmentUpdate` 对 `status`/`enrolled_at`/`note` 拒绝显式 null
+      （沿用 `SessionUpdate` 的 `_reject_explicit_null`）；`session_id` **不在**其列，
+      它可空且显式 null 是合法的"清空场次"
 - [ ] 2.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-2.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 3. 计数与场次删除守卫
