@@ -108,15 +108,15 @@
   - 状态 Badge 映射 `pending → success` / `done → muted` / `cancelled → danger`（取自设计脚本，不要把「待上」改成灰色）
 - **Threshold**: 70
 
-- [ ] 5.0 CONTRACT — write openspec/changes/course-catalog/contracts/group-5.md with the ### Contract block above
-- [ ] 5.1 MOCK — 读 `docs/superpowers/specs/mocks/2026-07-29-course-catalog-mocks.html`：记下课程页的 verbatim 文案与 token 映射；视觉基准是 `.dc.html` 的 `sc-if isCourses` 分支
-- [ ] 5.2 RED — vitest：课程页渲染课程列表与选中课程的详情（名称、一句话定位、介绍、别名、「这门课」事实行、作业题目）
-- [ ] 5.3 GREEN — `app/courses/page.tsx`（Server Component 取数）+ `CoursesClient.tsx`
-- [ ] 5.4 RED — vitest：场次行显示各时区对应时间，且 2026-10-15 与 2026-12-15 两场（同为美西 19:30）的上海行分别是次日 10:30 与 11:30
-- [ ] 5.5 GREEN — `frontend/lib/tz.ts` 格式化 + 场次行渲染
-- [ ] 5.6 RED — vitest：无场次时显示「还没有排课。加一个上课时间后，这门课才会出现在报课的场次选项里。」；已下线课程带 `已下线` Badge
-- [ ] 5.7 GREEN — 空态与下线标记
-- [ ] 5.8 VISUAL DIFF — 起 dev stack（`npm run dev --prefix frontend`），进 `/courses`，对着 `.dc.html` 在线版的课程页比：卡片间距、别名 chip、事实行、场次行两行结构、状态 Badge 颜色。修文案与 token 漂移
+- [x] 5.0 CONTRACT — write openspec/changes/course-catalog/contracts/group-5.md with the ### Contract block above
+- [x] 5.1 MOCK — 读 `docs/superpowers/specs/mocks/2026-07-29-course-catalog-mocks.html`：记下课程页的 verbatim 文案与 token 映射；视觉基准是 `.dc.html` 的 `sc-if isCourses` 分支
+- [x] 5.2 RED — vitest：课程页渲染课程列表与选中课程的详情（名称、一句话定位、介绍、别名、「这门课」事实行、作业题目）
+- [x] 5.3 GREEN — `app/courses/page.tsx`（Server Component 取数）+ `CoursesClient.tsx`
+- [x] 5.4 RED — vitest：场次行显示各时区对应时间，且 2026-10-15 与 2026-12-15 两场（同为美西 19:30）的上海行分别是次日 10:30 与 11:30
+- [x] 5.5 GREEN — `frontend/lib/tz.ts` 格式化 + 场次行渲染
+- [x] 5.6 RED — vitest：无场次时显示「还没有排课。加一个上课时间后，这门课才会出现在报课的场次选项里。」；已下线课程带 `已下线` Badge
+- [x] 5.7 GREEN — 空态与下线标记
+- [x] 5.8 VISUAL DIFF — 起 dev stack（`npm run dev --prefix frontend`），进 `/courses`，对着 `.dc.html` 在线版的课程页比：卡片间距、别名 chip、事实行、场次行两行结构、状态 Badge 颜色。修文案与 token 漂移
 - [ ] 5.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-5.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 70 → PASS; < 70 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 6. 前端：课程弹窗与场次编辑

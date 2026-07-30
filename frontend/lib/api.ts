@@ -2,6 +2,7 @@
 // (Not using the `server-only` package guard — it throws unconditionally
 // outside Next's own build pipeline, which breaks unit testing this file
 // directly under vitest.)
+import type { Course } from "@/app/courses/types";
 import type { Student } from "@/app/students/types";
 
 interface ApiStudent {
@@ -207,4 +208,25 @@ export async function restoreStudent(email: string): Promise<Student> {
   return toStudent(
     await backendWrite(`/api/students/${encodeURIComponent(email)}/restore`, "POST"),
   );
+}
+
+
+/**
+ * 课程、别名与场次一次取全。
+ *
+ * 后端把三者装在一个响应里：课程页要同时显示它们，分三个请求只会让页面分三次抖动。
+ * 字段名与后端一致（snake_case），所以这里不做 toStudent 那样的映射——
+ * 少一层映射就少一处"漏映射导致值静默丢失"的地方。
+ */
+export async function getCourses(): Promise<Course[]> {
+  const res = await fetch(backendUrl("/api/courses"), backendRequestInit());
+  if (!res.ok) throw new Error(`getCourses failed: ${res.status}`);
+  return res.json();
+}
+
+/** 已有场次上出现过的讲师，去重排序。新增场次时当选项。 */
+export async function getTeachers(): Promise<string[]> {
+  const res = await fetch(backendUrl("/api/courses/teachers"), backendRequestInit());
+  if (!res.ok) throw new Error(`getTeachers failed: ${res.status}`);
+  return res.json();
 }
