@@ -76,3 +76,25 @@ class CourseSession(SQLModel, table=True):
     state_override: str | None = Field(default=None)
     note: str = Field(default="")
     # created_at 同 Course：不映射。
+
+
+class Enrollment(SQLModel, table=True):
+    """一条报课：这个学员报了这门课，可能指明了上哪一场。
+
+    挂课程而非挂场次：换场次时这条记录本身不变（改一个字段），"他什么时候报的名"
+    不会丢；挂场次的话换场就得删一条建一条。
+    """
+
+    __tablename__ = "enrollments"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    student_email: str = Field(foreign_key="students.email")
+    course_id: uuid.UUID = Field(foreign_key="courses.id")
+    # 可空 = 还没定上哪一场。是需要跟进的状态，不是缺陷。
+    session_id: uuid.UUID | None = Field(default=None, foreign_key="course_sessions.id")
+    enrolled_at: date
+    # 只存人决定的两种：enrolled / withdrawn。"已完成"不入库，读取时由场次派生。
+    status: str = Field(default="enrolled")
+    source: str = Field(default="manual")
+    note: str = Field(default="")
+    # created_at 同 Course / CourseSession：应用不读不写，不映射。

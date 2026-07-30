@@ -19,15 +19,15 @@
   - `source` 列现在就建（只写 `manual`），切片 2 不该改表结构
 - **Threshold**: 80
 
-- [ ] 1.0 CONTRACT — write openspec/changes/enrollment-core/contracts/group-1.md with the ### Contract block above
-- [ ] 1.1 RED — `test_enrollments_api.py`：为同一 (学员, 课程, 场次) 建第二条被拒（表不存在，先红）
-- [ ] 1.2 GREEN — migration 建 `enrollments` 表 + 两条 partial unique index；`models.py` 映射
+- [x] 1.0 CONTRACT — write openspec/changes/enrollment-core/contracts/group-1.md with the ### Contract block above
+- [x] 1.1 RED — `test_enrollments_api.py`：为同一 (学员, 课程, 场次) 建第二条被拒（表不存在，先红）
+- [x] 1.2 GREEN — migration 建 `enrollments` 表 + 两条 partial unique index；`models.py` 映射
       （`created_at` 之类应用不读写的列**不要映射** —— SQLModel 会把显式 `None` 发成 SQL NULL 盖掉 DB 默认值）
-- [ ] 1.3 RED — 同一 (学员, 课程) 的**第二条未定场次**记录被拒。
+- [x] 1.3 RED — 同一 (学员, 课程) 的**第二条未定场次**记录被拒。
       **这条必须真实插入两次**，不能只断言索引存在 —— `NULL != NULL` 正是"索引建了但没挡住"的静默失败
-- [ ] 1.4 GREEN — 若 1.3 已通过，说明 partial index 生效；若没通过，修索引条件
-- [ ] 1.5 RED — 不同场次的两条报课并存（重听同一门课的场景）
-- [ ] 1.6 GREEN — 确认无需改动或修正索引条件
+- [x] 1.4 GREEN — 若 1.3 已通过，说明 partial index 生效；若没通过，修索引条件
+- [x] 1.5 RED — 不同场次的两条报课并存（重听同一门课的场景）
+- [x] 1.6 GREEN — 确认无需改动或修正索引条件
 - [ ] 1.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-1.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 2. 报课接口与状态派生
