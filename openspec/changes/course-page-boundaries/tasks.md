@@ -97,18 +97,21 @@
 - [x] 3.3 VISUAL DIFF — **真实新增一名学员**（虚构姓名 + `@example.com`），确认徽标数字随即变化。
       路径写法若不对（`/students` vs `/(app)/students`）就在这一步暴露 —— 单测断言的是
       "调用参数长什么样"，断不出 Next 认不认这个路径。改完记得把测试记录删掉
-- [ ] 3.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-3.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
+- [x] 3.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-3.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 4. 验证与上线
 
-- [ ] 4.1 Run backend test suite — `cd backend && uv run pytest`（本 change 不碰后端，确认无意外）
-- [ ] 4.2 Run frontend test suite — `cd frontend && npm run test`；另跑 `npm run build` 与 `npx tsc --noEmit`
-- [ ] 4.3 e2e — `project.e2e_command` 为空，本 change 不新增 e2e
-- [ ] 4.4 Run superpowers:verification-before-completion — 跑 `project.test_commands`；
+- [x] 4.1 Run backend test suite — `cd backend && uv run pytest`（本 change 不碰后端，确认无意外）
+- [x] 4.2 Run frontend test suite — `cd frontend && npm run test`；另跑 `npm run build` 与 `npx tsc --noEmit`
+- [x] 4.3 e2e — `project.e2e_command` 为空，本 change 不新增 e2e
+- [x] 4.4 Run superpowers:verification-before-completion — 跑 `project.test_commands`；
       跑 `project.custom_verification_checks`（`console.log` 与密钥泄漏两条）
-- [ ] 4.5 **实测记录：layout 与 page 是否重复请求学员名单**。在后端日志里数一次硬加载
-      `/students` 打到 `GET /api/students` 的次数。合并了就记 1，没合并就记 2 并接受
-      （内部工具、个位数用户，不为此加计数专用端点）。**这条是"记录实测结果"，不是"要求必须是 1"**
+- [x] 4.5 **实测记录：没有合并。** 一次硬加载 `/students` 打到后端 `GET /api/students` **3 次**：
+      page 自己 2 次（在读 + 已归档，本来就有），layout 的计数 1 次。即 request memoization
+      **没有**把 layout 与 page 的同名 GET 合并 —— 二者用的是各自的 `AbortSignal.timeout()`，
+      RequestInit 不同一。按计划接受（内部工具、个位数用户），不为此加计数专用端点。
+      注：只在硬加载与 layout 粒度 revalidate 时多这一次；软导航不重渲染 layout，不受影响。
+      测量在 dev 模式下进行，生产构建可能不同，但方向不会反过来
 - [ ] 4.6 上线 —— 无 schema 变更、不碰后端，前端单独部署；路由组不改 URL，回滚无坏链接
 - [ ] 4.7 生产验收 —— 两个方向切 tab，侧边栏都不消失，高亮点了就亮
 - [ ] 4.8 生产验收 —— **后端休眠状态下**打开 `/courses`，看到加载卡片而非空白或平台 504；
