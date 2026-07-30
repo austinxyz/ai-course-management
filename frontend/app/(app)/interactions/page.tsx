@@ -6,6 +6,6 @@ import { PlaceholderPage } from "@/app/(app)/students/PlaceholderPage";
  */
 export default function InteractionsPage() {
   return (
-      <PlaceholderPage view="interactions" />
+    <PlaceholderPage view="interactions" />
   );
 }

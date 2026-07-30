@@ -6,6 +6,6 @@ import { PlaceholderPage } from "@/app/(app)/students/PlaceholderPage";
  */
 export default function NudgePage() {
   return (
-      <PlaceholderPage view="nudge" />
+    <PlaceholderPage view="nudge" />
   );
 }

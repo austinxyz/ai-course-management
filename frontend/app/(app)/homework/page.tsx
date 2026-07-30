@@ -6,6 +6,6 @@ import { PlaceholderPage } from "@/app/(app)/students/PlaceholderPage";
  */
 export default function HomeworkPage() {
   return (
-      <PlaceholderPage view="homework" />
+    <PlaceholderPage view="homework" />
   );
 }

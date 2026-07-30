@@ -6,6 +6,6 @@ import { PlaceholderPage } from "@/app/(app)/students/PlaceholderPage";
  */
 export default function EnrollPage() {
   return (
-      <PlaceholderPage view="enroll" />
+    <PlaceholderPage view="enroll" />
   );
 }
