@@ -38,7 +38,7 @@
 - [x] 2.3 GREEN — `backend/app/models.py` 增 `Course` / `CourseAlias` / `CourseSession`
 - [x] 2.4 RED — `backend/tests/test_courses_api.py`：`GET /api/courses` 返回课程数组，每条带别名与场次；空库返回 `[]` 而非 404/500
 - [x] 2.5 GREEN — `backend/app/routers/courses.py` 只读端点 + 挂载到 `main.py`；响应枚举字段用 `str` 不用 `Literal`（响应上用 `Literal` 会让一行脏数据 500 掉整个列表）
-- [ ] 2.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-2.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
+- [x] 2.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-2.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 3. 后端：课程写入与别名唯一
 
@@ -54,15 +54,15 @@
   - 别名冲突返回 409 并带上占用它的课程标识，让界面能引导过去；**不覆盖**已有别名的 `raw`（先到先得）
 - **Threshold**: 80
 
-- [ ] 3.0 CONTRACT — write openspec/changes/course-catalog/contracts/group-3.md with the ### Contract block above
-- [ ] 3.1 RED — `POST /api/courses` 只填课程名可建；空白课程名（`"   "`）被拒 422 且不创建
-- [ ] 3.2 GREEN — `CourseCreate` / `CourseUpdate` + 端点，课程名走共享 validator
-- [ ] 3.3 RED — `PATCH /api/courses/{id}` 部分更新；未提及的字段不变；显式 `null` 被拒
-- [ ] 3.4 GREEN — 最小实现通过 3.3（沿用 `exclude_unset` 哨兵语义）
-- [ ] 3.5 RED — 别名：添加 `S1` 成功；再添加 ` s1 ` 视为重复不新增第二条；把已属于另一门课的别名加过来返回 409 且原课程别名集合不变；删除别名只影响该条
-- [ ] 3.6 GREEN — 别名端点 + 归一化函数（trim + lower），冲突走 409
-- [ ] 3.7 RED — 不存在删除课程的端点（`DELETE /api/courses/{id}` 返回 405/404），且已下线课程仍出现在列表里
-- [ ] 3.8 GREEN — 上下架用 `PATCH` 的 `offline` 字段；确认没有实现删除
+- [x] 3.0 CONTRACT — write openspec/changes/course-catalog/contracts/group-3.md with the ### Contract block above
+- [x] 3.1 RED — `POST /api/courses` 只填课程名可建；空白课程名（`"   "`）被拒 422 且不创建
+- [x] 3.2 GREEN — `CourseCreate` / `CourseUpdate` + 端点，课程名走共享 validator
+- [x] 3.3 RED — `PATCH /api/courses/{id}` 部分更新；未提及的字段不变；显式 `null` 被拒
+- [x] 3.4 GREEN — 最小实现通过 3.3（沿用 `exclude_unset` 哨兵语义）
+- [x] 3.5 RED — 别名：添加 `S1` 成功；再添加 ` s1 ` 视为重复不新增第二条；把已属于另一门课的别名加过来返回 409 且原课程别名集合不变；删除别名只影响该条
+- [x] 3.6 GREEN — 别名端点 + 归一化函数（trim + lower），冲突走 409
+- [x] 3.7 RED — 不存在删除课程的端点（`DELETE /api/courses/{id}` 返回 405/404），且已下线课程仍出现在列表里
+- [x] 3.8 GREEN — 上下架用 `PATCH` 的 `offline` 字段；确认没有实现删除
 - [ ] 3.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-3.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 4. 后端：场次、状态派生与时区换算

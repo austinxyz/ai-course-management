@@ -193,3 +193,68 @@ class CourseRead(BaseModel):
     offline: bool
     aliases: list[AliasRead]
     sessions: list[SessionRead]
+
+
+def normalize_alias(value: str) -> str:
+    """别名的匹配键：去首尾空白 + 转小写。
+
+    平台导出用什么写法不受我们控制，`S1`、`s1`、` S1 ` 指的是同一门课。
+    归一化放在边界上，库里就不会出现两个键指同一个逻辑别名——与邮箱转小写同源。
+    """
+    normalized = value.strip().lower()
+    if not normalized:
+        raise ValueError("alias must not be blank")
+    return normalized
+
+
+def _strip_and_require_alias(value: str) -> str:
+    """别名保留用户写法，但两端空白与空值不算写法。"""
+    stripped = value.strip()
+    if not stripped:
+        raise ValueError("alias must not be blank")
+    return stripped
+
+
+CourseName = Annotated[str, AfterValidator(_strip_and_require)]
+AliasRaw = Annotated[str, AfterValidator(_strip_and_require_alias)]
+
+
+class CourseCreate(BaseModel):
+    """新建课程。只有课程名必填——其余字段讲师往往之后才补。"""
+
+    name: CourseName
+    short: str = ""
+    tagline: str = ""
+    intro: str = ""
+    hours: int = 2
+    homework_title: str = ""
+    offline: bool = False
+
+
+class CourseUpdate(BaseModel):
+    """部分更新。`None` = 这次请求没提到该字段（配合 exclude_unset）。
+
+    显式 JSON null 解析成同一个值却是另一个意思，而每个列都是 NOT NULL，
+    所以在边界上拒掉——与 StudentUpdate 同一套哨兵语义。
+    """
+
+    name: CourseName | None = None
+    short: str | None = None
+    tagline: str | None = None
+    intro: str | None = None
+    hours: int | None = None
+    homework_title: str | None = None
+    offline: bool | None = None
+
+    @field_validator("*")
+    @classmethod
+    def _reject_explicit_null(cls, value: object) -> object:
+        if value is None:
+            raise ValueError("null is not a valid value; omit the field instead")
+        return value
+
+
+class AliasCreate(BaseModel):
+    """加一个平台别名。存的是用户写法，匹配用归一化后的值。"""
+
+    raw: AliasRaw
