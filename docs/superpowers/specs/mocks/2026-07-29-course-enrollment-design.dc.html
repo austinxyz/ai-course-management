@@ -1,23 +1,32 @@
 <!--
   来源：claude.ai/design 项目「讲武堂学员管理系统」
   https://claude.ai/design/p/1d976911-7272-4c83-aa54-715d22105341?file=ClaudeAI%E8%AF%BE%E7%A8%8B%E5%AD%A6%E5%91%98%E7%AE%A1%E7%90%86%E9%A1%B5.dc.html
-  导入日期：2026-07-29（PT）
+  导入日期：2026-07-29（PT），课程页改版后重新拉取
 
   这份文件是 claude.ai/design 的 .dc.html，依赖设计面板的运行时
   （support.js 与 _ds/**/_ds_bundle.js），**直接在浏览器里打开不会渲染** —— 要看效果去上面那个链接。
   留在仓库里是为了当作后续 change 的设计基准，其中的组件与 token 与本仓库
   frontend/components/ui/ + frontend/app/globals.css 是同一套。
 
-  包含四块界面，按 sc-if 分支划分：
-    isStudents   学员名单页 —— 已实现（frontend/app/students/）
-    isCourses    课程页 —— 未实现：课程列表 / 平台别名 / 作业要求 / 上课时间换算
-    isEnroll     报课页 —— 未实现：报课表格 / 状态与课程筛选 / 冲突标记
+  四块界面，按 sc-if 分支划分：
+    isStudents    学员名单页 —— 已实现（frontend/app/students/）
+    isCourses     课程页 —— 未实现
+    isEnroll      报课页 —— 未实现
     isPlaceholder 占位页 —— 已实现
-  以及三个弹窗：showNew（已实现）、showIntake（导入中间格式，未实现）、
-  showManual（手工补录报课，未实现）。
+  弹窗：showNew（新增学员，已实现）、showCourse（新建/编辑课程，未实现）、
+       showIntake（导入平台数据，未实现）、showManual（手工补录报课，未实现）。
 
-  已实现部分与本文件逐项核对过（2026-07-29），差异只有详情面板的「报课记录」：
-  现状是草图占位，设计里是真实列表 + 补录入口。
+  课程页在这一版里引入了**场次**这一层（原版只有课程 + 一张时区换算表）：
+    课程   name / short / desc（一句话定位）/ intro（招生用长文）/ 默认时区 offset /
+           每场时长 hours / 作业题目（一次，截止按场次定）/ 平台别名[]（导入匹配）/
+           上架状态（上架 · 已下线）
+    场次   date + time（按美西记，其他时区换算展示）/ teacher（每场单独，讲师可现场新增）/
+           state（待上 · 已上 · 已取消，默认按日期自动判断，可手动覆盖并「恢复跟随日期」）/
+           note（这一场为什么开）/ 已报人数（course + session 匹配且状态≠退课）
+    报课   增加「上哪一场」——挂到场次，不只挂课程
+
+  设计里课程主键是独立 id（脚本用 course.id），简称可空可改，且明确写了
+  「课程名改了要同步平台别名，否则下次导入会匹配不上」。
 -->
 <!DOCTYPE html>
 <html>
@@ -422,11 +431,13 @@ input,button{font-family:inherit}
           <div style="display:flex;flex-direction:column;gap:4px;min-width:0">
             <div style="display:flex;align-items:baseline;gap:10px">
               <h1 style="margin:0;font:600 19px/1.2 'Noto Sans SC',sans-serif;letter-spacing:-.01em">课程</h1>
-              <span style="font:400 12px/1.4 'JetBrains Mono',monospace;color:#79736a">3 门课</span>
+              <span style="font:400 12px/1.4 'JetBrains Mono',monospace;color:#79736a">{{ co.countLabel }}</span>
             </div>
             <p style="margin:0;font:400 12.5px/1.5 'Noto Sans SC',sans-serif;color:#79736a">每门课上一次、交一次作业。课程是报课、作业、催作业共用的口径，改这里会影响所有引用它的页面。</p>
           </div>
-          <x-import component-from-global-scope="AiCourseUI.Button" variant="secondary" size="sm" hint-size="auto,32px">新建课程</x-import>
+          <span style="flex:none;white-space:nowrap">
+            <x-import component-from-global-scope="AiCourseUI.Button" variant="primary" size="sm" onClick="{{ co.onNew }}" hint-size="auto,32px">新建课程</x-import>
+          </span>
         </header>
 
         <div style="flex:1;min-height:0;display:flex;overflow:hidden">
@@ -435,7 +446,9 @@ input,button{font-family:inherit}
               <button type="button" onClick="{{ c.onClick }}" style="{{ c.style }}">
                 <span style="display:flex;align-items:center;gap:7px;width:100%">
                   <span style="font:500 13.5px/1.3 'Noto Sans SC',sans-serif;color:#1a1917;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ c.name }}</span>
-                  <x-import component-from-global-scope="AiCourseUI.Badge" variant="{{ c.statusVariant }}" hint-size="auto,20px">{{ c.status }}</x-import>
+                  <sc-if value="{{ c.offline }}" hint-placeholder-val="{{ false }}">
+                    <x-import component-from-global-scope="AiCourseUI.Badge" variant="muted" hint-size="auto,20px">已下线</x-import>
+                  </sc-if>
                 </span>
                 <span style="font:400 11.5px/1.4 'JetBrains Mono',monospace;color:#a09a90">{{ c.meta }}</span>
               </button>
@@ -448,12 +461,16 @@ input,button{font-family:inherit}
                 <div style="display:flex;flex-direction:column;gap:5px;min-width:0">
                   <div style="display:flex;align-items:center;gap:9px">
                     <h2 style="margin:0;font:600 16px/1.3 'Noto Sans SC',sans-serif">{{ co.name }}</h2>
-                    <x-import component-from-global-scope="AiCourseUI.Badge" variant="{{ co.statusVariant }}" hint-size="auto,20px">{{ co.status }}</x-import>
-                    <x-import component-from-global-scope="AiCourseUI.Badge" variant="muted" hint-size="auto,20px">简称 {{ co.short }}</x-import>
+                    <sc-if value="{{ co.offline }}" hint-placeholder-val="{{ false }}">
+                      <x-import component-from-global-scope="AiCourseUI.Badge" variant="muted" hint-size="auto,20px">已下线</x-import>
+                    </sc-if>
                   </div>
                   <p style="margin:0;font:400 12.5px/1.6 'Noto Sans SC',sans-serif;color:#79736a;max-width:620px">{{ co.desc }}</p>
+                  <p style="margin:4px 0 0;font:400 12.5px/1.75 'Noto Sans SC',sans-serif;color:#3c3a35;max-width:620px;text-wrap:pretty">{{ co.intro }}</p>
                 </div>
-                <x-import component-from-global-scope="AiCourseUI.Button" variant="secondary" size="sm" hint-size="auto,32px">编辑课程</x-import>
+                <span style="flex:none;white-space:nowrap">
+                  <x-import component-from-global-scope="AiCourseUI.Button" variant="secondary" size="sm" onClick="{{ co.onEdit }}" hint-size="auto,32px">编辑课程</x-import>
+                </span>
               </div>
 
               <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding-top:2px;border-top:1px dashed #e8e4dc">
@@ -479,31 +496,156 @@ input,button{font-family:inherit}
 
             <div style="flex:none;padding:14px 22px 0;display:flex;flex-direction:column;gap:9px">
               <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
-                <div style="font:500 11px/1 'JetBrains Mono',monospace;letter-spacing:.09em;color:#a09a90">作业 · 一次</div>
-                <x-import component-from-global-scope="AiCourseUI.Button" variant="secondary" size="sm" hint-size="auto,32px">编辑作业要求</x-import>
+                <div style="font:500 11px/1 'JetBrains Mono',monospace;letter-spacing:.09em;color:#a09a90">上课时间 · 每场独立讲师与学员</div>
+                <span style="font:400 11.5px/1.5 'Noto Sans SC',sans-serif;color:#a09a90">时间按美西记，下面一行是各时区对应时间</span>
               </div>
-              <div style="display:flex;align-items:center;gap:12px;padding:12px 13px;border-radius:8px;border:1px solid #e4e0d8;background:#fff">
-                <span style="font:400 13px/1.5 'Noto Sans SC',sans-serif;color:#1a1917;flex:1;min-width:0">{{ co.hwTitle }}</span>
-                <x-import component-from-global-scope="AiCourseUI.Badge" variant="muted" hint-size="auto,20px">截止 {{ co.hwDue }}</x-import>
+              <div style="display:flex;flex-direction:column;gap:7px">
+                <sc-for list="{{ co.sessionRows }}" as="s" hint-placeholder-count="2">
+                  <div style="{{ s.style }}">
+                    <div style="display:flex;flex-direction:column;gap:8px;width:100%">
+                      <div style="display:flex;align-items:center;gap:11px">
+                        <span style="font:400 11px/1.3 'JetBrains Mono',monospace;color:#a09a90;flex:none;width:44px">{{ s.idx }}</span>
+                        <span style="font:500 13px/1.35 'JetBrains Mono',monospace;color:#1a1917;flex:none">{{ s.label }}</span>
+                        <span style="font:400 12.5px/1.4 'Noto Sans SC',sans-serif;color:#1a1917;flex:none">{{ s.teacher }}</span>
+                        <span style="font:400 12px/1.4 'Noto Sans SC',sans-serif;color:#79736a;flex:1;min-width:0">{{ s.zone }}</span>
+                        <span style="font:400 12px/1.4 'JetBrains Mono',monospace;color:#79736a;flex:none">{{ s.enrolled }}</span>
+                        <x-import component-from-global-scope="AiCourseUI.Badge" variant="{{ s.stateVariant }}" hint-size="auto,20px">{{ s.state }}</x-import>
+                        <span style="flex:none;white-space:nowrap">
+                          <x-import component-from-global-scope="AiCourseUI.Button" variant="ghost" size="sm" onClick="{{ s.onToggleEdit }}" class-name="text-primary" hint-size="auto,32px">{{ s.editLabel }}</x-import>
+                        </span>
+                      </div>
+
+                      <sc-if value="{{ s.notEditing }}" hint-placeholder-val="{{ true }}">
+                        <div style="padding-left:55px;display:flex;flex-direction:column;gap:3px">
+                          <span style="font:400 11.5px/1.5 'JetBrains Mono',monospace;color:#a09a90">{{ s.zoneLine }}</span>
+                          <span style="font:400 12px/1.5 'Noto Sans SC',sans-serif;color:#79736a">{{ s.note }}</span>
+                        </div>
+                      </sc-if>
+
+                      <sc-if value="{{ s.editing }}" hint-placeholder-val="{{ false }}">
+                        <div style="margin-left:55px;padding:11px 12px;border-radius:8px;border:1px solid #9c3417;background:#fff;display:flex;flex-direction:column;gap:9px">
+                          <sc-if value="{{ s.pastWarn }}" hint-placeholder-val="{{ false }}">
+                            <div style="font:400 11.5px/1.5 'Noto Sans SC',sans-serif;color:#8a4136">这一场已经上过，改动会影响历史记录和作业统计，只在修正错误时改。</div>
+                          </sc-if>
+                          <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap">
+                            <label style="width:150px;flex:none;display:flex;flex-direction:column;gap:5px">
+                              <span style="font:500 11.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">上课日期</span>
+                              <x-import component-from-global-scope="AiCourseUI.Input" type="date" value="{{ s.date }}" onChange="{{ s.onDate }}" hint-size="100%,40px"></x-import>
+                            </label>
+                            <label style="width:96px;flex:none;display:flex;flex-direction:column;gap:5px">
+                              <span style="font:500 11.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">时间</span>
+                              <x-import component-from-global-scope="AiCourseUI.Input" type="time" value="{{ s.timeValue }}" onChange="{{ s.onTime }}" hint-size="100%,40px"></x-import>
+                            </label>
+                            <div style="flex:1;min-width:170px;display:flex;flex-direction:column;gap:5px">
+                              <span style="font:500 11.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">讲师</span>
+                              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-height:40px">
+                                <sc-for list="{{ s.teacherPicks }}" as="tp" hint-placeholder-count="3">
+                                  <button type="button" onClick="{{ tp.onClick }}" style="{{ tp.style }}">{{ tp.label }}</button>
+                                </sc-for>
+                              </div>
+                            </div>
+                          </div>
+                          <div style="display:flex;flex-direction:column;gap:5px">
+                            <span style="font:500 11.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">状态 <span style="font-weight:400;color:#a09a90">默认按日期自动判断，取消或补记时手动改</span></span>
+                            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                              <sc-for list="{{ s.statePicks }}" as="sp" hint-placeholder-count="3">
+                                <button type="button" onClick="{{ sp.onClick }}" style="{{ sp.style }}">{{ sp.label }}</button>
+                              </sc-for>
+                              <sc-if value="{{ s.stateAuto }}" hint-placeholder-val="{{ true }}">
+                                <span style="font:400 11px/1 'Noto Sans SC',sans-serif;color:#a09a90;padding-left:2px">跟随日期</span>
+                              </sc-if>
+                              <sc-if value="{{ s.stateManual }}" hint-placeholder-val="{{ false }}">
+                                <button type="button" onClick="{{ s.onResetState }}" style="display:inline-flex;align-items:center;height:26px;padding:0 9px;border:0;background:transparent;color:#9c3417;font:500 11.5px/1 'Noto Sans SC',sans-serif;cursor:pointer">恢复跟随日期</button>
+                              </sc-if>
+                            </div>
+                          </div>
+                          <label style="display:flex;flex-direction:column;gap:5px">
+                            <span style="font:500 11.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">备注</span>
+                            <x-import component-from-global-scope="AiCourseUI.Input" type="text" placeholder="这一场为什么开：加场 / 时区 / 合作方专场…" value="{{ s.note }}" onChange="{{ s.onNote }}" hint-size="100%,40px"></x-import>
+                          </label>
+                          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+                            <x-import component-from-global-scope="AiCourseUI.Button" variant="ghost" size="sm" onClick="{{ s.onRemove }}" hint-size="auto,32px">删除这一场</x-import>
+                            <x-import component-from-global-scope="AiCourseUI.Button" variant="secondary" size="sm" onClick="{{ s.onToggleEdit }}" hint-size="auto,32px">完成</x-import>
+                          </div>
+                        </div>
+                      </sc-if>
+                    </div>
+                  </div>
+                </sc-for>
+
+                <sc-if value="{{ co.noSessions }}" hint-placeholder-val="{{ false }}">
+                  <div style="padding:12px 13px;border-radius:8px;border:1px dashed #ddd8cd;background:#faf8f5;font:400 12.5px/1.6 'Noto Sans SC',sans-serif;color:#79736a">还没有排课。加一个上课时间后，这门课才会出现在报课的场次选项里。</div>
+                </sc-if>
+
+                <sc-if value="{{ co.addOpen }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;flex-direction:column;gap:7px;padding:11px 13px;border-radius:8px;border:1px solid #9c3417;background:#fff">
+                    <div style="font:500 11px/1 'JetBrains Mono',monospace;letter-spacing:.09em;color:#a09a90">新增一场 · 时间按美西填，其他时区自动换算</div>
+                    <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap">
+                      <label style="width:150px;flex:none;display:flex;flex-direction:column;gap:5px">
+                        <span style="font:500 11.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">上课日期 <span style="color:#b3261e">*</span></span>
+                        <x-import component-from-global-scope="AiCourseUI.Input" type="date" value="{{ co.addDate }}" onChange="{{ co.onAddDate }}" hint-size="100%,40px"></x-import>
+                      </label>
+                      <label style="width:96px;flex:none;display:flex;flex-direction:column;gap:5px">
+                        <span style="font:500 11.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">时间（美西）<span style="color:#b3261e">*</span></span>
+                        <x-import component-from-global-scope="AiCourseUI.Input" type="time" value="{{ co.addTime }}" onChange="{{ co.onAddTime }}" hint-size="100%,40px"></x-import>
+                      </label>
+                      <div style="flex:1;min-width:180px;display:flex;flex-direction:column;gap:5px">
+                        <span style="font:500 11.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">讲师 <span style="color:#b3261e">*</span></span>
+                        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-height:40px">
+                          <sc-for list="{{ co.addTeachers }}" as="tp" hint-placeholder-count="3">
+                            <button type="button" onClick="{{ tp.onClick }}" style="{{ tp.style }}">{{ tp.label }}</button>
+                          </sc-for>
+                          <sc-if value="{{ co.tAddClosed }}" hint-placeholder-val="{{ true }}">
+                            <button type="button" onClick="{{ co.onTAddOpen }}" style="display:inline-flex;align-items:center;height:26px;padding:0 9px;border-radius:8px;border:1px dashed #d8d3c8;background:transparent;color:#79736a;font:400 12px/1 'Noto Sans SC',sans-serif;cursor:pointer">+ 新讲师</button>
+                          </sc-if>
+                        </div>
+                        <sc-if value="{{ co.tAddOpen }}" hint-placeholder-val="{{ false }}">
+                          <div style="display:flex;align-items:center;gap:8px">
+                            <div style="flex:1;min-width:0">
+                              <x-import component-from-global-scope="AiCourseUI.Input" type="text" placeholder="讲师姓名" value="{{ co.tAddName }}" onChange="{{ co.onTAddName }}" hint-size="100%,40px"></x-import>
+                            </div>
+                            <x-import component-from-global-scope="AiCourseUI.Button" variant="primary" size="sm" onClick="{{ co.onTAddSave }}" disabled="{{ co.tAddDisabled }}" hint-size="auto,32px">加入</x-import>
+                            <x-import component-from-global-scope="AiCourseUI.Button" variant="secondary" size="sm" onClick="{{ co.onTAddCancel }}" hint-size="auto,32px">取消</x-import>
+                          </div>
+                        </sc-if>
+                      </div>
+                    </div>
+                    <label style="display:flex;flex-direction:column;gap:5px">
+                      <span style="font:500 11.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">备注 <span style="font-weight:400;color:#a09a90">这一场为什么开</span></span>
+                      <x-import component-from-global-scope="AiCourseUI.Input" type="text" placeholder="如 第一场报满后加的第二场 / 为亚洲时区加的晚场" value="{{ co.addNote }}" onChange="{{ co.onAddNote }}" hint-size="100%,40px"></x-import>
+                    </label>
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding-top:2px">
+                      <span style="{{ co.addHintStyle }}">{{ co.addHint }}</span>
+                      <div style="display:flex;align-items:center;gap:8px;flex:none">
+                        <x-import component-from-global-scope="AiCourseUI.Button" variant="secondary" size="sm" onClick="{{ co.onCancelAdd }}" hint-size="auto,32px">取消</x-import>
+                        <x-import component-from-global-scope="AiCourseUI.Button" variant="primary" size="sm" onClick="{{ co.onConfirmAdd }}" disabled="{{ co.addDisabled }}" hint-size="auto,32px">添加这一场</x-import>
+                      </div>
+                    </div>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{ co.addClosed }}" hint-placeholder-val="{{ true }}">
+                  <div>
+                    <x-import component-from-global-scope="AiCourseUI.Button" variant="secondary" size="sm" onClick="{{ co.onOpenAdd }}" hint-size="auto,32px">+ 添加上课时间</x-import>
+                  </div>
+                </sc-if>
               </div>
             </div>
 
-            <div style="flex:none;padding:16px 22px 22px">
-              <x-import component-from-global-scope="AiCourseUI.Card" class-name="bg-surface-muted" hint-size="100%,150px">
-                <x-import component-from-global-scope="AiCourseUI.CardHeader" hint-size="100%,50px">
-                  <x-import component-from-global-scope="AiCourseUI.CardTitle" hint-size="100%,20px">上课时间换算</x-import>
-                  <x-import component-from-global-scope="AiCourseUI.CardDescription" hint-size="100%,32px">这门课上课时间 {{ co.timeLabel }}。学员分布在多个时区，发通知时用对应行的本地时间。</x-import>
-                </x-import>
-                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">
-                  <sc-for list="{{ co.zones }}" as="z" hint-placeholder-count="4">
-                    <div style="{{ z.style }}">
-                      <span style="font:400 11.5px/1.4 'Noto Sans SC',sans-serif;color:#79736a">{{ z.label }}</span>
-                      <span style="font:500 13.5px/1.3 'JetBrains Mono',monospace;color:#1a1917">{{ z.time }}</span>
-                    </div>
-                  </sc-for>
-                </div>
-              </x-import>
+            <div style="flex:none;padding:14px 22px 0;display:flex;flex-direction:column;gap:9px">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+                <div style="font:500 11px/1 'JetBrains Mono',monospace;letter-spacing:.09em;color:#a09a90">作业 · 一次</div>
+                <span style="flex:none;white-space:nowrap">
+                  <x-import component-from-global-scope="AiCourseUI.Button" variant="secondary" size="sm" hint-size="auto,32px">编辑作业要求</x-import>
+                </span>
+              </div>
+              <div style="display:flex;align-items:center;gap:12px;padding:12px 13px;border-radius:8px;border:1px solid #e4e0d8;background:#fff">
+                <span style="font:400 13px/1.5 'Noto Sans SC',sans-serif;color:#1a1917;flex:1;min-width:0">{{ co.hwTitle }}</span>
+                <span style="font:400 11.5px/1.5 'Noto Sans SC',sans-serif;color:#a09a90;flex:none">截止日期按场次定</span>
+              </div>
             </div>
+
+            <div style="flex:none;height:22px"></div>
           </div>
         </div>
       </div>
@@ -573,7 +715,7 @@ input,button{font-family:inherit}
           <sc-if value="{{ en.showTable }}" hint-placeholder-val="{{ true }}">
             <table style="width:100%;border-collapse:separate;border-spacing:0;background:#fff;table-layout:fixed;min-width:1120px">
               <colgroup>
-                <col style="width:210px"><col style="width:210px"><col style="width:126px"><col style="width:100px"><col style="width:160px"><col>
+                <col style="width:196px"><col style="width:264px"><col style="width:120px"><col style="width:96px"><col style="width:156px"><col>
               </colgroup>
               <thead>
                 <tr>
@@ -678,6 +820,95 @@ input,button{font-family:inherit}
       </div>
     </sc-if>
   </main>
+
+  <sc-if value="{{ showCourse }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;inset:0;z-index:62;background:rgba(26,25,23,.40);display:flex;align-items:flex-start;justify-content:center;padding:48px 24px 24px">
+      <div style="width:620px;max-width:100%;max-height:calc(100vh - 72px);background:#fff;border:1px solid #e4e0d8;border-radius:8px;box-shadow:0 18px 48px rgba(26,25,23,.22);display:flex;flex-direction:column;overflow:hidden">
+        <div style="flex:none;padding:15px 18px 13px;border-bottom:1px solid #e4e0d8;display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+          <div style="display:flex;flex-direction:column;gap:3px">
+            <h3 style="margin:0;font:600 15px/1.3 'Noto Sans SC',sans-serif">{{ cform.title }}</h3>
+            <p style="margin:0;font:400 12.5px/1.5 'Noto Sans SC',sans-serif;color:#79736a">{{ cform.desc }}</p>
+          </div>
+          <button type="button" onClick="{{ cform.onClose }}" style="flex:none;width:26px;height:26px;border-radius:8px;border:1px solid #e4e0d8;background:#f2efe9;color:#79736a;font:400 14px/1 'Noto Sans SC',sans-serif;cursor:pointer">×</button>
+        </div>
+
+        <div style="flex:1;min-height:0;overflow-y:auto;padding:16px 18px;display:flex;flex-direction:column;gap:15px">
+          <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px">
+            <label style="display:flex;flex-direction:column;gap:5px">
+              <span style="font:500 11.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">课程名 <span style="color:#b3261e">*</span></span>
+              <x-import component-from-global-scope="AiCourseUI.Input" type="text" placeholder="如 Claude 实战入门" value="{{ cform.name }}" onChange="{{ cform.onName }}" hint-size="100%,40px"></x-import>
+            </label>
+            <label style="display:flex;flex-direction:column;gap:5px">
+              <span style="font:500 11.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">简称</span>
+              <x-import component-from-global-scope="AiCourseUI.Input" type="text" placeholder="入门" value="{{ cform.short }}" onChange="{{ cform.onShort }}" hint-size="100%,40px"></x-import>
+            </label>
+          </div>
+
+          <label style="display:flex;flex-direction:column;gap:5px">
+            <span style="font:500 11.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">一句话定位 <span style="font-weight:400;color:#a09a90">列表和卡片上显示</span></span>
+            <textarea rows="2" placeholder="讲给谁、一次课解决什么问题" value="{{ cform.descText }}" onChange="{{ cform.onDesc }}" class="rounded-token border border-border bg-surface text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40" style="width:100%;padding:9px 12px;font:400 13px/1.6 'Noto Sans SC',sans-serif;resize:vertical"></textarea>
+          </label>
+
+          <label style="display:flex;flex-direction:column;gap:5px">
+            <span style="font:500 11.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">课程介绍 <span style="font-weight:400;color:#a09a90">招生和答疑时用的完整说明</span></span>
+            <textarea rows="6" placeholder="这门课怎么上、上完能做到什么、对学员有什么要求…" value="{{ cform.introText }}" onChange="{{ cform.onIntro }}" class="rounded-token border border-border bg-surface text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40" style="width:100%;padding:9px 12px;font:400 13px/1.7 'Noto Sans SC',sans-serif;resize:vertical"></textarea>
+          </label>
+
+          <div style="display:flex;flex-direction:column;gap:11px;padding:13px;border-radius:8px;border:1px solid #e4e0d8;background:#fbfaf8">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+              <span style="font:500 11px/1 'JetBrains Mono',monospace;letter-spacing:.09em;color:#a09a90">默认上课设置</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <span style="font:500 11.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">每场时长 <span style="font-weight:400;color:#a09a90">上课时间统一按美西记</span></span>
+              <div style="display:flex;flex-wrap:wrap;gap:6px">
+                <sc-for list="{{ cform.hours }}" as="h" hint-placeholder-count="4">
+                  <button type="button" onClick="{{ h.onClick }}" style="{{ h.style }}">{{ h.label }}</button>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+
+          <label style="display:flex;flex-direction:column;gap:5px">
+            <span style="font:500 11.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">作业题目 <span style="font-weight:400;color:#a09a90">一次 · 截止日期按场次定</span></span>
+            <x-import component-from-global-scope="AiCourseUI.Input" type="text" placeholder="用 Claude 完成一件自己的真实工作" value="{{ cform.hwTitle }}" onChange="{{ cform.onHwTitle }}" hint-size="100%,40px"></x-import>
+          </label>
+
+          <div style="display:flex;flex-direction:column;gap:7px">
+            <span style="font:500 11.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">平台别名 <span style="font-weight:400;color:#a09a90">导入时按这些写法匹配</span></span>
+            <div style="display:flex;flex-wrap:wrap;gap:6px">
+              <sc-for list="{{ cform.aliases }}" as="a" hint-placeholder-count="2">
+                <span style="{{ a.style }}">{{ a.label }}<button type="button" onClick="{{ a.onRemove }}" style="width:16px;height:16px;border:0;border-radius:5px;background:#e4e0d8;color:#79736a;font:400 11px/1 'Noto Sans SC',sans-serif;cursor:pointer">×</button></span>
+              </sc-for>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <div style="flex:1;min-width:0">
+                <x-import component-from-global-scope="AiCourseUI.Input" type="text" placeholder="平台里的另一种写法" value="{{ cform.aliasDraft }}" onChange="{{ cform.onAliasDraft }}" hint-size="100%,40px"></x-import>
+              </div>
+              <x-import component-from-global-scope="AiCourseUI.Button" variant="secondary" size="sm" onClick="{{ cform.onAddAlias }}" hint-size="auto,32px">添加别名</x-import>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:7px">
+            <span style="font:500 11.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">上架状态</span>
+            <div style="display:flex;flex-wrap:wrap;gap:6px">
+              <sc-for list="{{ cform.offlineChips }}" as="o" hint-placeholder-count="2">
+                <button type="button" onClick="{{ o.onClick }}" style="{{ o.style }}">{{ o.label }}</button>
+              </sc-for>
+            </div>
+            <span style="font:400 11.5px/1.5 'Noto Sans SC',sans-serif;color:#a09a90">待开课 / 已上课 由上课日期自动判断，这里只管上下架。</span>
+          </div>
+        </div>
+
+        <div style="flex:none;padding:12px 18px;border-top:1px solid #e4e0d8;background:#fbfaf8;display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <span style="font:400 12px/1.5 'Noto Sans SC',sans-serif;color:#a09a90">已有报课不会因为改课程信息而变动</span>
+          <div style="display:flex;align-items:center;gap:8px">
+            <x-import component-from-global-scope="AiCourseUI.Button" variant="secondary" size="sm" onClick="{{ cform.onClose }}" hint-size="auto,32px">取消</x-import>
+            <x-import component-from-global-scope="AiCourseUI.Button" variant="primary" size="sm" onClick="{{ cform.onSave }}" disabled="{{ cform.saveDisabled }}" hint-size="auto,32px">{{ cform.saveLabel }}</x-import>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
 
   <sc-if value="{{ en.showIntake }}" hint-placeholder-val="{{ false }}">
     <div style="position:fixed;inset:0;z-index:60;background:rgba(26,25,23,.40);display:flex;align-items:flex-start;justify-content:center;padding:48px 24px 24px">
@@ -792,10 +1023,22 @@ input,button{font-family:inherit}
           </div>
           </sc-if>
 
+          <div style="display:flex;flex-direction:column;gap:7px">
+            <span style="font:500 11.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">上哪一场</span>
+            <div style="display:flex;flex-wrap:wrap;gap:6px">
+              <sc-for list="{{ en.mf.sessions }}" as="ss" hint-placeholder-count="2">
+                <button type="button" onClick="{{ ss.onClick }}" style="{{ ss.style }}">{{ ss.label }}</button>
+              </sc-for>
+            </div>
+            <sc-if value="{{ en.mf.showSessionHint }}" hint-placeholder-val="{{ false }}">
+              <span style="font:400 11.5px/1.5 'Noto Sans SC',sans-serif;color:#a09a90">{{ en.mf.sessionHint }}</span>
+            </sc-if>
+          </div>
+
           <div style="{{ en.dateRowStyle }}">
             <label style="display:flex;flex-direction:column;gap:5px">
               <span style="font:500 11.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">报课日期</span>
-              <x-import component-from-global-scope="AiCourseUI.Input" type="text" placeholder="2026-07-29" value="{{ en.mf.date }}" onChange="{{ en.mf.onDate }}" hint-size="100%,40px"></x-import>
+              <x-import component-from-global-scope="AiCourseUI.Input" type="date" value="{{ en.mf.date }}" onChange="{{ en.mf.onDate }}" hint-size="100%,40px"></x-import>
             </label>
           </div>
           <div style="display:flex;flex-direction:column;gap:7px">
@@ -805,6 +1048,9 @@ input,button{font-family:inherit}
                 <button type="button" onClick="{{ s2.onClick }}" style="{{ s2.style }}">{{ s2.label }}</button>
               </sc-for>
             </div>
+            <sc-if value="{{ en.mf.showStatusHint }}" hint-placeholder-val="{{ false }}">
+              <span style="font:400 11.5px/1.5 'Noto Sans SC',sans-serif;color:#a09a90">{{ en.mf.statusHint }}</span>
+            </sc-if>
           </div>
           <label style="display:flex;flex-direction:column;gap:5px">
             <span style="font:500 11.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">补录原因 / 备注</span>
@@ -995,43 +1241,55 @@ const FIELDS = [
 ];
 
 const COURSES = ["Claude 实战入门", "Claude 进阶工作流", "Agent 项目实战"];
-const ESTATUS = ["在读", "已完成", "退课"];
+const ESTATUS = ["已报名", "已完成", "退课"];
 const ENROLL = [
-  { email: "chen.jiahe@example.com", course: "Claude 进阶工作流", date: "2026-06-18", status: "在读", origin: "平台同步", note: "" },
-  { email: "chen.jiahe@example.com", course: "Claude 实战入门", date: "2025-11-04", status: "已完成", origin: "平台同步", note: "" },
-  { email: "lin.min@example.com", course: "Claude 实战入门", date: "2026-07-21", status: "在读", origin: "平台同步", note: "" },
-  { email: "zhao.ziqian@example.com", course: "Agent 项目实战", date: "2026-07-02", status: "在读", origin: "平台同步", note: "" },
-  { email: "zhao.ziqian@example.com", course: "Claude 进阶工作流", date: "2026-03-11", status: "已完成", origin: "平台同步", note: "" },
-  { email: "wu.jing@example.com", course: "Claude 进阶工作流", date: "2026-06-20", status: "在读", origin: "平台同步", note: "" },
-  { email: "he.wei@example.com", course: "Claude 实战入门", date: "2026-07-08", status: "退课", origin: "手工补录", note: "线下转账，平台漏记；两周后申请退课。", conflict: true },
-  { email: "su.wan@example.com", course: "Claude 实战入门", date: "2026-02-26", status: "已完成", origin: "平台同步", note: "" },
-  { email: "su.wan@example.com", course: "Agent 项目实战", date: "2026-07-02", status: "在读", origin: "平台同步", note: "" },
-  { email: "zheng.kai@example.com", course: "Claude 进阶工作流", date: "2026-06-19", status: "在读", origin: "平台同步", note: "" },
-  { email: "huang.li@example.com", course: "Claude 实战入门", date: "2026-07-23", status: "在读", origin: "手工补录", note: "合作方名单里手抄补的，待平台确认。" },
-  { email: "sun.bo@example.com", course: "Agent 项目实战", date: "2026-07-05", status: "在读", origin: "平台同步", note: "" },
-  { email: "ma.ruo@example.com", course: "Claude 实战入门", date: "2026-02-28", status: "退课", origin: "平台同步", note: "第 2 周退课，已退款。" }
+  { email: "chen.jiahe@example.com", course: "Claude 进阶工作流", session: "2026-07-19", date: "2026-06-18", status: "已完成", origin: "平台同步", note: "" },
+  { email: "chen.jiahe@example.com", course: "Claude 实战入门", session: "2026-06-20", date: "2026-05-04", status: "已完成", origin: "平台同步", note: "" },
+  { email: "lin.min@example.com", course: "Claude 实战入门", session: "2026-06-21", date: "2026-06-10", status: "已完成", origin: "平台同步", note: "" },
+  { email: "zhao.ziqian@example.com", course: "Agent 项目实战", session: "2026-08-22", date: "2026-07-02", status: "已报名", origin: "平台同步", note: "" },
+  { email: "zhao.ziqian@example.com", course: "Claude 进阶工作流", session: "2026-07-19", date: "2026-06-11", status: "已完成", origin: "平台同步", note: "" },
+  { email: "wu.jing@example.com", course: "Claude 进阶工作流", session: "2026-07-19", date: "2026-06-20", status: "已完成", origin: "平台同步", note: "" },
+  { email: "he.wei@example.com", course: "Claude 实战入门", session: "2026-06-21", date: "2026-06-08", status: "退课", origin: "手工补录", note: "线下转账，平台漏记；开课前一周申请退课。", conflict: true },
+  { email: "su.wan@example.com", course: "Claude 实战入门", session: "2026-06-20", date: "2026-05-26", status: "已完成", origin: "平台同步", note: "" },
+  { email: "su.wan@example.com", course: "Agent 项目实战", session: "2026-08-22", date: "2026-07-02", status: "已报名", origin: "平台同步", note: "" },
+  { email: "zheng.kai@example.com", course: "Claude 进阶工作流", session: "2026-07-19", date: "2026-06-19", status: "已完成", origin: "平台同步", note: "" },
+  { email: "huang.li@example.com", course: "Agent 项目实战", session: "2026-08-23", date: "2026-07-23", status: "已报名", origin: "手工补录", note: "时区只能上早场；合作方名单里手抄补的。" },
+  { email: "sun.bo@example.com", course: "Agent 项目实战", session: "", date: "2026-07-05", status: "已报名", origin: "平台同步", note: "平台没给场次，需要确认上哪一场。" },
+  { email: "ma.ruo@example.com", course: "Claude 实战入门", session: "2026-06-20", date: "2026-04-28", status: "退课", origin: "平台同步", note: "开课前退课，已退款。" }
 ];
-const CSTATUS = { "待开课": "success", "已上课": "muted", "已下线": "muted" };
+const BASE_TEACHERS = ["Yan", "Andrew"];
 const CATALOG = [
   {
-    id: "intro", name: "Claude 实战入门", short: "入门", status: "待开课",
+    id: "intro", name: "Claude 实战入门", short: "入门",
     desc: "面向零基础和只会用电脑的学员，一次课讲清 Claude 的基本用法与工作习惯。",
+    intro: "三小时内把 Claude 从「听说过」变成「每天能用」。先讲清它擅长什么、不擅长什么，再手把手做三个真实任务：整理一份杂乱的资料、写一封难写的邮件、把一段重复劳动交给它。课后作业要求学员选一件自己工作里真实存在的事做一遍，讲师逐个点评。不需要任何编程基础，自带电脑即可。",
     aliases: ["Claude 实战入门", "Claude AI 实战入门", "AI-Intro-Live"],
-    date: "2026-08-08", day: "周六", hour: 9, offset: -8, hours: 3,
-    hwTitle: "用 Claude 完成一件自己的真实工作", hwDue: "2026-08-15"
+    offset: -8, hours: 3,
+    sessions: [
+      { date: "2026-06-20", hour: 9, min: 0, teacher: "Yan", note: "常规场" },
+      { date: "2026-06-21", hour: 19, min: 0, teacher: "Andrew", note: "为亚洲时区学员加的晚场" }
+    ],
+    hwTitle: "用 Claude 完成一件自己的真实工作", hwDue: "2026-06-27"
   },
   {
-    id: "advanced", name: "Claude 进阶工作流", short: "进阶", status: "已上课",
+    id: "advanced", name: "Claude 进阶工作流", short: "进阶",
     desc: "已经会用的学员进一步搭工作流：提示复用、文件处理、和团队协作。",
+    intro: "给已经用了一段时间、但还停留在「一问一答」的学员。重点是把零散的用法固化成可复用的工作流：怎么写能反复用的提示、怎么让它稳定处理成批文件、怎么把结果交给同事而不是只留在自己电脑里。课上会拆解讲师自己在用的几套流程，学员照着改成自己的版本。",
     aliases: ["Claude 进阶工作流", "Claude 工作流进阶班"],
-    date: "2026-07-19", day: "周日", hour: 10, offset: -8, hours: 3,
+    offset: -8, hours: 3,
+    sessions: [{ date: "2026-07-19", hour: 10, min: 0, teacher: "Andrew" }],
     hwTitle: "把一个重复性任务做成可复用的工作流", hwDue: "2026-07-26"
   },
   {
-    id: "agent", name: "Agent 项目实战", short: "实战", status: "待开课",
+    id: "agent", name: "Agent 项目实战", short: "实战",
     desc: "带一个真实项目走完从需求到交付，课后交一份可运行的成果。",
+    intro: "最重的一门。每个学员带一个自己想做的小项目进来，课上一起把需求拆成能落地的步骤，讲师现场演示怎么让 Claude 参与实现、怎么在跑不通的时候定位问题。课后交一份能实际运行的成果，讲师按项目本身的完成度点评，而不是按代码量。建议先上过进阶工作流。",
     aliases: ["Agent 项目实战", "Agent 实战营"],
-    date: "2026-08-22", day: "周六", hour: 19, offset: -8, hours: 3,
+    offset: -8, hours: 3,
+    sessions: [
+      { date: "2026-08-22", hour: 19, min: 0, teacher: "Yan", note: "" },
+      { date: "2026-08-23", hour: 9, min: 0, teacher: "待定", note: "第一场报满后加的第二场，讲师待定" }
+    ],
     hwTitle: "交付一个能跑起来的小项目", hwDue: "2026-09-05"
   }
 ];
@@ -1040,6 +1298,7 @@ const ZONES = [["美西", -8], ["美东", -5], ["加拿大 (多伦多)", -5], ["
 const SCHEMA = [
   { key: "student_email", label: "学员邮箱", rule: "唯一标识，用于匹配学员库", req: "必填" },
   { key: "course_name", label: "课程", rule: "平台课程名原样保留，本系统做别名映射", req: "必填" },
+  { key: "session_date", label: "场次", rule: "同一门课多场时指明上哪一场；缺失进待处理", req: "可空" },
   { key: "enrolled_at", label: "报课时间", rule: "ISO 日期；平台只给月份时补 01", req: "必填" },
   { key: "status", label: "状态", rule: "在读 / 已完成 / 退课，其它值一律进待处理", req: "必填" },
   { key: "source_channel", label: "通道", rule: "csv / paste / api，由接入层自动写入", req: "自动" },
@@ -1056,10 +1315,50 @@ const TD_BASE = "padding:0 14px;border-bottom:1px solid #f0ece4;vertical-align:m
 class Component extends DCLogic {
   state = { view: "students", query: "", align: "all", tag: [], selected: "chen.jiahe@example.com", source: null, archived: ["ma.ruo@example.com"], scope: "active", askArchive: false, added: [], showNew: false, form: { ...BLANK }, over: {}, editKey: null, editVal: "", tagEdit: false,
     eq: "", eStatus: "全部", eCourse: null, showIntake: false, intakeTab: "csv", showManual: false,
-    manual: { email: "", course: COURSES[0], date: "", status: "在读", note: "" }, extraEnroll: [],
-    mMode: "create", eOver: {} };
+    manual: { email: "", course: COURSES[0], session: "", date: "", status: "已报名", note: "" }, extraEnroll: [],
+    mMode: "create", eOver: {},
+    cSel: null, cOver: {}, extraCourses: [], showCourse: false, cMode: "create", sessAdd: { open: false, date: "", time: "19:30", teacher: BASE_TEACHERS[0], note: "" }, editSess: null, sessMap: {},
+    extraTeachers: [], tDraft: { open: false, name: "" },
+    cForm: { name: "", short: "", desc: "", offset: -8, hours: 3, hwTitle: "", hwDue: "", aliases: [], aliasDraft: "", offline: false } };
 
   eKey(r) { return r.email + "|" + r.course; }
+
+  courses() {
+    const WD = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+    const TODAY = "2026-07-30";
+    const base = CATALOG.map(c => ({ ...c, ...(this.state.cOver[c.id] || {}) }));
+    return base.concat(this.state.extraCourses).map(c => {
+      const sess = (c.sessions || []).map((s, i) => ({ ...s, key: s.key || (c.id + "-s" + i) })).sort((a, b) => a.date < b.date ? -1 : 1).map(s => {
+        const d = new Date(s.date + "T00:00:00");
+        const day = isNaN(d) ? "—" : WD[d.getDay()];
+        const upcoming = s.date > TODAY;
+        return { ...s, day, upcoming, state: s.stateOverride || (upcoming ? "待上" : "已上"), label: s.date + " " + day + " " + String(s.hour).padStart(2, "0") + ":" + String(s.min || 0).padStart(2, "0") };
+      });
+      const next = sess.find(s => s.upcoming) || sess[sess.length - 1] || { date: "", day: "—", hour: 0, min: 0, label: "未排课" };
+      const anyUpcoming = sess.some(s => s.upcoming);
+      const teachers = sess.map(s => s.teacher || "待定").filter((t, i, a) => a.indexOf(t) === i);
+      return {
+        ...c, sessions: sess, next, teachers,
+        date: next.date, day: next.day, hour: next.hour, min: next.min,
+        upcoming: anyUpcoming,
+        offline: c.status === "已下线",
+        status: c.status === "已下线" ? "已下线" : "上架"
+      };
+    });
+  }
+
+  setCForm(p) { this.setState(st => ({ cForm: { ...st.cForm, ...p } })); }
+
+  teacherList() { return BASE_TEACHERS.concat(this.state.extraTeachers).concat(["待定"]); }
+
+  setSessions(id, sessions) {
+    this.setState(st => {
+      if (st.extraCourses.some(c => c.id === id)) {
+        return { extraCourses: st.extraCourses.map(c => c.id === id ? { ...c, sessions } : c) };
+      }
+      return { cOver: { ...st.cOver, [id]: { ...(st.cOver[id] || {}), sessions } } };
+    });
+  }
 
   setManual(p) { this.setState(st => ({ manual: { ...st.manual, ...p } })); }
 
@@ -1131,9 +1430,13 @@ class Component extends DCLogic {
     const removedKeys = this.state.eRemoved || [];
     const eAll = (emptyDb ? [] : ENROLL.concat(this.state.extraEnroll)).filter(r => !removedKeys.includes(this.eKey(r))).map(r => {
       const p = this.state.eOver[this.eKey(r)];
-      return p ? { ...r, ...p, edited: true } : r;
+      const m = p ? { ...r, ...p, edited: true } : r;
+      let sv = m.session, n = 0;
+      while (sv && this.state.sessMap[m.course + "|" + sv] && n++ < 10) sv = this.state.sessMap[m.course + "|" + sv];
+      return sv === m.session ? m : { ...m, session: sv };
     });
     const enrollCount = eAll.length;
+    const CATA = this.courses();
     const nav = NAV.map(n => {
       const on = this.state.view === n.key;
       return {
@@ -1248,18 +1551,18 @@ class Component extends DCLogic {
       noteStyle: `display:block;width:100%;text-align:left;border-radius:8px;border:1px solid #e4e0d8;background:#f2efe9;padding:10px 12px;font:400 12.5px/1.7 'Noto Sans SC',sans-serif;color:${s.note ? "#3c3a35" : "#a09a90"};min-height:60px;cursor:text`,
       enrollCountLabel: (() => { const n = eAll.filter(x => x.email === s.email).length; return n ? n + " 条" : "无"; })(),
       enrollments: eAll.filter(x => x.email === s.email).map(x => {
-        const c = CATALOG.find(y => y.name === x.course);
+        const c = CATA.find(y => y.name === x.course);
         return {
           course: x.course,
-          when: c ? c.date + " " + c.day + " " + String(c.hour).padStart(2, "0") + ":00 美西" : "课程已下线",
+          when: c ? c.date + " " + c.day + " " + String(c.hour).padStart(2, "0") + ":" + String(c.min || 0).padStart(2, "0") + " 美西" : "课程已下线",
           status: x.status,
-          statusVariant: x.status === "在读" ? "success" : "muted",
+          statusVariant: x.status === "已报名" ? "success" : "muted",
           manual: x.origin === "手工补录",
           style: `display:flex;flex-direction:column;gap:5px;padding:10px 12px;border-radius:8px;border:1px solid #e4e0d8;background:${x.origin === "手工补录" ? "#fbfaf8" : "#fff"}`
         };
       }),
       noEnrollments: eAll.filter(x => x.email === s.email).length === 0,
-      onAddEnroll: () => this.setState({ view: "enroll", showManual: true, mMode: "create", manual: { email: s.email, course: COURSES[0], date: "", status: "在读", note: "" } }),
+      onAddEnroll: () => this.setState({ view: "enroll", showManual: true, mMode: "create", manual: { email: s.email, course: COURSES[0], session: "", date: "", status: "已报名", note: "" } }),
       sketch: [
         { title: "作业提交", meta: "1 次作业 · 待提交" },
         { title: "互动记录", meta: "最近 7 天 1 条" }
@@ -1267,35 +1570,38 @@ class Component extends DCLogic {
     } : null;
 
     const DAYS = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
-    const shiftTime = (day, hour, from, to) => {
+    const shiftTime = (day, hour, min, from, to) => {
       let h = hour + (to - from), d = DAYS.indexOf(day), suffix = "";
       if (h >= 24) { h -= 24; d = (d + 1) % 7; suffix = " 次日"; }
       else if (h < 0) { h += 24; d = (d + 6) % 7; suffix = " 前一日"; }
-      return DAYS[d] + " " + String(h).padStart(2, "0") + ":00" + suffix;
+      return DAYS[d] + " " + String(h).padStart(2, "0") + ":" + String(min || 0).padStart(2, "0") + suffix;
     };
-    const cSelId = this.state.cSel || CATALOG[0].id;
-    const course = CATALOG.find(c => c.id === cSelId) || CATALOG[0];
+    const cSelId = this.state.cSel || CATA[0].id;
+    const course = CATA.find(c => c.id === cSelId) || CATA[0];
     const enrolledIn = cname => eAll.filter(r => r.course === cname && r.status !== "退课").length;
-    const hhmm = h => String(h).padStart(2, "0") + ":00";
+    const hhmm = (h, m) => String(h).padStart(2, "0") + ":" + String(m || 0).padStart(2, "0");
 
     const co = {
-      list: CATALOG.map(c => {
+      list: CATA.map(c => {
         const on = c.id === course.id;
         return {
-          name: c.name, status: c.status, statusVariant: CSTATUS[c.status],
-          meta: c.date + " · " + enrolledIn(c.name) + " 人报名",
+          name: c.name, offline: c.offline,
+          meta: (c.sessions.length ? c.sessions.length + " 场 · " + c.teachers.join(" / ") : "未排课") + " · " + enrolledIn(c.name) + " 人报名",
           onClick: () => this.setState({ cSel: c.id }),
           style: `display:flex;flex-direction:column;gap:5px;align-items:flex-start;width:100%;padding:11px 12px;border:1px solid ${on ? "#9c3417" : "#e4e0d8"};border-radius:8px;background:${on ? "#faf6f3" : "#fff"};cursor:pointer;text-align:left`
         };
       }),
       name: course.name, short: course.short, desc: course.desc,
-      status: course.status, statusVariant: CSTATUS[course.status],
+      intro: course.intro || "还没写课程介绍。",
+      hasIntro: !!course.intro,
+      teacherLabel: course.sessions.length ? course.teachers.join(" / ") : "未排课",
+      offline: course.offline,
       aliases: course.aliases,
       facts: [
-        ["上课日期", course.date + " " + course.day, true],
-        ["上课时间", hhmm(course.hour) + " 美西 · " + course.hours + " 小时", false],
+        ["下一场", course.sessions.length ? course.next.label + " · " + (course.next.teacher || "待定") : "未排课", false],
+        ["上课场次", (course.sessions.length ? course.sessions.length + " 场（各场学员独立）" : "未排课") + " · 每场 " + course.hours + " 小时", false],
         ["报名人数", enrolledIn(course.name) + " 人", false],
-        ["作业", "一次 · 截止 " + course.hwDue, false]
+        ["作业", "一次 · 各场截止另定", false]
       ].map(([label, value, mono], i) => ({
         label, value,
         style: `display:flex;flex-direction:column;gap:4px;padding:11px 13px;border-radius:8px;border:1px solid #e4e0d8;background:#fff;min-width:0`,
@@ -1303,12 +1609,166 @@ class Component extends DCLogic {
       })),
       hwTitle: course.hwTitle,
       hwDue: course.hwDue,
-      timeLabel: course.date + " " + course.day + " " + hhmm(course.hour) + " 美西",
+      timeLabel: course.next.label + " " + (course.offset === -8 ? "美西" : course.offset === -5 ? "美东" : "UTC"),
+      sessionRows: course.sessions.map((s, i) => (keep => ({
+        idx: "第 " + (i + 1) + " 场",
+        label: s.label,
+        teacher: s.teacher || "待定",
+        date: s.date,
+        note: s.note || "",
+        onNote: e => { const v = e.target.value; this.setSessions(course.id, keep(i, { note: v })); },
+        onDate: e => {
+          const v = e.target.value, old = s.date;
+          this.setSessions(course.id, keep(i, { date: v }));
+          if (/^\d{4}-\d{2}-\d{2}$/.test(v.trim()) && v.trim() !== old) {
+            this.setState(st2 => ({ sessMap: { ...st2.sessMap, [course.name + "|" + old]: v.trim() } }));
+          }
+        },
+        onTime: e => {
+          const v = e.target.value, t = /^(\d{1,2}):(\d{2})$/.exec(v.trim());
+          this.setSessions(course.id, keep(i, t ? { hour: +t[1], min: +t[2], timeRaw: v } : { timeRaw: v }));
+        },
+        timeValue: s.timeRaw != null ? s.timeRaw : String(s.hour).padStart(2, "0") + ":" + String(s.min || 0).padStart(2, "0"),
+        teacherPicks: this.teacherList().map(t => this.chipPick(t, (s.teacher || "待定") === t, () => this.setSessions(course.id, keep(i, { teacher: t })))),
+        statePicks: ["待上", "已上", "已取消"].map(st => this.chipPick(st, s.state === st, () => this.setSessions(course.id, keep(i, { stateOverride: st })))),
+        stateAuto: !s.stateOverride,
+        stateManual: !!s.stateOverride,
+        onResetState: () => this.setSessions(course.id, keep(i, { stateOverride: undefined })),
+        editing: this.state.editSess === course.id + "|" + s.key,
+        notEditing: this.state.editSess !== course.id + "|" + s.key,
+        onToggleEdit: () => this.setState(st2 => ({ editSess: st2.editSess === course.id + "|" + s.key ? null : course.id + "|" + s.key })),
+        editLabel: s.upcoming ? "改这一场" : "修正",
+        pastWarn: !s.upcoming,
+        zone: (course.offset === -8 ? "美西" : course.offset === -5 ? "美东" : "UTC") + " · " + course.hours + " 小时",
+        zoneLine: ZONES.map(([zl, off]) => zl.replace(" (多伦多)", "").replace("其他 · ", "") + " " + shiftTime(s.day, s.hour, s.min, course.offset, off).replace(/^周./, "").trim()).join(" · "),
+        state: s.state,
+        stateVariant: s.state === "待上" ? "success" : s.state === "已取消" ? "danger" : "muted",
+        enrolled: eAll.filter(x => x.course === course.name && x.session === s.date && x.status !== "退课").length + " 人",
+        onRemove: () => { this.setState({ editSess: null }); this.setSessions(course.id, course.sessions.filter((x, j) => j !== i).map(x => ({ key: x.key, date: x.date, hour: x.hour, min: x.min, teacher: x.teacher, note: x.note, stateOverride: x.stateOverride }))); },
+        style: `display:flex;align-items:center;gap:11px;padding:10px 13px;border-radius:8px;border:1px solid ${s.date === course.next.date ? "#e0cfc7" : "#e4e0d8"};background:${s.date === course.next.date ? "#fbf7f5" : "#fff"}`
+      }))((idx, patch) => course.sessions.map((x, j) => {
+        const base = { key: x.key, date: x.date, hour: x.hour, min: x.min, teacher: x.teacher, note: x.note, stateOverride: x.stateOverride, timeRaw: x.timeRaw };
+        return j === idx ? { ...base, ...patch } : base;
+      }))),
+      noSessions: course.sessions.length === 0,
+      hasSessions: course.sessions.length > 0,
+      addOpen: this.state.sessAdd.open,
+      addClosed: !this.state.sessAdd.open,
+      addDate: this.state.sessAdd.date,
+      addTime: this.state.sessAdd.time,
+      onAddDate: e => { const v = e.target.value; this.setState(st => ({ sessAdd: { ...st.sessAdd, date: v } })); },
+      onAddTime: e => { const v = e.target.value; this.setState(st => ({ sessAdd: { ...st.sessAdd, time: v } })); },
+      onOpenAdd: () => this.setState({ sessAdd: { open: true, date: "", time: "19:30", teacher: BASE_TEACHERS[0], note: "" } }),
+      onCancelAdd: () => this.setState({ sessAdd: { open: false, date: "", time: "19:30", teacher: BASE_TEACHERS[0], note: "" } }),
+      addNote: this.state.sessAdd.note || "",
+      onAddNote: e => { const v = e.target.value; this.setState(st => ({ sessAdd: { ...st.sessAdd, note: v } })); },
+      addTeachers: this.teacherList().map(t => this.chipPick(t, (this.state.sessAdd.teacher || BASE_TEACHERS[0]) === t, () => this.setState(st => ({ sessAdd: { ...st.sessAdd, teacher: t } })))),
+      tAddClosed: !this.state.tDraft.open,
+      tAddOpen: this.state.tDraft.open,
+      tAddName: this.state.tDraft.name,
+      onTAddOpen: () => this.setState({ tDraft: { open: true, name: "" } }),
+      onTAddCancel: () => this.setState({ tDraft: { open: false, name: "" } }),
+      onTAddName: e => { const v = e.target.value; this.setState(st => ({ tDraft: { ...st.tDraft, name: v } })); },
+      tAddDisabled: !this.state.tDraft.name.trim(),
+      onTAddSave: () => {
+        const n = this.state.tDraft.name.trim();
+        if (!n || this.teacherList().includes(n)) { this.setState({ tDraft: { open: false, name: "" } }); return; }
+        this.setState(st => ({ extraTeachers: st.extraTeachers.concat(n), tDraft: { open: false, name: "" }, sessAdd: { ...st.sessAdd, teacher: n } }));
+      },
+      addHint: (() => {
+        const a = this.state.sessAdd;
+        const dOk = /^\d{4}-\d{2}-\d{2}$/.test(a.date.trim());
+        const tOk = /^(\d{1,2}):(\d{2})$/.test(a.time.trim());
+        if (!a.date.trim()) return "日期 2026-08-22 · 时间 19:30（24 小时制）";
+        if (!dOk) return "日期格式应为 2026-08-22";
+        if (!tOk) return "时间格式应为 19:30";
+        const d = new Date(a.date + "T00:00:00");
+        const t = /^(\d{1,2}):(\d{2})$/.exec(a.time.trim());
+        const et = String((+t[1] + 3) % 24).padStart(2, "0") + ":" + t[2];
+        return ["周日", "周一", "周二", "周三", "周四", "周五", "周六"][d.getDay()] + " · 美东 " + et + (a.date > "2026-07-30" ? " · 待上" : " · 已上");
+      })(),
+      addHintStyle: (() => {
+        const a = this.state.sessAdd;
+        const bad = (a.date.trim() && !/^\d{4}-\d{2}-\d{2}$/.test(a.date.trim())) || (a.time.trim() && !/^(\d{1,2}):(\d{2})$/.test(a.time.trim()));
+        return `font:400 11px/1.5 'Noto Sans SC',sans-serif;color:${bad ? "#b3261e" : "#a09a90"}`;
+      })(),
+      addDisabled: (() => {
+        const a = this.state.sessAdd;
+        return !(/^\d{4}-\d{2}-\d{2}$/.test(a.date.trim()) && /^(\d{1,2}):(\d{2})$/.test(a.time.trim()));
+      })(),
+      onConfirmAdd: () => {
+        const a = this.state.sessAdd;
+        const t = /^(\d{1,2}):(\d{2})$/.exec(a.time.trim());
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(a.date.trim()) || !t) return;
+        const list = course.sessions.map(x => ({ key: x.key, date: x.date, hour: x.hour, min: x.min, teacher: x.teacher, note: x.note, stateOverride: x.stateOverride })).concat({ key: course.id + "-s" + Date.now(), date: a.date.trim(), hour: +t[1], min: +t[2], teacher: a.teacher || BASE_TEACHERS[0], note: (a.note || "").trim() });
+        this.setSessions(course.id, list);
+        this.setState({ sessAdd: { open: false, date: "", time: "19:30", teacher: BASE_TEACHERS[0], note: "" } });
+      },
       zones: ZONES.map(([label, off]) => ({
         label,
-        time: shiftTime(course.day, course.hour, course.offset, off),
+        time: shiftTime(course.day, course.hour, course.min, course.offset, off),
         style: `display:flex;flex-direction:column;gap:3px;padding:10px 12px;border-radius:8px;border:1px solid #e4e0d8;background:#fff;min-width:0`
-      }))
+      })),
+      countLabel: CATA.length + " 门课",
+      onNew: () => this.setState({
+        showCourse: true, cMode: "create",
+        cForm: { name: "", short: "", desc: "", offset: -8, hours: 3, hwTitle: "", hwDue: "", aliases: [], aliasDraft: "", offline: false }
+      }),
+      onEdit: () => this.setState({
+        showCourse: true, cMode: "edit",
+        cForm: { name: course.name, short: course.short, desc: course.desc, intro: course.intro || "", offset: course.offset, hours: course.hours, hwTitle: course.hwTitle, hwDue: course.hwDue, aliases: course.aliases.slice(), aliasDraft: "", offline: course.status === "已下线" }
+      })
+    };
+
+    const cf = this.state.cForm;
+    const WD2 = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+
+    const cOk = !!cf.name.trim();
+    const cform = {
+      isEdit: this.state.cMode === "edit",
+      title: this.state.cMode === "edit" ? "编辑课程" : "新建课程",
+      desc: this.state.cMode === "edit"
+        ? "课程名改了要同步平台别名，否则下次导入会匹配不上。"
+        : "先把课建出来：名称、定位、作业。场次和讲师创建后在课程页排，同一门课可以多场、不同讲师。",
+      name: cf.name, short: cf.short, descText: cf.desc, introText: cf.intro || "", hwTitle: cf.hwTitle, hwDue: cf.hwDue,
+      onIntro: e => this.setCForm({ intro: e.target.value }),
+      onName: e => this.setCForm({ name: e.target.value }),
+      onShort: e => this.setCForm({ short: e.target.value }),
+      onDesc: e => this.setCForm({ desc: e.target.value }),
+      onHwTitle: e => this.setCForm({ hwTitle: e.target.value }),
+      onHwDue: e => this.setCForm({ hwDue: e.target.value }),
+      hours: [1, 2, 3, 4].map(h => this.chipPick(h + " 小时", cf.hours === h, () => this.setCForm({ hours: h }))),
+      sessionNote: this.state.cMode === "edit"
+        ? "讲师是按场次定的：在课程页「上课时间」里点某一场的「改这一场 / 修正」改讲师。这里只管全课默认时区和时长。"
+        : "先建课程，创建后在课程页添加场次；每一场单独选讲师。",
+      aliases: cf.aliases.map(a => ({
+        label: a,
+        onRemove: () => this.setCForm({ aliases: cf.aliases.filter(x => x !== a) }),
+        style: "display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 6px 0 9px;border-radius:8px;border:1px solid #e4e0d8;background:#f2efe9;color:#3c3a35;font:400 11.5px/1 'JetBrains Mono',monospace;white-space:nowrap"
+      })),
+      aliasDraft: cf.aliasDraft,
+      onAliasDraft: e => this.setCForm({ aliasDraft: e.target.value }),
+      onAddAlias: () => {
+        const v = cf.aliasDraft.trim();
+        if (!v || cf.aliases.includes(v)) return;
+        this.setCForm({ aliases: cf.aliases.concat(v), aliasDraft: "" });
+      },
+      offlineChips: [["上架", false], ["已下线", true]].map(([label, val]) => this.chipPick(label, cf.offline === val, () => this.setCForm({ offline: val }))),
+
+      enrolled: enrolledIn(course.name),
+      saveLabel: this.state.cMode === "edit" ? "保存课程" : "创建课程",
+      saveDisabled: !cOk,
+      onClose: () => this.setState({ showCourse: false }),
+      onSave: () => {
+        if (!cOk) return;
+        const patch = { name: cf.name.trim(), short: cf.short.trim() || "—", desc: cf.desc.trim(), intro: (cf.intro || "").trim(), offset: cf.offset, hours: cf.hours, hwTitle: cf.hwTitle.trim() || "（待填）", hwDue: cf.hwDue.trim() || "", aliases: cf.aliases.length ? cf.aliases : [cf.name.trim()], status: cf.offline ? "已下线" : "上架" };
+        if (this.state.cMode === "edit") {
+          this.setState(st => ({ cOver: { ...st.cOver, [course.id]: { ...(st.cOver[course.id] || {}), ...patch } }, showCourse: false }));
+        } else {
+          const id = "c" + Date.now();
+          this.setState(st => ({ extraCourses: st.extraCourses.concat({ id, sessions: [], ...patch }), showCourse: false, cSel: id, sessAdd: { open: true, date: "", time: "19:30" } }));
+        }
+      }
     };
 
     const fm = this.state.form;
@@ -1347,7 +1807,6 @@ class Component extends DCLogic {
       if (this.state.eCourse && r.course !== this.state.eCourse) return false;
       return true;
     });
-    const stTone = { "在读": ["#e9f2ec", "#2f6b4f", "#d6e6dc"], "已完成": ["#eceff5", "#3f4b63", "#dde2ec"], "退课": ["#f3f0ea", "#a09a90", "#e4e0d8"] };
     const eFiltered = !!eq || this.state.eStatus !== "全部" || !!this.state.eCourse;
     const tab = CHANNELS.find(c => c.key === this.state.intakeTab) || CHANNELS[0];
     const mf = this.state.manual;
@@ -1355,7 +1814,7 @@ class Component extends DCLogic {
     const mOk = !!mStu && !!mf.course;
 
     const en = {
-      totalLabel: eAll.length + " 条报课 · " + eAll.filter(r => r.status === "在读").length + " 人在读",
+      totalLabel: eAll.length + " 条报课 · " + eAll.filter(r => r.status === "已报名").length + " 人待上课",
       query: this.state.eq,
       onQuery: e => this.setState({ eq: e.target.value }),
       onReset: () => this.setState({ eq: "", eStatus: "全部", eCourse: null }),
@@ -1376,22 +1835,25 @@ class Component extends DCLogic {
       }),
       head: ["学员", "课程", "报课时间", "状态", "数据来源", "备注"].map(label => ({ label, style: `position:sticky;top:0;z-index:2;text-align:left;padding:0 14px;height:34px;background:#f2efe9;border-bottom:1px solid #e4e0d8;font:500 11px/1 'JetBrains Mono',monospace;letter-spacing:.09em;color:#79736a` })),
       rows: eRows.map(r => {
-        const t = stTone[r.status];
         const manualRow = r.origin === "手工补录";
-        const sv = r.status === "在读" ? "success" : "muted";
+        const sv = r.status === "已报名" ? "success" : "muted";
         return {
           name: nameOf(r.email), email: r.email, course: r.course, date: r.date, status: r.status,
-          session: (() => { const c = CATALOG.find(x => x.name === r.course); return c ? "上课 " + c.date + " " + c.day : "课程已下线"; })(),
-          origin: r.origin, conflict: !!r.conflict, note: r.note || "—", statusVariant: sv,
+          session: (() => {
+            const c = CATA.find(x => x.name === r.course);
+            if (!c) return "课程已下线";
+            const s = c.sessions.find(x => x.date === r.session) || c.next;
+            if (!r.session && c.sessions.length > 1) return "场次未选 · 待确认";
+            return s.label + " · " + (s.teacher || "待定");
+          })(),
+          origin: r.origin, conflict: !!r.conflict, note: r.note || "—", statusVariant: sv, sessionDate: r.session || "",
           edited: !!r.edited && r.origin === "平台同步",
           onEdit: () => this.setState({
             showManual: true, mMode: "edit",
-            manual: { email: r.email, course: r.course, date: r.date, status: r.status, note: r.note || "" }
+            manual: { email: r.email, course: r.course, session: r.sessionDate || "", date: r.date, status: r.status, note: r.note || "" }
           }),
           trStyle: `height:44px;background:${manualRow ? "#fbfaf8" : "#fff"};cursor:pointer`,
-          td: TD_BASE + ";white-space:nowrap",
-          statusStyle: `display:inline-flex;align-items:center;border-radius:8px;padding:2px 8px;font:500 11.5px/1.45 'Noto Sans SC',sans-serif;background:${t[0]};color:${t[1]};border:1px solid ${t[2]};white-space:nowrap`,
-          originStyle: `display:inline-flex;align-items:center;border-radius:8px;padding:1px 7px;font:500 11px/1.45 'Noto Sans SC',sans-serif;white-space:nowrap;background:${manualRow ? "#f6ecdf" : "#f3f0ea"};color:${manualRow ? "#8a5a10" : "#79736a"};border:1px solid ${manualRow ? "#ecdcc6" : "#e4e0d8"}`
+          td: TD_BASE + ";white-space:nowrap"
         };
       }),
       showTable: eRows.length > 0,
@@ -1423,7 +1885,7 @@ class Component extends DCLogic {
         reqVariant: f.req === "必填" ? "danger" : "muted"
       })),
       showManual: this.state.showManual,
-      onOpenManual: () => this.setState({ showManual: true, mMode: "create", manual: { email: "", course: COURSES[0], date: "", status: "在读", note: "" } }),
+      onOpenManual: () => this.setState({ showManual: true, mMode: "create", manual: { email: "", course: COURSES[0], session: "", date: "", status: "已报名", note: "" } }),
       onCloseManual: () => this.setState({ showManual: false }),
       isEdit: this.state.mMode === "edit",
       isCreate: this.state.mMode !== "edit",
@@ -1443,20 +1905,50 @@ class Component extends DCLogic {
           : "border-radius:10px;padding:2px;background:transparent",
         hint: !mf.email.trim() ? "按邮箱匹配学员库，匹配不到不能补录。" : mStu ? "已匹配：" + mStu.name : "学员库里没有这个邮箱，请先在学员页新增。",
         hintStyle: `font:400 11.5px/1.5 'Noto Sans SC',sans-serif;color:${!mf.email.trim() ? "#a09a90" : mStu ? "#2f6b4f" : "#b3261e"}`,
-        courses: COURSES.map(c => this.chipPick(c, mf.course === c, () => this.setManual({ course: c }))),
-        statuses: ESTATUS.map(s2 => this.chipPick(s2, mf.status === s2, () => this.setManual({ status: s2 }))),
+        courses: CATA.filter(c => c.status !== "已下线").map(c => this.chipPick(c.name, mf.course === c.name, () => this.setManual({ course: c.name, session: "" }))),
+        sessions: (() => {
+          const mc = CATA.find(c => c.name === mf.course);
+          if (!mc) return [];
+          return mc.sessions.map(s => this.chipPick(s.label + " · " + (s.teacher || "待定"), mf.session === s.date, () => this.setManual({ session: s.date })));
+        })(),
+        sessionHint: (() => {
+          const mc = CATA.find(c => c.name === mf.course);
+          if (!mc || mc.sessions.length === 0) return "这门课还没排上课时间，先去课程页添加。";
+          return mf.session ? "" : "多场课要指明学员上哪一场，未选会进待处理。";
+        })(),
+        showSessionHint: (() => {
+          const mc = CATA.find(c => c.name === mf.course);
+          return !mc || mc.sessions.length === 0 || !mf.session;
+        })(),
+        statuses: ESTATUS.map(s2 => {
+          const mc = CATA.find(c => c.name === mf.course);
+          const ms = mc && mc.sessions.find(x => x.date === mf.session);
+          const locked = !!(ms && ms.upcoming) && s2 !== "已报名" && s2 !== "退课";
+          if (!locked) return this.chipPick(s2, mf.status === s2, () => this.setManual({ status: s2 }));
+          return { label: s2, onClick: () => {}, style: "display:inline-flex;align-items:center;height:26px;padding:0 10px;border-radius:8px;border:1px dashed #e4e0d8;background:#fbfaf8;color:#c0bab0;font:400 12px/1 'Noto Sans SC',sans-serif;cursor:not-allowed" };
+        }),
+        statusHint: (() => {
+          const mc = CATA.find(c => c.name === mf.course);
+          const ms = mc && mc.sessions.find(x => x.date === mf.session);
+          return ms && ms.upcoming ? "这一场还没上（" + ms.label + "），只能是已报名或退课。" : "";
+        })(),
+        showStatusHint: (() => {
+          const mc = CATA.find(c => c.name === mf.course);
+          const ms = mc && mc.sessions.find(x => x.date === mf.session);
+          return !!(ms && ms.upcoming);
+        })(),
         onSave: () => {
           if (this.state.mMode === "edit") {
             const k = mf.email + "|" + mf.course;
             this.setState(st => ({
-              eOver: { ...st.eOver, [k]: { date: mf.date.trim(), status: mf.status, note: mf.note.trim() } },
+              eOver: { ...st.eOver, [k]: { date: mf.date.trim(), status: mf.status, note: mf.note.trim(), session: mf.session } },
               showManual: false
             }));
             return;
           }
           if (!mOk) return;
-          const rec = { email: mStu.email, course: mf.course, date: mf.date.trim() || "2026-07-29", status: mf.status, origin: "手工补录", note: mf.note.trim() };
-          this.setState(st => ({ extraEnroll: st.extraEnroll.concat(rec), showManual: false, manual: { email: "", course: COURSES[0], date: "", status: "在读", note: "" } }));
+          const rec = { email: mStu.email, course: mf.course, session: mf.session, date: mf.date.trim() || "2026-07-30", status: mf.status, origin: "手工补录", note: mf.note.trim() };
+          this.setState(st => ({ extraEnroll: st.extraEnroll.concat(rec), showManual: false, manual: { email: "", course: COURSES[0], session: "", date: "", status: "已报名", note: "" } }));
         },
         identity: mf.email + " · " + mf.course,
         onDelete: () => {
@@ -1468,7 +1960,8 @@ class Component extends DCLogic {
     };
 
     return {
-      nav, alignFilters, tagFilters, scopeFilters, sourceFilters, rows, detail, form, en, co,
+      nav, alignFilters, tagFilters, scopeFilters, sourceFilters, rows, detail, form, en, co, cform,
+      showCourse: this.state.showCourse,
       isEnroll: this.state.view === "enroll",
       isCourses: this.state.view === "courses",
       showNew: this.state.showNew,
