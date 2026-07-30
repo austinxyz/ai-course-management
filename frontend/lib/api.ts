@@ -94,6 +94,41 @@ export class BackendError extends Error {
 }
 
 /**
+ * 把后端的 `detail` 收成一句人能读的话。
+ *
+ * FastAPI 的 422 里 detail 不是字符串，而是一个数组，元素形如
+ * `{type, loc, msg, input, ctx}`。之前这里把它**声明**成 string 就直接传下去 ——
+ * 类型撒了谎，那个对象一路流到 JSX，React 抛
+ * "Objects are not valid as a React child"，用户看到的是整页崩溃，
+ * 而不是"这个日期格式不对"。类型断言挡不住外部数据，只有在边界上收敛才行。
+ */
+function describeDetail(detail: unknown, fallback: string): string {
+  if (typeof detail === "string") return detail;
+
+  if (Array.isArray(detail)) {
+    const parts = detail
+      .map((item) => {
+        if (typeof item === "string") return item;
+        if (item && typeof item === "object") {
+          const { loc, msg } = item as { loc?: unknown[]; msg?: unknown };
+          // loc 形如 ["body", "local_date"]——只取字段名，"body" 对用户没有意义。
+          const field = Array.isArray(loc)
+            ? loc.filter((p) => typeof p === "string" && p !== "body").join(".")
+            : "";
+          const text = typeof msg === "string" ? msg : "";
+          return [field, text].filter(Boolean).join("：");
+        }
+        return "";
+      })
+      .filter(Boolean);
+    if (parts.length) return parts.join("；");
+  }
+
+  return fallback;
+}
+
+
+/**
  * 写请求的公共壳：拼 URL、带凭据、把后端的 detail 抬成 BackendError。
  *
  * 返回 `unknown` 而不是某个具体形状——学员与课程两条线的响应形状不同，
@@ -108,7 +143,7 @@ async function backendWrite(
   if (!res.ok) {
     const detail = await res
       .json()
-      .then((data: { detail?: string }) => data.detail ?? res.statusText)
+      .then((data: { detail?: unknown }) => describeDetail(data.detail, res.statusText))
       .catch(() => res.statusText);
     throw new BackendError(res.status, detail);
   }

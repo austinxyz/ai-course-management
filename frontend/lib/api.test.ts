@@ -176,3 +176,69 @@ describe("write requests", () => {
     ).rejects.toBeInstanceOf(BackendError);
   });
 });
+
+describe("a 422 from the backend", () => {
+  const originalBackendUrl = process.env.BACKEND_URL;
+
+  beforeEach(() => {
+    process.env.BACKEND_URL = "http://backend.internal:8000";
+  });
+
+  afterEach(() => {
+    process.env.BACKEND_URL = originalBackendUrl;
+    vi.unstubAllGlobals();
+  });
+
+  it("turns Pydantic's error list into a readable string", async () => {
+    // FastAPI 的 422 里 detail 是一个数组，元素形如
+    // {type, loc, msg, input, ctx}。把它当字符串一路传下去，最终会被塞进 JSX ——
+    // React 抛 "Objects are not valid as a React child"，用户看到的是整页崩溃，
+    // 而不是"这个日期格式不对"。
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 422,
+        statusText: "Unprocessable Entity",
+        json: async () => ({
+          detail: [
+            {
+              type: "date_from_datetime_parsing",
+              loc: ["body", "local_date"],
+              msg: "Input should be a valid date or datetime, invalid character in year",
+              input: "2026/6/14",
+              ctx: { error: "invalid character in year" },
+            },
+          ],
+        }),
+      }),
+    );
+
+    const { addSession, BackendError } = await import("@/lib/api");
+
+    const failure = await addSession("c-1", { local_date: "2026/6/14" }).catch((e) => e);
+
+    expect(failure).toBeInstanceOf(BackendError);
+    expect(typeof failure.detail).toBe("string");
+    expect(failure.detail).toContain("local_date");
+    expect(failure.detail).toContain("valid date");
+  });
+
+  it("still passes a plain string detail through untouched", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 409,
+        statusText: "Conflict",
+        json: async () => ({ detail: "别名 S1 已属于课程「S1」" }),
+      }),
+    );
+
+    const { addAlias } = await import("@/lib/api");
+
+    const failure = await addAlias("c-1", "S1").catch((e) => e);
+
+    expect(failure.detail).toBe("别名 S1 已属于课程「S1」");
+  });
+});

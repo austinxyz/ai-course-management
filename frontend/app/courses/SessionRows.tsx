@@ -19,6 +19,20 @@ const STATE_LABEL: Record<SessionState, { text: string; variant: "success" | "mu
 
 const STATES: SessionState[] = ["pending", "done", "cancelled"];
 
+/**
+ * 提交前的格式检查。
+ *
+ * 后端才是判据，但让格式错误走一趟往返只会换回 Pydantic 的英文报错 ——
+ * 而在修好边界收敛之前，那条报错还是个对象数组，塞进 JSX 直接崩整页。
+ * 这里拦的是"人一眼能看出写法不对"的那类，不是安全边界。
+ */
+function formatProblem(date: string, time: string): string | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date.trim())) return "日期格式应为 2026-08-22";
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time.trim())) return "时间格式应为 19:30（24 小时制）";
+  return null;
+}
+
+
 /** 时区标签用界面上的短名（美东），存的是 IANA 名（America/New_York）。 */
 function zoneLabel(timeZone: string): string {
   return ZONE_ROWS.find((z) => z.timeZone === timeZone)?.label ?? timeZone;
@@ -153,6 +167,7 @@ function SessionRow({
   const state = STATE_LABEL[session.state];
   const base = session.tz;
   const past = session.state === "done";
+  const [formatError, setFormatError] = useState<string | null>(null);
   const [draft, setDraft] = useState({
     local_date: session.local_date,
     local_time: session.local_time.slice(0, 5),
@@ -198,8 +213,8 @@ function SessionRow({
         </button>
       </div>
 
-      {error && (
-        <span className="font-sans text-[11.5px] text-danger">{error}</span>
+      {(formatError || error) && (
+        <span className="font-sans text-[11.5px] text-danger">{formatError ?? error}</span>
       )}
 
       {!editing && (
@@ -288,7 +303,16 @@ function SessionRow({
             >
               删除这一场
             </button>
-            <Button variant="secondary" onClick={() => onSave(draft)} disabled={busy}>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                // 与新增走同一个检查：一个入口拦住、另一个不拦，等于没拦。
+                const problem = formatProblem(draft.local_date, draft.local_time);
+                setFormatError(problem);
+                if (!problem) onSave(draft);
+              }}
+              disabled={busy}
+            >
               保存这一场
             </Button>
           </div>
@@ -371,7 +395,14 @@ function AddSession({
     teacher: "",
     note: "",
   });
+  const [formatError, setFormatError] = useState<string | null>(null);
   const ready = draft.local_date.trim() && draft.local_time.trim() && draft.teacher.trim();
+
+  function submit() {
+    const problem = formatProblem(draft.local_date, draft.local_time);
+    setFormatError(problem);
+    if (!problem) onAdd(draft);
+  }
 
   return (
     <div className="flex flex-col gap-2 rounded-token border border-dashed border-border bg-surface-muted/40 px-3 py-2.5">
@@ -421,12 +452,14 @@ function AddSession({
           onChange={(e) => setDraft({ ...draft, note: e.target.value })}
         />
       </label>
-      {error && <span className="font-sans text-[11.5px] text-danger">{error}</span>}
+      {(formatError || error) && (
+        <span className="font-sans text-[11.5px] text-danger">{formatError ?? error}</span>
+      )}
       <div className="flex items-center justify-end gap-2">
         <Button variant="secondary" onClick={onCancel}>
           取消
         </Button>
-        <Button variant="primary" onClick={() => onAdd(draft)} disabled={busy || !ready}>
+        <Button variant="primary" onClick={submit} disabled={busy || !ready}>
           添加这一场
         </Button>
       </div>

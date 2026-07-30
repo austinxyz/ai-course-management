@@ -498,3 +498,75 @@ describe("duration and timezone fields", () => {
     expect(screen.getByText("150 分钟")).toBeInTheDocument();
   });
 });
+
+describe("session date and time formats", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    actions.addSessionAction.mockResolvedValue({ ok: true });
+  });
+
+  it("says what a date should look like instead of round-tripping to a 422", async () => {
+    // 后端会拒 2026/6/14，但那趟往返回来的是 Pydantic 的英文报错，
+    // 而在这之前它还崩过整页（detail 是对象数组，被塞进了 JSX）。
+    const user = userEvent.setup();
+    render(<CoursesClient courses={[course]} teachers={["讲师甲"]} />);
+
+    await user.click(screen.getByRole("button", { name: "+ 添加上课时间" }));
+    await user.type(screen.getByLabelText(/上课日期/), "2026/6/14");
+    await user.type(screen.getByLabelText(/时间/), "19:30");
+    await user.click(screen.getByRole("button", { name: "讲师甲" }));
+    await user.click(screen.getByRole("button", { name: "添加这一场" }));
+
+    expect(actions.addSessionAction).not.toHaveBeenCalled();
+    expect(screen.getByText("日期格式应为 2026-08-22")).toBeInTheDocument();
+  });
+
+  it("says what a time should look like", async () => {
+    const user = userEvent.setup();
+    render(<CoursesClient courses={[course]} teachers={["讲师甲"]} />);
+
+    await user.click(screen.getByRole("button", { name: "+ 添加上课时间" }));
+    await user.type(screen.getByLabelText(/上课日期/), "2026-06-14");
+    await user.type(screen.getByLabelText(/时间/), "8:30 PM");
+    await user.click(screen.getByRole("button", { name: "讲师甲" }));
+    await user.click(screen.getByRole("button", { name: "添加这一场" }));
+
+    expect(actions.addSessionAction).not.toHaveBeenCalled();
+    expect(screen.getByText("时间格式应为 19:30（24 小时制）")).toBeInTheDocument();
+  });
+
+  it("accepts a well-formed date and time", async () => {
+    const user = userEvent.setup();
+    render(<CoursesClient courses={[course]} teachers={["讲师甲"]} />);
+
+    await user.click(screen.getByRole("button", { name: "+ 添加上课时间" }));
+    await user.type(screen.getByLabelText(/上课日期/), "2026-06-14");
+    await user.type(screen.getByLabelText(/时间/), "19:30");
+    await user.click(screen.getByRole("button", { name: "讲师甲" }));
+    await user.click(screen.getByRole("button", { name: "添加这一场" }));
+
+    await waitFor(() => expect(actions.addSessionAction).toHaveBeenCalled());
+  });
+})
+
+describe("editing a session with a bad format", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    actions.updateSessionAction.mockResolvedValue({ ok: true });
+  });
+
+  it("checks the format on the edit path too, not just when adding", async () => {
+    // 同一个毛病换个入口：新增拦住了，编辑没拦，就还是要绕一趟后端才知道写错了。
+    const user = userEvent.setup();
+    render(<CoursesClient courses={[course]} teachers={["讲师甲"]} />);
+
+    await user.click(within(sessionRow("s-done")).getByRole("button", { name: "修正" }));
+    const dateBox = within(sessionRow("s-done")).getAllByRole("textbox")[0];
+    await user.clear(dateBox);
+    await user.type(dateBox, "2026/6/14");
+    await user.click(within(sessionRow("s-done")).getByRole("button", { name: "保存这一场" }));
+
+    expect(actions.updateSessionAction).not.toHaveBeenCalled();
+    expect(within(sessionRow("s-done")).getByText("日期格式应为 2026-08-22")).toBeInTheDocument();
+  });
+})
