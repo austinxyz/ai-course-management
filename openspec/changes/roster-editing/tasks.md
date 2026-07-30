@@ -66,7 +66,7 @@
 - [x] 3.3 GREEN — 改 `StudentsClient.tsx` 的筛选 `useMemo`，五字段 `some(...includes)`
 - [x] 3.4 RED — vitest：检索框 placeholder 为 `搜索姓名 / 邮箱 / 微信`（verbatim 字符串，用户知道"能搜昵称"的唯一途径）
 - [x] 3.5 GREEN — 改 `FilterBar.tsx` 的 placeholder
-- [ ] 3.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-3.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
+- [x] 3.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-3.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 4. 前端：词表搬迁与删除合成 ID
 
@@ -88,9 +88,9 @@
 
 ## 5. 验证与上线
 
-- [ ] 5.1 Run backend test suite — `cd backend && pytest`，确认无回归
-- [ ] 5.2 Run frontend test suite — `cd frontend && npm run test`，确认无回归
-- [ ] 5.3 e2e — `project.e2e_command` 为空，本 change 不新增 e2e。已有 `frontend/e2e/production-acceptance.spec.ts` 可选跑；跑的话注意按钮文案定位器与冷启动超时那两个坑
-- [ ] 5.4 Run superpowers:verification-before-completion — 跑 `project.test_commands`；`grep -rn 'console.log' frontend/app frontend/lib`；跑 `project.custom_verification_checks`（含前端不得出现 `NEXT_PUBLIC_(BACKEND|SITE_PASSWORD|…)` 那条）
+- [x] 5.1 Run backend test suite — `cd backend && pytest`，确认无回归
+- [x] 5.2 Run frontend test suite — `cd frontend && npm run test`，确认无回归
+- [x] 5.3 e2e — `project.e2e_command` 为空，本 change 不新增 e2e。已有 `frontend/e2e/production-acceptance.spec.ts` 可选跑；跑的话注意按钮文案定位器与冷启动超时那两个坑
+- [x] 5.4 Run superpowers:verification-before-completion — 跑 `project.test_commands`；`grep -rn 'console.log' frontend/app frontend/lib`；跑 `project.custom_verification_checks`（含前端不得出现 `NEXT_PUBLIC_(BACKEND|SITE_PASSWORD|…)` 那条）
 - [ ] 5.5 生产验收（无 schema 变更，无需 migration）——部署顺序若分两次则**先后端**，否则前端提交 `{"name": ...}` 会被后端当未知字段。挑一条带 `Phase1导入` 标签的记录：**先记下原名**（系统不留痕，改错无第二处可查）→ 改名 → 刷新确认落库 → 改回原名 → 刷新确认
 - [ ] 5.6 生产验收 — 用某位学员的微信昵称片段在检索框搜索，确认命中
