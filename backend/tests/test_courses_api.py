@@ -78,3 +78,71 @@ def test_session_response_carries_wall_time_and_zone(client, db_session):
     assert s["local_date"] == "2026-12-15"
     assert s["local_time"] == "19:30:00"
     assert s["tz"] == "America/Los_Angeles"
+
+
+def add_session(db_session, course, day, time_str="20:30"):
+    from datetime import date, time as clock
+
+    hour, minute = (int(x) for x in time_str.split(":"))
+    db_session.add(
+        CourseSession(
+            course_id=course.id,
+            local_date=date.fromisoformat(day),
+            local_time=clock(hour, minute),
+            teacher="Austin Xu",
+        )
+    )
+    db_session.commit()
+
+
+def names(client) -> list[str]:
+    return [c["name"] for c in client.get("/api/courses").json()]
+
+
+def test_courses_lead_with_the_one_that_ran_most_recently(client, db_session):
+    """按名字排对讲师没有意义——他找的是"最近在上的那门"。"""
+    for name, day in (("六月那门", "2026-06-28"), ("七月那门", "2026-07-26"), ("五月那门", "2026-05-10")):
+        add_session(db_session, seed_course(db_session, name=name), day)
+
+    assert names(client) == ["七月那门", "六月那门", "五月那门"]
+
+
+def test_a_multi_session_course_sorts_by_its_earliest_sitting(client, db_session):
+    """"这门课什么时候开的"指第一场，不是最后一场。
+
+    若用最晚那场当键，五月开的课会因为十二月还有一场而跳到最前 ——
+    而它其实是最早开的那门。
+    """
+    early = seed_course(db_session, name="五月开的")
+    add_session(db_session, early, "2026-05-10")
+    add_session(db_session, early, "2026-12-01")
+    add_session(db_session, seed_course(db_session, name="六月开的"), "2026-06-28")
+
+    assert names(client) == ["六月开的", "五月开的"]
+
+
+def test_an_unscheduled_course_sorts_first(client, db_session):
+    """还没排课的是刚建出来、正在张罗的那门；沉到末尾等于把要动手的东西藏起来。"""
+    add_session(db_session, seed_course(db_session, name="已排课"), "2026-07-26")
+    seed_course(db_session, name="还没排课")
+
+    assert names(client) == ["还没排课", "已排课"]
+
+
+def test_order_does_not_shuffle_after_a_write(client, db_session):
+    """两门排序键相同的课，编辑其中一门之后相对顺序不变。
+
+    用真实 PATCH 触发，不是连查两次 —— 学员名单那个排序 bug 恰恰是 UPDATE 之后
+    才显形（行被写到堆尾），连查两次根本碰不到它。
+    """
+    same_day = "2026-07-26"
+    a = seed_course(db_session, name="甲课")
+    b = seed_course(db_session, name="乙课")
+    add_session(db_session, a, same_day)
+    add_session(db_session, b, same_day)
+    before = names(client)
+
+    edited = [c for c in client.get("/api/courses").json() if c["name"] == "甲课"][0]
+    client.patch(f"/api/courses/{edited['id']}", json={"tagline": "改一下"})
+
+    assert names(client) == before

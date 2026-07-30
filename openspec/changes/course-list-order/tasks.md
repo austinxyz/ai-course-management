@@ -13,12 +13,12 @@
   - 未排课优先用**分组位**（`0` / `1`）而非哨兵日期；哨兵值总有一天会与真实数据撞上，且泄漏到别处极难查
 - **Threshold**: 80
 
-- [ ] 1.0 CONTRACT — write openspec/changes/course-list-order/contracts/group-1.md with the ### Contract block above
-- [ ] 1.1 RED — `test_courses_api.py`：三门课第一场分别在 5/6/7 月 → 顺序为 7、6、5 月（当前按名字排，先红）
-- [ ] 1.2 RED — 一门课有 5 月与 12 月两场时按 **5 月**参与排序（用最早那场，不是最后一场）
-- [ ] 1.3 RED — 没有任何场次的课程排在最前
-- [ ] 1.4 RED — **顺序不因写入而抖动**：两门排序键相同的课，编辑其中一门后再查，相对顺序不变。用真实 `PATCH` 触发，不是连查两次 —— 学员名单那个 bug 恰恰是 `UPDATE` 之后才显形
-- [ ] 1.5 GREEN — `list_courses` 换成三段排序键（分组位 + 反转日期 + 名称 + id）
+- [x] 1.0 CONTRACT — write openspec/changes/course-list-order/contracts/group-1.md with the ### Contract block above
+- [x] 1.1 RED — `test_courses_api.py`：三门课第一场分别在 5/6/7 月 → 顺序为 7、6、5 月（当前按名字排，先红）
+- [x] 1.2 RED — 一门课有 5 月与 12 月两场时按 **5 月**参与排序（用最早那场，不是最后一场）
+- [x] 1.3 RED — 没有任何场次的课程排在最前
+- [x] 1.4 RED — **顺序不因写入而抖动**：两门排序键相同的课，编辑其中一门后再查，相对顺序不变。用真实 `PATCH` 触发，不是连查两次 —— 学员名单那个 bug 恰恰是 `UPDATE` 之后才显形
+- [x] 1.5 GREEN — `list_courses` 换成三段排序键（分组位 + 反转日期 + 名称 + id）
 - [ ] 1.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-1.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 2. 前端：课程页改回左右两栏

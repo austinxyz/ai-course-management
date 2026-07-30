@@ -102,7 +102,7 @@ def list_courses(session: Session = Depends(get_session)):
     一次取全比省几行 join 更值。别名与场次在内存里按 course_id 归拢，
     避免 N+1：课程数少不代表可以每门课再发两条查询。
     """
-    courses = session.exec(select(Course).order_by(Course.name, Course.id)).all()
+    courses = session.exec(select(Course)).all()
     if not courses:
         return []
 
@@ -121,8 +121,36 @@ def list_courses(session: Session = Depends(get_session)):
 
     return [
         _to_course_read(c, aliases.get(c.id, []), sessions.get(c.id, []))
-        for c in courses
+        for c in sorted(courses, key=lambda c: _list_order(c, sessions))
     ]
+
+
+def _newest_first(iso_date: str) -> str:
+    """把 ISO 日期变成"越新越小"的字符串，好让升序排序得出倒序日期。
+
+    为什么不用 `sorted(..., reverse=True)`：排序键还有名称与 id 兜底，整体反转
+    会把它们也反过来，同日两门课的顺序就与"名称升序"这条说法相反。
+    非数字字符原样保留，所以 `2026-07-26` 里的分隔符不受影响。
+    """
+    return "".join(chr(ord("9") - int(ch)) if ch.isdigit() else ch for ch in iso_date)
+
+
+def _list_order(course: Course, sessions: dict[uuid.UUID, list[CourseSession]]):
+    """课程列表的排序键：最近开课的在前，还没排课的更在前。
+
+    讲师找的是"最近在上的那门"，课程名的字典序对他没有意义。
+    排序键取**最早**那一场——"这门课什么时候开的"指第一场，不是最后一场。
+
+    第一段是分组位而不是一个"很大的哨兵日期"：哨兵值总有一天会与真实数据撞上，
+    而且一旦泄漏到别处就极难查。名称与 id 兜底，让同日的两门课顺序不随写入抖动。
+
+    排序放在这里而不是 SQL：键是子集合的聚合值，而场次已经为了避免 N+1 取回内存了，
+    课程又只有个位数。课程上百时再推到 SQL，届时与 N+1 一起处理。
+    """
+    dates = [s.local_date for s in sessions.get(course.id, [])]
+    if not dates:
+        return (0, "", course.name, str(course.id))
+    return (1, _newest_first(min(dates).isoformat()), course.name, str(course.id))
 
 
 def _load(course_id: uuid.UUID, session: Session) -> Course:
