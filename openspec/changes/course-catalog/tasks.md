@@ -117,7 +117,7 @@
 - [x] 5.6 RED — vitest：无场次时显示「还没有排课。加一个上课时间后，这门课才会出现在报课的场次选项里。」；已下线课程带 `已下线` Badge
 - [x] 5.7 GREEN — 空态与下线标记
 - [x] 5.8 VISUAL DIFF — 起 dev stack（`npm run dev --prefix frontend`），进 `/courses`，对着 `.dc.html` 在线版的课程页比：卡片间距、别名 chip、事实行、场次行两行结构、状态 Badge 颜色。修文案与 token 漂移
-- [ ] 5.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-5.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 70 → PASS; < 70 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
+- [x] 5.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-5.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 70 → PASS; < 70 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 6. 前端：课程弹窗与场次编辑
 
@@ -134,17 +134,17 @@
   - 场次行内编辑沿用学员详情面板那套：保存中降透明度、失败就近提示并保留用户输入
 - **Threshold**: 70
 
-- [ ] 6.0 CONTRACT — write openspec/changes/course-catalog/contracts/group-6.md with the ### Contract block above
-- [ ] 6.1 MOCK — 读 mocks 导览的「课程弹窗」与「场次编辑态」两节，记下 verbatim 文案（含两段说明文案与 placeholder）
-- [ ] 6.2 RED — vitest：新建课程只填课程名可提交；空白课程名提交被拦且给出提示
-- [ ] 6.3 GREEN — `CourseModal.tsx` + `actions.ts` 的创建/更新
-- [ ] 6.4 RED — vitest：编辑态修改课程名时出现「课程名改了要同步平台别名」提示；别名列表未被自动修改
-- [ ] 6.5 GREEN — 提示与别名区块
-- [ ] 6.6 RED — vitest：添加已被占用的别名时显示占用提示（**断言走返回值路径**，不是抛异常）
-- [ ] 6.7 GREEN — 别名添加/删除 + 409 的返回值处理
-- [ ] 6.8 RED — vitest：场次行内编辑；编辑一场 `done` 的场次时先出现「这一场已经上过…」警示；讲师选项来自已有场次去重且可新增
-- [ ] 6.9 GREEN — `SessionRows.tsx` 行内编辑与新增一场表单
-- [ ] 6.10 VISUAL DIFF — 起 dev stack，对着 `.dc.html` 比课程弹窗与场次编辑态：字段分组、副文案位置、chip 选中态、警示条样式
+- [x] 6.0 CONTRACT — write openspec/changes/course-catalog/contracts/group-6.md with the ### Contract block above
+- [x] 6.1 MOCK — 读 mocks 导览的「课程弹窗」与「场次编辑态」两节，记下 verbatim 文案（含两段说明文案与 placeholder）
+- [x] 6.2 RED — vitest：新建课程只填课程名可提交；空白课程名提交被拦且给出提示
+- [x] 6.3 GREEN — `CourseModal.tsx` + `actions.ts` 的创建/更新
+- [x] 6.4 RED — vitest：编辑态修改课程名时出现「课程名改了要同步平台别名」提示；别名列表未被自动修改
+- [x] 6.5 GREEN — 提示与别名区块
+- [x] 6.6 RED — vitest：添加已被占用的别名时显示占用提示（**断言走返回值路径**，不是抛异常）
+- [x] 6.7 GREEN — 别名添加/删除 + 409 的返回值处理
+- [x] 6.8 RED — vitest：场次行内编辑；编辑一场 `done` 的场次时先出现「这一场已经上过…」警示；讲师选项来自已有场次去重且可新增
+- [x] 6.9 GREEN — `SessionRows.tsx` 行内编辑与新增一场表单
+- [x] 6.10 VISUAL DIFF — 起 dev stack，对着 `.dc.html` 比课程弹窗与场次编辑态：字段分组、副文案位置、chip 选中态、警示条样式
 - [ ] 6.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-6.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 70 → PASS; < 70 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 7. 验证与上线

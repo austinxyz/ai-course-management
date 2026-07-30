@@ -1,11 +1,23 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 
-import { Badge, Card } from "@/components/ui";
+import { Badge, Button, Card } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import { ZONE_ROWS, timeIn, weekdayIn, zoneLine } from "@/lib/tz";
-import type { Course, SessionState } from "./types";
+import {
+  addAliasAction,
+  addSessionAction,
+  createCourseAction,
+  deleteSessionAction,
+  followDateAction,
+  removeAliasAction,
+  updateCourseAction,
+  updateSessionAction,
+  type ActionResult,
+} from "./actions";
+import { BLANK_COURSE, CourseModal, formFrom, type CourseForm } from "./CourseModal";
+import { SessionRows } from "./SessionRows";
+import type { Course } from "./types";
 
 interface CoursesClientProps {
   courses: Course[];
@@ -16,19 +28,7 @@ interface CoursesClientProps {
   teachers: string[];
 }
 
-/**
- * 状态 Badge 的配色取自设计脚本。
- *
- * 「待上」是 success 而非默认灰：这一列里真正要被看见的是"还没上、别忘了"，
- * 已上反而是可以忽略的。
- */
-const STATE_LABEL: Record<SessionState, { text: string; variant: "success" | "muted" | "danger" }> = {
-  pending: { text: "待上", variant: "success" },
-  done: { text: "已上", variant: "muted" },
-  cancelled: { text: "已取消", variant: "danger" },
-};
-
-export function CoursesClient({ courses }: CoursesClientProps) {
+export function CoursesClient({ courses, teachers }: CoursesClientProps) {
   // 只存"选中了谁"，课程数据本身不复制到本地 —— 本地副本会让页面显示从未写入的东西，
   // 学员名单上已经吃过一次这个亏。
   const [selectedId, setSelectedId] = useState<string | null>(courses[0]?.id ?? null);
@@ -36,6 +36,43 @@ export function CoursesClient({ courses }: CoursesClientProps) {
     () => courses.find((c) => c.id === selectedId) ?? courses[0] ?? null,
     [courses, selectedId],
   );
+
+  // 弹窗与写入状态。课程数据本身仍然只来自 props。
+  const [modal, setModal] = useState<{ course: Course | null; form: CourseForm } | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [aliasDraft, setAliasDraft] = useState("");
+  const [aliasError, setAliasError] = useState<string | null>(null);
+  const [busy, startWrite] = useTransition();
+
+  /**
+   * 所有写入走这里。预期内的失败是**返回值**，不是异常 ——
+   * 生产构建会把 Server Action 抛出的 message 抹成 digest，客户端拿不到内容。
+   */
+  function write(operation: () => Promise<ActionResult>, onFail: (message: string) => void) {
+    startWrite(async () => {
+      const result = await operation();
+      if (!result.ok) onFail(result.message);
+    });
+  }
+
+  function saveCourse() {
+    if (!modal) return;
+    const name = modal.form.name.trim();
+    if (!name) {
+      setSaveError("课程名不能为空");
+      return;
+    }
+    setSaveError(null);
+    const target = modal.course;
+    write(
+      () =>
+        target
+          ? updateCourseAction(target.id, { ...modal.form, name })
+          : createCourseAction({ ...modal.form, name }),
+      (message) => setSaveError(message),
+    );
+    if (!target) setModal(null);
+  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -49,6 +86,15 @@ export function CoursesClient({ courses }: CoursesClientProps) {
             每门课上一次、交一次作业。课程是报课、作业、催作业共用的口径，改这里会影响所有引用它的页面。
           </p>
         </div>
+        <Button
+          variant="primary"
+          onClick={() => {
+            setSaveError(null);
+            setModal({ course: null, form: BLANK_COURSE });
+          }}
+        >
+          新建课程
+        </Button>
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-auto bg-background p-[22px]">
@@ -89,15 +135,86 @@ export function CoursesClient({ courses }: CoursesClientProps) {
               ))}
             </div>
 
-            {selected && <CourseDetail course={selected} />}
+            {selected && (
+              <CourseDetail
+                course={selected}
+                teachers={teachers}
+                busy={busy}
+                onEdit={() => {
+                  setSaveError(null);
+                  setAliasError(null);
+                  setModal({ course: selected, form: formFrom(selected) });
+                }}
+                onSaveSession={(sessionId, patch) =>
+                  write(() => updateSessionAction(selected.id, sessionId, patch), setSaveError)
+                }
+                onDeleteSession={(sessionId) =>
+                  write(() => deleteSessionAction(selected.id, sessionId), setSaveError)
+                }
+                onFollowDate={(sessionId) =>
+                  write(() => followDateAction(selected.id, sessionId), setSaveError)
+                }
+                onAddSession={(body) =>
+                  write(() => addSessionAction(selected.id, body), setSaveError)
+                }
+              />
+            )}
           </>
         )}
       </div>
+
+      {modal && (
+        <CourseModal
+          course={modal.course}
+          form={modal.form}
+          onChange={(form) => setModal({ ...modal, form })}
+          onClose={() => setModal(null)}
+          onSave={saveCourse}
+          saving={busy}
+          error={saveError}
+          aliasDraft={aliasDraft}
+          onAliasDraft={setAliasDraft}
+          onAddAlias={() => {
+            const target = modal.course;
+            const raw = aliasDraft.trim();
+            if (!target || !raw) return;
+            setAliasError(null);
+            write(() => addAliasAction(target.id, raw), (message) => setAliasError(message));
+            setAliasDraft("");
+          }}
+          onRemoveAlias={(raw) => {
+            const target = modal.course;
+            if (!target) return;
+            write(() => removeAliasAction(target.id, raw), setAliasError);
+          }}
+          aliasError={aliasError}
+        />
+      )}
     </div>
   );
 }
 
-function CourseDetail({ course }: { course: Course }) {
+interface CourseDetailProps {
+  course: Course;
+  teachers: string[];
+  busy: boolean;
+  onEdit: () => void;
+  onSaveSession: (sessionId: string, patch: Record<string, string>) => void;
+  onDeleteSession: (sessionId: string) => void;
+  onFollowDate: (sessionId: string) => void;
+  onAddSession: (body: Record<string, string>) => void;
+}
+
+function CourseDetail({
+  course,
+  teachers,
+  busy,
+  onEdit,
+  onSaveSession,
+  onDeleteSession,
+  onFollowDate,
+  onAddSession,
+}: CourseDetailProps) {
   return (
     <div className="flex max-w-[860px] flex-col gap-3.5">
       <Card>
@@ -114,6 +231,9 @@ function CourseDetail({ course }: { course: Course }) {
               {course.intro}
             </p>
           </div>
+          <Button variant="secondary" onClick={onEdit}>
+            编辑课程
+          </Button>
         </div>
 
         <div className="mt-3.5 flex flex-col gap-1.5 border-t border-border pt-3">
@@ -173,17 +293,15 @@ function CourseDetail({ course }: { course: Course }) {
           </span>
         </div>
 
-        <div className="mt-3 flex flex-col gap-2">
-          {course.sessions.length === 0 ? (
-            <p className="m-0 font-sans text-[12.5px] leading-relaxed text-muted">
-              还没有排课。加一个上课时间后，这门课才会出现在报课的场次选项里。
-            </p>
-          ) : (
-            course.sessions.map((session, index) => (
-              <SessionRow key={session.id} session={session} index={index} />
-            ))
-          )}
-        </div>
+        <SessionRows
+          course={course}
+          teachers={teachers}
+          busy={busy}
+          onSave={onSaveSession}
+          onDelete={onDeleteSession}
+          onFollowDate={onFollowDate}
+          onAdd={onAddSession}
+        />
       </Card>
     </div>
   );
@@ -195,46 +313,5 @@ function Fact({ label, value }: { label: string; value: string }) {
       <span className="font-mono text-[11px] text-muted-foreground">{label}</span>
       <span className="font-sans text-[12.5px] text-foreground">{value}</span>
     </span>
-  );
-}
-
-function SessionRow({
-  session,
-  index,
-}: {
-  session: Course["sessions"][number];
-  index: number;
-}) {
-  const state = STATE_LABEL[session.state];
-  const base = session.tz;
-
-  return (
-    <div
-      data-session={session.id}
-      className="flex flex-col gap-1.5 rounded-token border border-border bg-surface-muted/60 px-3 py-2.5"
-    >
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <span className="font-mono text-[11px] text-muted-foreground">第 {index + 1} 场</span>
-        <span className="font-mono text-[12.5px] text-foreground">
-          {session.local_date} {weekdayIn(session.starts_at, base)}{" "}
-          {timeIn(session.starts_at, base)}
-        </span>
-        <span className="font-sans text-[12.5px] text-foreground">{session.teacher}</span>
-        <Badge variant={state.variant}>{state.text}</Badge>
-        {session.state_is_override && (
-          <span className="font-sans text-[11px] text-muted-foreground">人工设定</span>
-        )}
-      </div>
-      <div className="flex flex-wrap gap-x-3 gap-y-0.5">
-        {ZONE_ROWS.filter((row) => row.timeZone !== base).map((row) => (
-          <span key={row.timeZone} className="font-mono text-[11px] text-muted-foreground">
-            {zoneLine(session.starts_at, base, row)}
-          </span>
-        ))}
-      </div>
-      {session.note && (
-        <span className="font-sans text-[11.5px] text-muted-foreground">{session.note}</span>
-      )}
-    </div>
   );
 }

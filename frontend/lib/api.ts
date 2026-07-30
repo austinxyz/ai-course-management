@@ -93,11 +93,17 @@ export class BackendError extends Error {
   }
 }
 
+/**
+ * 写请求的公共壳：拼 URL、带凭据、把后端的 detail 抬成 BackendError。
+ *
+ * 返回 `unknown` 而不是某个具体形状——学员与课程两条线的响应形状不同，
+ * 由各自的调用点断言。写在这里会让其中一方的类型悄悄变成另一方的。
+ */
 async function backendWrite(
   path: string,
   method: string,
   body?: unknown,
-): Promise<ApiStudent> {
+): Promise<unknown> {
   const res = await fetch(backendUrl(path), writeRequestInit(method, body));
   if (!res.ok) {
     const detail = await res
@@ -182,11 +188,11 @@ export async function updateStudent(
   email: string,
   patch: StudentPatch,
 ): Promise<Student> {
-  const data = await backendWrite(
+  const data = (await backendWrite(
     `/api/students/${encodeURIComponent(email)}`,
     "PATCH",
     toApiPatch(patch),
-  );
+  )) as ApiStudent;
   return toStudent(data);
 }
 
@@ -195,18 +201,24 @@ export async function createStudent(student: NewStudent): Promise<Student> {
   // The backend field is wx_name; sending wxName would be quietly ignored and
   // the value lost, which is the same failure as not sending it at all.
   const body = wxName === undefined ? rest : { ...rest, wx_name: wxName };
-  return toStudent(await backendWrite("/api/students", "POST", body));
+  return toStudent((await backendWrite("/api/students", "POST", body)) as ApiStudent);
 }
 
 export async function archiveStudent(email: string): Promise<Student> {
   return toStudent(
-    await backendWrite(`/api/students/${encodeURIComponent(email)}/archive`, "POST"),
+    (await backendWrite(
+      `/api/students/${encodeURIComponent(email)}/archive`,
+      "POST",
+    )) as ApiStudent,
   );
 }
 
 export async function restoreStudent(email: string): Promise<Student> {
   return toStudent(
-    await backendWrite(`/api/students/${encodeURIComponent(email)}/restore`, "POST"),
+    (await backendWrite(
+      `/api/students/${encodeURIComponent(email)}/restore`,
+      "POST",
+    )) as ApiStudent,
   );
 }
 
@@ -229,4 +241,73 @@ export async function getTeachers(): Promise<string[]> {
   const res = await fetch(backendUrl("/api/courses/teachers"), backendRequestInit());
   if (!res.ok) throw new Error(`getTeachers failed: ${res.status}`);
   return res.json();
+}
+
+
+export interface CoursePatch {
+  name?: string;
+  short?: string;
+  tagline?: string;
+  intro?: string;
+  hours?: number;
+  homework_title?: string;
+  offline?: boolean;
+}
+
+export interface SessionPatch {
+  local_date?: string;
+  local_time?: string;
+  teacher?: string;
+  note?: string;
+  state_override?: "pending" | "done" | "cancelled";
+}
+
+export async function createCourse(body: CoursePatch): Promise<Course> {
+  return backendWrite("/api/courses", "POST", body) as Promise<Course>;
+}
+
+export async function updateCourse(id: string, body: CoursePatch): Promise<Course> {
+  return backendWrite(`/api/courses/${id}`, "PATCH", body) as Promise<Course>;
+}
+
+export async function addAlias(id: string, raw: string): Promise<Course> {
+  return backendWrite(`/api/courses/${id}/aliases`, "POST", { raw }) as Promise<Course>;
+}
+
+export async function removeAlias(id: string, raw: string): Promise<Course> {
+  return backendWrite(
+    `/api/courses/${id}/aliases/${encodeURIComponent(raw)}`,
+    "DELETE",
+  ) as Promise<Course>;
+}
+
+export async function addSession(id: string, body: SessionPatch): Promise<Course> {
+  return backendWrite(`/api/courses/${id}/sessions`, "POST", body) as Promise<Course>;
+}
+
+export async function updateSession(
+  id: string,
+  sessionId: string,
+  body: SessionPatch,
+): Promise<Course> {
+  return backendWrite(
+    `/api/courses/${id}/sessions/${sessionId}`,
+    "PATCH",
+    body,
+  ) as Promise<Course>;
+}
+
+/** 清除人工状态。是个动作而非 PATCH null —— 显式 null 在更新请求里被拒。 */
+export async function followSessionDate(id: string, sessionId: string): Promise<Course> {
+  return backendWrite(
+    `/api/courses/${id}/sessions/${sessionId}/follow-date`,
+    "POST",
+  ) as Promise<Course>;
+}
+
+export async function deleteSession(id: string, sessionId: string): Promise<Course> {
+  return backendWrite(
+    `/api/courses/${id}/sessions/${sessionId}`,
+    "DELETE",
+  ) as Promise<Course>;
 }

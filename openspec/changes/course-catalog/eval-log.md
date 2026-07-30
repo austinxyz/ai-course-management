@@ -51,3 +51,14 @@
     - "4.F1 FIX — Update DST test dates to Oct 10 & Dec 12 (straddling Nov 1 cutoff exactly) instead of Oct 15 & Dec 15 for design intent alignment"
     - "4.F2 FIX — Tighten teacher list test to assert sorted order only (currently accepts both orderings)"
     - "4.F3 MINOR — Add parametrized test for unknown timezone rejection in SessionUpdate PATCH (complement existing SessionCreate POST test)"
+
+- group: 5
+  attempt: 1
+  scores: {spec: 100, runtime: 100, code: 100}
+  total: 100
+  status: PASS
+  findings:
+    - "spec: All contract SHALLs satisfied — sidebar entry 課程 provides route to /courses page (group 1 routing change verified); course/session list rendered with sessions sorted by backend ORDER BY; every session shows Shanghai timezone row differing across DST boundary (Oct 10:30, Dec 11:30); unscheduled course displays verbatim message; offline courses listed with visible badge"
+    - "runtime: tests 73/73 pass (8 new CoursesClient tests + 65 existing); build successful, no TS errors; DST scenario correctly uses October PDT (UTC-7) and December PST (UTC-8) with Shanghai assertions (not US-only); test fixture starts_at values confirm backend computed via zoneinfo (Oct 16 02:30Z, Dec 16 03:30Z from 19:30 local)"
+    - "code: Code review APPROVED (0 issues); tz.ts contains ONLY formatting (Intl.DateTimeFormat with IANA names), no wall-time→instant reverse conversion in JS; CoursesClient holds selectedId state only, selected derived via useMemo from prop (no local copy per student-write lesson); STATE_LABEL badge mapping pending→success/done→muted/cancelled→danger matches design script; all verbatim strings byte-for-byte match mocks (导入时按这些写法匹配到本课程, 还没有排课。加一个上课时间后，这门课才会出现在报课的场次选项里。, 上课时间 · 每场独立讲师与学员)"
+  fix_tasks: []
