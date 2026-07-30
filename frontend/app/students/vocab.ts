@@ -25,6 +25,11 @@ export const PAGES: Record<Exclude<NavKey, "students">, { title: string; desc: s
   interactions: { title: "互动记录", desc: "每位学员的沟通与跟进历史，时间倒序。", cardTitle: "这一页还没设计", cardDesc: "一条流水式时间线，来源包括催作业、答疑、人工备注。", bullets: ["记录来源：催作业 / 答疑 / 手动", "支持按学员和时间范围过滤", "在学员详情里内嵌最近 5 条"] },
 };
 
+// Duplicated in backend/app/schemas.py (TZ_BY_REGION) — the API computes `tz`
+// from the stored region, and this copy renders it in the new-student modal
+// before anything is stored. Change one and you must change the other;
+// unifying them needs a cross-language generation step, which is out of scope
+// here.
 export const TZ_BY_REGION: Record<string, string> = { 美西: "UTC-8", 美东: "UTC-5", 加拿大: "UTC-5", 其他地区: "—" };
 export const LEVELS = ["小白", "会电脑", "有基础", "工程师"] as const;
 export const SOURCES = ["讲武堂", "理财群", "股票群", "加拿大", "Andrew纽约", "其他"];

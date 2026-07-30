@@ -1,7 +1,7 @@
 import { type KeyboardEvent } from "react";
 import { Badge, Button } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import { FIELDS, LEVELS, SOURCES, TAG_COLORS, TAGS, TZ_BY_REGION } from "./mock-data";
+import { FIELDS, LEVELS, SOURCES, TAG_COLORS, TAGS, TZ_BY_REGION } from "./vocab";
 import type { EditableFieldKey, FieldStatus, Student, WritableFieldKey } from "./types";
 
 interface DetailPanelProps {

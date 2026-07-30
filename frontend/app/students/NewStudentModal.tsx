@@ -1,6 +1,6 @@
 import { Badge, Button, Input } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import { LEVELS, SOURCES, TAGS, TZ_BY_REGION } from "./mock-data";
+import { LEVELS, SOURCES, TAGS, TZ_BY_REGION } from "./vocab";
 import type { NewStudentForm } from "./types";
 
 interface NewStudentModalProps {

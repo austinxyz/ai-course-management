@@ -1,6 +1,6 @@
 import { Input } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import { SOURCES, TAGS } from "./mock-data";
+import { SOURCES, TAGS } from "./vocab";
 
 interface FilterBarProps {
   scope: "active" | "archived";

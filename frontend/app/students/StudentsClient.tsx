@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition, type KeyboardEvent } from "react";
 import { Button } from "@/components/ui";
-import { BLANK_FORM, TZ_BY_REGION } from "./mock-data";
+import { BLANK_FORM, TZ_BY_REGION } from "./vocab";
 import {
   archiveStudentAction,
   createStudentAction,

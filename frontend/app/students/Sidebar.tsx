@@ -1,5 +1,5 @@
 import { cn } from "@/lib/cn";
-import { NAV } from "./mock-data";
+import { NAV } from "./vocab";
 import type { NavKey } from "./types";
 
 interface SidebarProps {

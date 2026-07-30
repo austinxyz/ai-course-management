@@ -1,6 +1,6 @@
 import { Badge, Button, Card } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import { TAG_COLORS } from "./mock-data";
+import { TAG_COLORS } from "./vocab";
 import type { Student } from "./types";
 
 interface StudentsTableProps {

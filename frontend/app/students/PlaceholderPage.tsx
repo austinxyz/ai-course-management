@@ -1,5 +1,5 @@
 import { Badge, Button, Card } from "@/components/ui";
-import { PAGES } from "./mock-data";
+import { PAGES } from "./vocab";
 import type { NavKey } from "./types";
 
 interface PlaceholderPageProps {
