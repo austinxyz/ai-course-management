@@ -74,7 +74,7 @@
       切 tab 时**侧边栏不消失**、高亮**点了就亮**、加载卡片在内容区内。
       **本地后端是毫秒级，什么都看不出来** —— 必须人为制造慢：停掉后端看错误态，
       或在 `lib/api.ts` 临时加 sleep 看加载态（验完删掉）
-- [ ] 2.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-2.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 70 → PASS; < 70 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
+- [x] 2.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-2.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 70 → PASS; < 70 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 3. 徽标刷新：revalidate 粒度与路径写法
 
@@ -90,11 +90,11 @@
   - 写错的症状是"加完学员徽标不动"，与"根本没改粒度"**外观完全一致**
 - **Threshold**: 80
 
-- [ ] 3.0 CONTRACT — write openspec/changes/course-page-boundaries/contracts/group-3.md with the ### Contract block above
-- [ ] 3.1 RED — `actions.test.ts`：新增/更新/归档/恢复四处均以 layout 粒度调用 `revalidatePath`
+- [x] 3.0 CONTRACT — write openspec/changes/course-page-boundaries/contracts/group-3.md with the ### Contract block above
+- [x] 3.1 RED — `actions.test.ts`：新增/更新/归档/恢复四处均以 layout 粒度调用 `revalidatePath`
       （当前是默认 page 粒度，先红）
-- [ ] 3.2 GREEN — 四处 `revalidatePath` 加 `"layout"` 粒度
-- [ ] 3.3 VISUAL DIFF — **真实新增一名学员**（虚构姓名 + `@example.com`），确认徽标数字随即变化。
+- [x] 3.2 GREEN — 四处 `revalidatePath` 加 `"layout"` 粒度
+- [x] 3.3 VISUAL DIFF — **真实新增一名学员**（虚构姓名 + `@example.com`），确认徽标数字随即变化。
       路径写法若不对（`/students` vs `/(app)/students`）就在这一步暴露 —— 单测断言的是
       "调用参数长什么样"，断不出 Next 认不认这个路径。改完记得把测试记录删掉
 - [ ] 3.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-3.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)

@@ -98,6 +98,10 @@ describe("student write actions", () => {
   it("lets create, archive and restore through as well", async () => {
     const actions = await import("./actions");
     withAuthorization(basic(PASSWORD));
+    // Set the happy path explicitly: `vi.clearAllMocks()` clears call records
+    // but keeps implementations, so a rejection set by an earlier test would
+    // otherwise still be in force here and silently skip one revalidate.
+    api.createStudent.mockResolvedValue(undefined);
 
     await actions.createStudentAction({ email: "x@example.com", name: "新学员" });
     await actions.archiveStudentAction("someone@example.com");
@@ -156,5 +160,39 @@ describe("create refusals are returned, not thrown", () => {
       createStudentAction({ email: "x@example.com", name: "新学员" }),
     ).rejects.toThrow();
     expect(api.createStudent).not.toHaveBeenCalled();
+  });
+
+  /**
+   * The badge count now lives in the shell layout, not in the students page.
+   *
+   * `revalidatePath(path)` defaults to page granularity, which leaves layouts
+   * untouched — the roster would update while the sidebar kept showing the old
+   * number. Nothing errors; the digit simply never moves, which looks exactly
+   * like having forgotten to revalidate at all.
+   */
+  it("revalidates at layout granularity so the shell badge updates too", async () => {
+    const { revalidatePath } = await import("next/cache");
+    const actions = await import("./actions");
+    withAuthorization(basic(PASSWORD));
+    // Set the happy path explicitly: `vi.clearAllMocks()` clears call records
+    // but keeps implementations, so a rejection set by an earlier test would
+    // otherwise still be in force here and silently skip one revalidate.
+    api.createStudent.mockResolvedValue(undefined);
+
+    await actions.createStudentAction({ email: "x@example.com", name: "新学员" });
+    await actions.archiveStudentAction("someone@example.com");
+    await actions.restoreStudentAction("someone@example.com");
+    await actions.updateStudentField("someone@example.com", { note: "写入" });
+
+    const calls = vi.mocked(revalidatePath).mock.calls;
+    expect(calls.map((c) => c[0])).toEqual([
+      "/students",
+      "/students",
+      "/students",
+      "/students",
+    ]);
+    for (const call of calls) {
+      expect(call[1]).toBe("layout");
+    }
   });
 });

@@ -1,6 +1,21 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+
+/**
+ * Layout granularity, not the default page granularity.
+ *
+ * The sidebar's roster badge is rendered by `(app)/layout.tsx`. Page-level
+ * revalidation leaves layouts untouched, so the table would refresh while the
+ * badge kept showing the previous number — no error, no warning, just a digit
+ * that never moves, which looks exactly like having forgotten to revalidate.
+ *
+ * The path stays `/students`. The docs show a route-group-qualified form
+ * (`revalidatePath('/(main)/post/[slug]', 'layout')`), so the group might have
+ * needed spelling out; measured against a real write, it does not — the badge
+ * goes 10 → 11 without a reload. Worth stating because getting it wrong
+ * produces no error, only a badge that never moves.
+ */
 import { headers } from "next/headers";
 
 import {
@@ -40,7 +55,7 @@ export async function updateStudentField(
 ): Promise<void> {
   await requireSitePassword();
   await updateStudent(email, patch);
-  revalidatePath("/students");
+  revalidatePath("/students", "layout");
 }
 
 /**
@@ -76,18 +91,18 @@ export async function createStudentAction(
     // place for it to differ.
     return classify(error);
   }
-  revalidatePath("/students");
+  revalidatePath("/students", "layout");
   return { ok: true };
 }
 
 export async function archiveStudentAction(email: string): Promise<void> {
   await requireSitePassword();
   await archiveStudent(email);
-  revalidatePath("/students");
+  revalidatePath("/students", "layout");
 }
 
 export async function restoreStudentAction(email: string): Promise<void> {
   await requireSitePassword();
   await restoreStudent(email);
-  revalidatePath("/students");
+  revalidatePath("/students", "layout");
 }
