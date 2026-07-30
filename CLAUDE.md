@@ -257,3 +257,29 @@ engine 提到模块级共用一个即可（顺带快一倍）。测试数量跨�
 `supabase db reset` 是在空库上重放，seed 里没有对应数据，所以 `update ... set x = y * 60` 这类回填
 **不被任何本地测试覆盖** —— 绿灯不代表回填写对了。真实证据只能来自生产那几行既有数据，
 因此这类 migration 的生产验收必须专门列一条"确认既有行的值被正确转换"，而不是只看页面能打开。
+
+**`error.tsx` 接不住**同段** `layout.tsx` 自己抛的错，于是外壳的取数会带走整个外壳**（course-page-boundaries，VISUAL DIFF 才发现，全部单测都是绿的）。
+文档原文：error.js「does not wrap the layout.js ... above it in the same segment」。
+把侧边栏提进 `(app)/layout.tsx` 并让它取学员数之后，后端一停 —— 计数 promise 一 reject，
+**整个外壳死掉、掉到根错误页、侧边栏消失**，恰好发生在冷启动，也就是这套边界存在的理由本身。
+外壳自己取的数据**必须不能抛**：就地 `.catch(() => undefined)`，未知值走既有占位（本例 `—`）。
+推论：**凡是 layout 渲染的东西，它的失败都不归本段 error.tsx 管**，别指望同级边界兜住。
+
+**layout 里未隔离的取数会阻塞每一次导航，而且不报错、不告警**（course-page-boundaries）。
+本版 Next 文档：layout 访问未缓存数据时 `loading.js` **不为它显示 fallback**，且
+「Without Cache Components: Navigation blocks until the layout finishes rendering」。
+症状只是"哪儿都慢"，**本地后端毫秒级完全看不出来**。解法是把取数留在 page，
+或在 layout 内用独立 `<Suspense>` 包住（把 promise 传给客户端组件用 `use()` 展开）。
+测试要用**挂住不 resolve 的 promise**；已 resolve 的 promise 无论包没包都通过。
+另有一条更强的断言：**layout 函数本身不是 async** —— 同步函数不可能 await 过任何东西。
+
+**`revalidatePath` 的路径不写路由组前缀，但写错只表现为"数字不动"**（course-page-boundaries）。
+文档示例是 `revalidatePath('/(main)/post/[slug]', 'layout')`，容易以为搬进 `(app)` 后要跟着写。
+实测：`revalidatePath("/students", "layout")` 就对。**粒度**倒是必须改 —— 默认的 page 粒度
+不刷新 layout，于是表格更新了、外壳里的徽标不动。两种错法（粒度没改 / 路径写错）
+症状完全一样，且都不报错，所以这条只能靠**真实写一条数据看数字变没变**来定论，单测断不出来。
+
+**`vi.clearAllMocks()` 清调用记录但不清 mock 实现**（course-page-boundaries，既有测试里的隐患）。
+前面用例设的 `api.createStudent.mockRejectedValue(...)` 会残留到后面的用例，
+于是同一个断言**全量跑与单独跑结果不同**（本例：revalidate 调用数 3 vs 4）。
+要清实现得用 `resetAllMocks`；更稳的做法是**用例内显式设定自己依赖的返回值**，不吃环境状态。

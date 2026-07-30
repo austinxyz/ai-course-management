@@ -26,10 +26,11 @@
 **覆盖需求**:
 - docs/superpowers/specs/2026-07-29-course-catalog-requirements.md（课程、别名、场次）
 - docs/superpowers/specs/2026-07-30-course-scheduling-fields-requirements.md（时长改分钟、按所选时区录入）
+- docs/superpowers/specs/2026-07-30-course-page-boundaries-requirements.md（课程页的加载态与错误态）
 **设计基准**: docs/superpowers/specs/mocks/2026-07-29-course-enrollment-design.dc.html（`sc-if isCourses` 与 `showCourse` 两个分支）
 
 **后台**: 三张表 —— `courses`（独立 uuid 主键，课程名与简称都可改）、`course_aliases`（**主键就是归一化后的别名**，全库唯一由结构保证 + CHECK 约束兜底绕过 API 的直写）、`course_sessions`（`local_date` + `local_time` + **该场自己的** IANA `tz`，**无 UTC 偏移列**）；FastAPI `GET /api/courses`（课程+别名+场次一次取全，内存归拢避免 N+1）、`GET /api/courses/teachers`（场次讲师去重）；课程带 `duration_minutes`（分钟，15–600，**不是整小时** —— 真实课程 150 分钟）与 `default_tz`（新增场次的预选时区，不回溯已有场次）；课程与场次的 POST/PATCH/DELETE、别名增删、`POST .../sessions/{id}/follow-date`（清除状态覆盖是动作而非 PATCH null）
-**前台**: `frontend/app/courses/`（独立路由；侧栏从 `setView` 改为 `next/link`，占位页各自成路由）；`CoursesClient` 只渲染 props、不留数据副本；`CourseModal` 新建/编辑 + 别名增删；`SessionRows` 行内编辑、新增一场、讲师 chip 可当场新增、**时区 chip（取自 `ZONE_ROWS`，与换算行同一份来源）**且时间标签跟随所选时区；`lib/tz.ts` **只做格式化**
+**前台**: `frontend/app/(app)/courses/`（独立路由；侧栏从 `setView` 改为 `next/link`，占位页各自成路由）；`CoursesClient` 只渲染 props、不留数据副本；`CourseModal` 新建/编辑 + 别名增删；`SessionRows` 行内编辑、新增一场、讲师 chip 可当场新增、**时区 chip（取自 `ZONE_ROWS`，与换算行同一份来源）**且时间标签跟随所选时区；`lib/tz.ts` **只做格式化**
 **关键性质**: 场次时间存墙上时间、绝对时刻读取时用 `zoneinfo` 派生（时区规则会变，墙上时间才是讲师的意图）；状态 = 派生 + 可覆盖三态（`state_override` 为 null 即"跟随日期"），"今天"取 `America/Los_Angeles` 而非服务器时区；课程无删除，只有上架/已下线
 **验收标准**: 两场同为「美西 19:30」、分别在 10 月与 12 月时，**上海行为 10:30 次日 / 11:30 次日**；以**美东** 20:30 录入的 2026-07-31 一场，美西行 17:30 同日、上海行 08:30 次日（换算基准是该场自己的时区）（美东两场都是 22:30——美国两地同日切换，拿它比验不出任何东西）；场次写入失败就近显示、失败保留用户输入；生产已建真实课程与两场并通过上述断言
 
@@ -46,8 +47,22 @@
 **关键性质**: 两个变量缺失时**拒绝而非放行**（fail-closed），且认证逻辑**无环境判断分支**——本地与生产同一条路径
 **验收标准**: 未带凭据时页面与后端一律 401 且响应体不含学员数据；带正确凭据行为如常；生产 API 文档不可达
 
-> ⚠️ **仍未解除的护栏**：CLAUDE.md 与 README 中"不得导入真实学员数据"的警告**依然有效**。
-> 认证虽已工作，但解除护栏是一次单独、明确的决定（见该 change 的 requirements Open Questions），
-> 不随本能力自动失效。生产库目前仍为空表。
+> ✅ **护栏已于 2026-07-29 解除**（该 change 归档时作为一次单独、明确的决定）。
+> 生产库现存放真实学员数据。**排查生产问题时不要整行 dump 学员记录** ——
+> `console.log` 出去的姓名邮箱会留在终端输出、CI 日志与对话记录里（见 CLAUDE.md「隐私」）。
 >
 > **本能力不提供**：每人一身份（无法单独吊销某人、互动记录无法区分录入者）、限流（安全性依赖密码长度）、登出。
+
+### `app-shell` ✅ 已实现 · 🌐 已上线
+**用户故事**: 作为讲师，我在左侧切换「学员 / 课程」时，希望**点了就知道点上了** —— 现在点完屏幕纹丝不动几百毫秒（后端冷启动时是几十秒），侧边栏还整块消失又出现，看着像整页刷新，我会以为没点上而再点一次
+**覆盖需求**: docs/superpowers/specs/2026-07-30-course-page-boundaries-requirements.md
+**设计基准**: docs/superpowers/specs/mocks/2026-07-30-course-page-boundaries-mocks.html（讲的是**范围与时序**，不是长相 —— 卡片本身沿用已上线的那两份）
+
+**后台**: 不涉及，本能力纯前端
+**前台**: 路由组 `frontend/app/(app)/`（**不产生 URL 段，路径全不变**）承载 `layout.tsx`，六个页面（学员、课程、四个占位页）迁入；`Sidebar` 改客户端组件，高亮由 `usePathname()` 派生、不再由各页传 `active`；徽标计数以 `SidebarWithCount` + `<Suspense>` 隔离，layout **不 await**；`(app)/error.tsx`（侧边栏保留）与根 `app/error.tsx`（兜底）两层；`(app)/courses/loading.tsx` 新增、学员那份迁入，容器由整屏改为 `flex-1` 内容区；学员写操作 `revalidatePath("/students", "layout")`
+**关键性质**: 加载/错误态只替换内容区（它们替换的是**下方**的东西，所以侧边栏必须在 layout 里）；**外壳自身的取数不得阻塞导航也不得拖垮外壳** —— layout 里未隔离的取数会阻塞每一次导航（本版 Next `loading.js` 不覆盖 layout），而 `(app)/error.tsx` 接不住同段 layout 自己抛的错，故计数的 rejection 就地吞掉、未知计数渲染 `—`（与"这页不数学员"同一个占位：没数过就不能声称是 0）
+**验收标准**: 生产上两个方向切 tab，点后 **180ms** 侧边栏都在、高亮已跳；**后端休眠状态下**打开 `/courses` 在 2190ms 内出加载卡片（非空白、非平台 504），同一时刻占位页 `/enroll` 仍能打开（这条同时证明 Suspense 没漏包）；新增学员后徽标 10 → 11 无需刷新
+
+> **本能力不提供**：骨架屏（冷启动下"约 1 分钟"的文案价值高于形状仿真）、顶部进度条、预取与 `staleTimes` 调优（那是"等待时长"，本能力治的是"等待反馈"）、`global-error.tsx`（只在根 layout 自身抛错时用得上，而根 layout 只加载字体与全局样式）。
+>
+> ⚠️ **实测记录**：一次硬加载 `/students` 打后端 `GET /api/students` **3 次**（page 2 次 + layout 1 次）—— request memoization **没有**合并 layout 与 page 的同名 GET，因为二者各带不同的 `AbortSignal.timeout()`。按计划接受（内部工具、个位数用户），不为此加计数专用端点。
