@@ -296,19 +296,6 @@ class AliasCreate(BaseModel):
 SessionState = Literal["pending", "done", "cancelled"]
 
 
-def _known_timezone(value: str) -> str:
-    """时区名必须是 zoneinfo 认识的键。
-
-    写错了不会当场出错——它会在读取时炸在换算上，那时离写入点已经很远。
-    """
-    try:
-        ZoneInfo(value)
-    except (ZoneInfoNotFoundError, ValueError) as exc:
-        raise ValueError(f"unknown timezone: {value!r}") from exc
-    return value
-
-
-TimezoneName = Annotated[str, AfterValidator(_known_timezone)]
 TeacherName = Annotated[str, AfterValidator(_strip_and_require)]
 
 

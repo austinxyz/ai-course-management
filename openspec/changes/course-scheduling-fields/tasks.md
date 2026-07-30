@@ -21,7 +21,7 @@
 - [x] 1.7 GREEN — `courses.default_tz` 列 + schema 字段（复用 `TimezoneName`）
 - [x] 1.8 RED — 改课程 `default_tz` **不改变**已有场次的 `tz` 与 `starts_at`
 - [x] 1.9 GREEN — 确认实现满足 1.8（`default_tz` 只被新增表单读取，后端不做任何回溯写入）
-- [ ] 1.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-1.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
+- [x] 1.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-1.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 2. 后端：按任意时区录入的场次换算正确
 
@@ -41,7 +41,7 @@
 - [x] 2.2 GREEN — 使 2.1 通过（若既有实现已满足，明确记录"无需改动"并说明为什么这条断言仍有价值：它钉住的是"基准是场次自己的 tz"）
 - [x] 2.3 RED — 新增场次时不传 `tz`，落库取的是**课程的 `default_tz`** 而非 schema 写死的美西
 - [x] 2.4 GREEN — 新增场次的 `tz` 缺省从所属课程取
-- [ ] 2.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-2.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
+- [x] 2.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-2.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 3. 前端：时长输入、默认时区、场次时区选择
 
