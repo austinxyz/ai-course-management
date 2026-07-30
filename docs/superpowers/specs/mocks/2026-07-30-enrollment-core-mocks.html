@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>enrollment-core mocks</title>
+  <!-- HAS_UI_SURFACE: yes -->
+  <style>
+    body { font-family: "Noto Sans SC", -apple-system, BlinkMacSystemFont, sans-serif; margin: 0; padding: 24px; max-width: 1000px; color: #1a1917; background: #f6f4f0; }
+    section { margin-bottom: 32px; padding-bottom: 18px; border-bottom: 1px solid #e4e0d8; }
+    h1 { margin-top: 0; font-size: 21px; }
+    h2 { font-size: 16px; margin-bottom: 6px; }
+    h3 { font-size: 13.5px; margin: 14px 0 6px; color: #5c574e; }
+    p, li { line-height: 1.65; font-size: 13.5px; }
+    code { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12.5px; background: #f2efe9; border: 1px solid #e4e0d8; border-radius: 4px; padding: 1px 5px; }
+    table { border-collapse: collapse; width: 100%; font-size: 12.5px; margin: 8px 0; }
+    th, td { border: 1px solid #e4e0d8; padding: 6px 9px; text-align: left; vertical-align: top; }
+    th { background: #f2efe9; font-weight: 600; }
+    .warn { background: #fbf0ee; border: 1px solid #f0cfc9; border-radius: 8px; padding: 12px 14px; font-size: 13px; line-height: 1.65; }
+    .card { border: 1px solid #e4e0d8; border-radius: 8px; background: #fff; padding: 12px 14px; margin: 10px 0; }
+    .row { border: 1px solid #e4e0d8; border-radius: 7px; padding: 8px 10px; margin-bottom: 6px; font-size: 12.5px; background: #fbfaf8; display: flex; justify-content: space-between; gap: 10px; align-items: center; }
+    .meta { font-family: "JetBrains Mono", monospace; font-size: 11.5px; color: #a09a90; }
+    .tag { border-radius: 5px; padding: 2px 7px; font-size: 11px; border: 1px solid #e4e0d8; background: #f2efe9; }
+    .tag.done { background: #eef4ee; border-color: #cfe0d0; }
+    .tag.out { background: #fbf0ee; border-color: #f0cfc9; color: #9c4a34; }
+    .err { border: 1px solid #f0cfc9; background: #fbf0ee; border-radius: 7px; padding: 8px 10px; font-size: 12px; margin-top: 6px; }
+  </style>
+</head>
+<body>
+
+<h1>enrollment-core — 视觉基准导览</h1>
+
+<p>
+  视觉基准是 <code>docs/superpowers/specs/mocks/2026-07-29-course-enrollment-design.dc.html</code>：
+  学员详情的「报课记录」区块（357–379 行）、<code>showManual</code> 补录弹窗、
+  场次卡片上的 <code>{{ s.enrolled }}</code>（511 行）。
+  <strong>本切片不新增设计元素</strong>，只是把稿子里已有的这三处做出来。
+  这份导览讲的是<strong>规则与边界态</strong>——稿子画不出来的那部分。
+</p>
+
+<section>
+  <h2>三处落点</h2>
+  <table>
+    <tr><th>位置</th><th>内容</th></tr>
+    <tr><td>学员详情 · 报课记录区块</td><td>逐条：课程 · 场次（未定要看得出来）· 报名日期 · 状态；右上角「补录报课」</td></tr>
+    <tr><td>补录弹窗 <code>showManual</code></td><td>课程（必填，<strong>排除已下线</strong>）· 场次（可选，随课程联动）· 报课日期（必填，默认今天）· 备注</td></tr>
+    <tr><td>课程页 · 场次卡片</td><td>「已报 N 人」；另在课程层显示「另有 N 人未定场次」</td></tr>
+  </table>
+</section>
+
+<section>
+  <h2>学员详情里的报课区块</h2>
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
+      <span class="meta">报课记录　3 条</span>
+      <span style="font-size:12px;color:#9c5a3c">补录报课</span>
+    </div>
+    <div class="row"><span>AI 炒股分析系统 · <span class="meta">2026-07-26</span></span><span class="tag done">已完成</span></div>
+    <div class="row"><span>从一句话到成品 · <span class="meta">未定场次</span></span><span class="tag">报名</span></div>
+    <div class="row"><span>先造枪，再打子弹 · <span class="meta">2026-06-14</span></span><span class="tag out">退课</span></div>
+  </div>
+  <p>
+    「未定场次」<strong>必须看得出来</strong>，不能留白——留白读作"没有场次这个概念"，
+    而实际含义是"这个人还需要你去指派"。没有任何报课时同理：给一句说明，不要空白区块。
+  </p>
+</section>
+
+<section>
+  <h2>状态是派生的（除了退课）</h2>
+  <table>
+    <tr><th>存储</th><th>场次</th><th>显示</th></tr>
+    <tr><td>enrolled</td><td>无</td><td>报名</td></tr>
+    <tr><td>enrolled</td><td>未到</td><td>报名</td></tr>
+    <tr><td>enrolled</td><td>已上</td><td><strong>已完成</strong>（库里仍是 enrolled）</td></tr>
+    <tr><td>enrolled</td><td>已取消</td><td>报名（课没上成）</td></tr>
+    <tr><td>withdrawn</td><td>任意</td><td>退课（压倒派生）</td></tr>
+  </table>
+  <p>
+    前端<strong>不参与派生</strong>，只渲染后端给的 <code>state</code>。
+    可以由客户端算出来的东西就不是数据的属性——与课程排序那次同一条理由。
+  </p>
+</section>
+
+<section>
+  <h2>课程页：两个数字，都在零时消失</h2>
+  <div class="card">
+    <div style="font-weight:600;font-size:14px;margin-bottom:4px">AI 炒股分析系统</div>
+    <div class="meta" style="margin-bottom:8px">每场时长 150 分钟　·　场次 2 场　·　<strong style="color:#9c5a3c">另有 3 人未定场次</strong></div>
+    <div class="row"><span>第 1 场　<span class="meta">2026-07-26 周日 20:30</span></span><span class="meta">已报 8 人</span></div>
+    <div class="row"><span>第 2 场　<span class="meta">2026-07-31 周五 20:30</span></span><span class="meta">已报 5 人</span></div>
+  </div>
+  <p>
+    <strong>无人报名的场次不显示数字</strong>，未定场次为零时也不显示那句提示。
+    沿用该能力已有的判断：一门课刚排好场次还没招生时，满屏「已报 0 人」比留空更吵。
+  </p>
+  <p>
+    <strong>「另有 N 人未定场次」不能省。</strong>这些人不属于任何一场，
+    不另计的话他们在课程页上完全不可见 —— 于是"总报名 16 人、两场加起来 13 人"的差额无处可查，
+    而这批人恰恰是需要你去指派的那批。
+  </p>
+</section>
+
+<section>
+  <h2>删除场次被拒绝时，错误显示在哪</h2>
+  <div class="card">
+    <div class="row" style="margin:0"><span>第 1 场　<span class="meta">2026-07-26 周日 20:30</span></span><span style="font-size:12px;color:#9c4a34">删除这一场</span></div>
+    <div class="err">删不掉：有 8 条报课记录指向这一场。先把这些人改派到别的场次或清空场次。</div>
+  </div>
+  <div class="warn">
+    <strong>错误必须显示在触发它的那一行</strong>，不能塞进课程弹窗的 state ——
+    行内删除时弹窗是关着的，塞进去等于什么都不显示。
+    这正是 <code>course-catalog</code> group 6 被 evaluator BLOCK 两次的那个形状：
+    <strong>失败信息与承载它的组件生命周期脱钩</strong>。
+    错误状态按场次 id 分开存；写入期间禁用所有出口（含取消）。
+  </div>
+</section>
+
+<section>
+  <h2>移动端</h2>
+  <p>
+    <strong>桌面单一视口，没有移动版</strong> —— 与 <code>student-roster</code>、
+    <code>course-catalog</code> 一致，这是既定的范围限定（内部工具，讲师在电脑上用）。
+    报课区块与补录弹窗沿用既有的卡片/弹窗组件，窄屏下的表现与学员详情其余区块相同，
+    本切片不为此新增断点。
+  </p>
+</section>
+
+<section>
+  <h2>验收时最容易漏的两条</h2>
+  <div class="warn">
+    <p style="margin:0 0 8px">
+      <strong>1. 补录表单要在「新建」那一步就填满所有字段。</strong>
+      <code>student-write</code> 踩过：新建时只送必填的几个，弹窗收的其余字段被静默丢弃 ——
+      后端有默认值所以不报错，而验收流程若是"先建最简记录、再逐个编辑"，
+      新建路径的字段处理从头到尾不会被走到。
+    </p>
+    <p style="margin:0">
+      <strong>2. partial unique index 要用真实重复插入验证。</strong>
+      <code>NULL != NULL</code>：普通唯一索引会"收下"两条未定场次的行却不报冲突。
+      migration 跑通不代表它挡住了任何东西。
+    </p>
+  </div>
+</section>
+
+</body>
+</html>
