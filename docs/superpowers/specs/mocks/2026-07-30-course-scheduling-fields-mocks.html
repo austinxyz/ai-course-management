@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>course-scheduling-fields mocks</title>
+  <!-- HAS_UI_SURFACE: yes -->
+  <style>
+    body { font-family: "Noto Sans SC", -apple-system, BlinkMacSystemFont, sans-serif; margin: 0; padding: 24px; max-width: 1000px; color: #1a1917; background: #f6f4f0; }
+    section { margin-bottom: 36px; padding-bottom: 20px; border-bottom: 1px solid #e4e0d8; }
+    h1 { margin-top: 0; font-size: 21px; }
+    h2 { font-size: 16px; margin-bottom: 6px; }
+    p, li { line-height: 1.65; font-size: 13.5px; }
+    code, .v { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12.5px; background: #f2efe9; border: 1px solid #e4e0d8; border-radius: 4px; padding: 1px 5px; }
+    .v { display: inline-block; margin: 2px 0; background: #fff; }
+    table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+    th, td { border: 1px solid #e4e0d8; padding: 6px 9px; text-align: left; vertical-align: top; }
+    th { background: #f2efe9; font-weight: 600; }
+    .warn { background: #fbf0ee; border: 1px solid #f0cfc9; border-radius: 8px; padding: 12px 14px; font-size: 13px; line-height: 1.65; }
+  </style>
+</head>
+<body>
+
+<h1>course-scheduling-fields — 视觉基准导览</h1>
+
+<p>
+  界面基准仍是
+  <code>docs/superpowers/specs/mocks/2026-07-29-course-enrollment-design.dc.html</code>
+  的 <code>sc-if isCourses</code> 与 <code>showCourse</code> 两个分支（在线版
+  claude.ai/design/p/1d976911-7272-4c83-aa54-715d22105341）。
+  本页只讲**这次要改的两处**，以及为什么它们**有意偏离**那份设计稿。
+</p>
+
+<div class="warn">
+  <strong>这次的根因，写在最前面：</strong>上一轮我把设计稿里的<strong>示例值</strong>当成了真实约束 ——
+  稿子里画了 1/2/3/4 小时四个 chip，我就把列做成了 <code>hours int</code> 且限制 1–4；
+  稿子里写着「时间（美西）」，我就把美西写死进了 schema 默认值和换算基准。
+  真实课程是 <strong>150 分钟、8:30 PM 美东</strong>，两个都存不下。
+  实现这两处时不要再照稿子抄回去。
+</div>
+
+<section>
+  <h2>改动一：每场时长 —— chip 变输入框</h2>
+  <table>
+    <tr><th></th><th>设计稿 / 现状</th><th>本次</th></tr>
+    <tr><td>控件</td><td>四个 chip：<code>1 小时</code> <code>2 小时</code> <code>3 小时</code> <code>4 小时</code></td><td>数字输入框，单位分钟</td></tr>
+    <tr><td>取值</td><td><code>hours int</code>，1–4</td><td><code>duration_minutes int</code>，15–600</td></tr>
+    <tr><td>默认</td><td>2</td><td>120</td></tr>
+  </table>
+  <p>标签与副文案照抄设计稿：<div class="v">每场时长</div> + <div class="v">上课时间统一按美西记</div>
+  —— 注意这句副文案<strong>要改</strong>，因为时区不再统一按美西。新文案：
+  <div class="v">默认时区可在下方设定</div></p>
+  <p>课程详情的「这门课」事实行里，<div class="v">每场时长</div> 的值从 <code>2 小时</code> 变成
+  <code>150 分钟</code>。不做"2 小时 30 分"这种拆分显示：分钟是存储单位，也是讲师说的单位。</p>
+</section>
+
+<section>
+  <h2>改动二：时区 —— 从写死到可选</h2>
+  <p><strong>课程弹窗</strong>新增一行（放在「默认上课设置」区块内，紧挨时长）：</p>
+  <div class="v">默认时区</div> + 副文案 <div class="v">新增场次时预选它，不影响已排好的场次</div><br>
+  chip：<div class="v">美西</div> <div class="v">美东</div> <div class="v">加拿大</div> <div class="v">上海</div>
+
+  <p><strong>新增场次表单</strong>：时间标签跟随所选时区。</p>
+  <table>
+    <tr><th>现状</th><th>本次</th></tr>
+    <tr><td><code>时间（美西）</code> 固定</td><td><code>时间（美东）</code> —— 括号里是当前选中的时区</td></tr>
+    <tr><td>无时区控件</td><td>时区 chip 行，初始值 = 课程的 <code>default_tz</code></td></tr>
+  </table>
+  <p><strong>编辑既有场次</strong>同样有时区 chip，但初始值是<strong>该场次自己的时区</strong>，
+  不是课程默认 —— 否则打开一个美西的旧场次会看到「美东」选中，一保存就把它改了。</p>
+  <p>标题文案 <div class="v">新增一场 · 时间按美西填，其他时区自动换算</div> 要改成
+  <div class="v">新增一场 · 按所选时区填，其他时区自动换算</div></p>
+</section>
+
+<section>
+  <h2>时区 chip 的来源</h2>
+  <p>chip 列表直接用 <code>frontend/lib/tz.ts</code> 的 <code>ZONE_ROWS</code> ——
+  与场次卡片下方那几行换算用的是同一个数组。<strong>不要另建一份清单</strong>：
+  两份会漂移，而漂移的样子很难看 —— 用户选了一个时区，那个时区却不出现在换算行里。</p>
+  <p>API 不受此限：<code>TimezoneName</code> 校验器收任意 IANA 名（导入脚本要用）。
+  界面是便利，API 是契约。</p>
+</section>
+
+<section>
+  <h2>期望输出（正确性要求，不是视觉决定）</h2>
+  <table>
+    <tr><th>场次（录入值）</th><th>美西行</th><th>上海行</th></tr>
+    <tr><td>2026-07-31 <strong>美东</strong> 20:30</td><td>17:30 同日</td><td><strong>08:30 次日</strong></td></tr>
+    <tr><td>2026-10-15 美西 19:30</td><td>—（基准行）</td><td>10:30 次日</td></tr>
+    <tr><td>2026-12-15 美西 19:30</td><td>—（基准行）</td><td>11:30 次日</td></tr>
+  </table>
+  <p><strong>日期必须写死在断言里。</strong>同样是美东 20:30，12 月那场的上海行是 09:30 次日
+  —— 美国退出夏令时、中国不用。不锁日期的断言会在换季后自己变红。</p>
+</section>
+
+<section>
+  <h2>视口范围</h2>
+  <p>与 <code>course-catalog</code> 相同：<strong>桌面单一视口，没有移动版</strong>。
+  使用者是讲师与合作伙伴两人，都在电脑上用。这是范围限定，不是遗漏。</p>
+</section>
+
+</body>
+</html>

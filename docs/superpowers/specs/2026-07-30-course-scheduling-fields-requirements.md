@@ -1,7 +1,7 @@
 ---
 Date: 2026-07-30
 Change: course-scheduling-fields
-Status: DRAFT
+Status: REVIEWED
 HAS_UI_SURFACE: yes
 ---
 
@@ -100,7 +100,9 @@ HAS_UI_SURFACE: yes
 - **时区选择放在哪** —— 场次表单可选 + 课程默认（同上）
 - **不加期次字段** —— 编号按日期算（同上）
 
-## 待 review 确认（我起草时自行判断，可推翻）
+## 已确认（2026-07-30 人工 review）
+
+三处自行判断的地方经确认照做：
 
 - **时长用数字输入而非 chip**。真实值是 150，而 90/120/150/180 这类 chip 一旦不够用
   就会退化成"选一个最接近的"——那正是这次要修的毛病。若你希望有快捷 chip，
