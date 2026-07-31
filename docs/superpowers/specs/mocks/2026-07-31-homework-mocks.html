@@ -148,19 +148,30 @@
 
 <section>
   <h2>CLI 的输出形状（不是界面，但它是这次的主要人机接口）</h2>
-  <pre>$ homework-sync --course S1 ../ai-course/tools/homework-grader/session1/grades.csv --dry-run
+  <pre>$ python tools/homework-sync/sync.py --course S1 .../session1/grades.csv
 
-S1 从零开始用 Claude 和 Cowork  ←  session1/grades.csv
-  18 行 / 17 人（1 人重复提交，取较晚的一次）
-  新建 17 · 更新 0 · 跳过 1
+S1  ←  .../session1/grades.csv
+  17 行
 
-  ⚠ 不在学员表里，先建学员：
-      （0 人）
+  同一人重复提交，取较晚的一次，丢弃 1 行：
+    session1/grades.csv:9
 
-  ⚠ 在学员表里但这门课没有报课记录，成绩已写入、页面上看不到，先补报课：
-      3 人   ec…@gmail.com   li…@gmail.com   yi…@qq.com
+  dry-run，什么都没写。加 --apply 执行。
 
-  dry-run，什么都没写。去掉 --dry-run 执行。</pre>
+
+$ python tools/homework-sync/sync.py --course S1 .../session1/grades.csv --apply
+  ...
+  新建 17 条 · 更新 0 条
+
+  ⚠ 在学员表里但这门课没有报课记录（3 人）。
+    成绩**已写入**，但名单来自报课记录，所以他们在页面上不会出现。
+    先补报课记录，再回来看计数：
+    ec…@example.com（学员甲）</pre>
+  <p class="muted">
+    <strong>默认 dry-run，`--apply` 才写</strong>（与 <code>tools/enrollment-backfill</code> 同一约定）——
+    手滑不会写库。这与本文件早先那版写的 <code>--dry-run</code> 标志相反：安全的默认值比
+    标志名的对称性重要。
+  </p>
   <div class="warn">
     两份清单<strong>必须分开列</strong> —— 处置相反：上面那份要先建学员，下面那份要补报课。
     混在一起就变成一句无从下手的「有 3 个人有问题」。<br>

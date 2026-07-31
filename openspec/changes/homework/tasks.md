@@ -33,7 +33,7 @@
 - [x] 1.13 RED — 显式 `null` 的拒绝：请求体把 NOT NULL 列显式送 `null` 时被边界挡下（4xx），不是 500。注意 `scores` 送 `[]` 是合法的（一门课可以只有固定列）
 - [x] 1.14 GREEN — 在 schema 层加拒绝；按列的可空性分别决定，不要一刀切 `field_validator("*")`（CLAUDE.md：`enrollment-core` 曾因此挡死正常功能）
 - [x] 1.15 GREEN — 更新 `backend/tests/conftest.py` 的清表 fixture：`HomeworkSubmission` 排在 `Student` / `Course` **之前**删。漏了的症状是一批与作业毫不相干的测试红在 setup 阶段
-- [ ] 1.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-1.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
+- [x] 1.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-1.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 2. 同步 CLI
 
@@ -52,19 +52,19 @@
   - 清理/验收脚本只操作自己刚建的记录，全程按主键定位（CLAUDE.md：`enrollment-backfill` 曾因"第一条"改错用户数据）
 - **Threshold**: 80
 
-- [ ] 2.0 CONTRACT — write openspec/changes/homework/contracts/group-2.md with the ### Contract block above
-- [ ] 2.1 RED — `parsing.py` 的表头切分：给一份 S1 形状的表头，返回的固定列与分项列切分正确，且分项列**顺序与表头一致**；再给一份 S2 形状（列数与列名都不同）的，同样正确 —— 断言里不得出现任何硬编码的分项名清单
-- [ ] 2.2 GREEN — 实现表头切分（固定列白名单：姓名/邮件/提交时间/总分/亮点/改进建议/回复状态；其余按出现顺序即分项）
-- [ ] 2.3 RED — 消歧：同一邮箱两行、提交时间 06-11 与 06-18 → 只留 06-18 那行
-- [ ] 2.4 RED — 消歧的并列情形：同一邮箱两行、提交时间**相同** → 留文件中靠后的那一行（用两行不同的总分来分辨取到了哪一条）
-- [ ] 2.5 GREEN — 实现消歧
-- [ ] 2.6 RED — `sync.py --dry-run`：不发出任何 HTTP 请求（mock 掉 client 并断言零调用），但报告里**两份清单都在**且各自带计数
-- [ ] 2.7 GREEN — 实现 `sync.py`：读文件、`--course` 必填、`--dry-run`、渲染报告
-- [ ] 2.8 RED — 编码：把输出流换成只支持单字节编码的假流，跑一次报告渲染，断言**不抛异常**且内容完整。（这条若在实现之后才补，必须故意把实现改回 `print` 确认它真的变红）
-- [ ] 2.9 GREEN — 全部输出改走 `sys.stdout.buffer.write(...encode("utf-8"))`
-- [ ] 2.10 RED — 后端不可达 / 超时：`PUT` 超时时报出可读错误并以非零退出码结束，不静默当成成功（配置 rule：涉及外部 API 的任务必须有超时与异常路径的 RED 测试）
-- [ ] 2.11 GREEN — 给 HTTP 调用设显式超时并处理异常路径；`raise_for_status`，因为 httpx 不会因 4xx/404 抛异常（CLAUDE.md：`course-list-order` 的清理脚本曾"成功地什么都没做"）
-- [ ] 2.12 GREEN — 写 `tools/homework-sync/README.md`：怎么跑、`--course` 从哪查、两份清单各自怎么处置
+- [x] 2.0 CONTRACT — write openspec/changes/homework/contracts/group-2.md with the ### Contract block above
+- [x] 2.1 RED — `parsing.py` 的表头切分：给一份 S1 形状的表头，返回的固定列与分项列切分正确，且分项列**顺序与表头一致**；再给一份 S2 形状（列数与列名都不同）的，同样正确 —— 断言里不得出现任何硬编码的分项名清单
+- [x] 2.2 GREEN — 实现表头切分（固定列白名单：姓名/邮件/提交时间/总分/亮点/改进建议/回复状态；其余按出现顺序即分项）
+- [x] 2.3 RED — 消歧：同一邮箱两行、提交时间 06-11 与 06-18 → 只留 06-18 那行
+- [x] 2.4 RED — 消歧的并列情形：同一邮箱两行、提交时间**相同** → 留文件中靠后的那一行（用两行不同的总分来分辨取到了哪一条）
+- [x] 2.5 GREEN — 实现消歧
+- [x] 2.6 RED — `sync.py --dry-run`：不发出任何 HTTP 请求（mock 掉 client 并断言零调用），但报告里**两份清单都在**且各自带计数
+- [x] 2.7 GREEN — 实现 `sync.py`：读文件、`--course` 必填、`--dry-run`、渲染报告
+- [x] 2.8 RED — 编码：把输出流换成只支持单字节编码的假流，跑一次报告渲染，断言**不抛异常**且内容完整。（这条若在实现之后才补，必须故意把实现改回 `print` 确认它真的变红）
+- [x] 2.9 GREEN — 全部输出改走 `sys.stdout.buffer.write(...encode("utf-8"))`
+- [x] 2.10 RED — 后端不可达 / 超时：`PUT` 超时时报出可读错误并以非零退出码结束，不静默当成成功（配置 rule：涉及外部 API 的任务必须有超时与异常路径的 RED 测试）
+- [x] 2.11 GREEN — 给 HTTP 调用设显式超时并处理异常路径；`raise_for_status`，因为 httpx 不会因 4xx/404 抛异常（CLAUDE.md：`course-list-order` 的清理脚本曾"成功地什么都没做"）
+- [x] 2.12 GREEN — 写 `tools/homework-sync/README.md`：怎么跑、`--course` 从哪查、两份清单各自怎么处置
 - [ ] 2.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-2.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 3. 读接口：名单、四态、去重与过滤

@@ -1,0 +1,14 @@
+### Contract
+- **Spec**:
+  - 源文件同一门课出现同一学员多行时，系统 SHALL 取**提交时间较晚**的那一行；提交时间相同时 SHALL 取文件中靠后的那一行。
+  - 同步接口与同步工具 SHALL 要求调用方显式指定目标课程……SHALL NOT 从文件路径或目录名推断课程。
+  - 两份清单 SHALL NOT 合并呈现。
+  - 同步工具 SHALL 在任何终端编码下都能完整输出其中文报告，SHALL NOT 因编码错误中止。
+- **Runtime**: `cd tools/homework-sync && python -m pytest` → expected: 全部通过；解析层测试不发出任何网络请求
+- **Code**:
+  - `parsing.py` 是纯函数（csv 文本 → 规范化行 + 消歧 + 分类），零 I/O 零网络；`sync.py` 负责文件、HTTP、渲染（design 决策 7）
+  - 消歧规则写在解析层，落库时已是每人一行 —— 交给 upsert 去决定"哪一行赢"会让顺序变成隐式依赖（design 决策 2）
+  - `--dry-run` 走完整解析与分类路径，只是不发 `PUT`；报不出两份清单的 dry-run 等于没有 dry-run
+  - 输出一律 `sys.stdout.buffer.write(line.encode("utf-8"))`；`sys.stdout.reconfigure` 对已被重定向的流不生效
+  - 清理/验收脚本只操作自己刚建的记录，全程按主键定位（CLAUDE.md：`enrollment-backfill` 曾因"第一条"改错用户数据）
+- **Threshold**: 80
