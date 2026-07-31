@@ -190,3 +190,43 @@ def test_excluded_emails_never_become_enrollments(tmp_path):
     assert [r.student_email for r in result.to_create] == ["alpha@example.com"]
     assert result.missing_students == []
     assert result.excluded == ["teacher@example.com"]
+
+
+def test_a_person_who_already_has_that_course_is_left_alone(tmp_path):
+    """倒推的前提是"他有作业成绩，所以报过这门课"——而这件事若已经有记录表达了，
+    再建一条就是重复，不是重听。
+
+    唯一索引拦不住：已有那条带场次、新建这条未定场次，**两条都合法**。
+    真实数据里就这么撞过一次：一名学员有手工补录的 S1（6/28），
+    脚本又给她建了一条未定场次的 S1。
+    """
+    d = write_csv(
+        tmp_path,
+        "session1",
+        [("学员甲", "alpha@example.com"), ("学员乙", "bravo@example.com")],
+    )
+
+    result = plan(
+        [("session1", d / "grades.csv")],
+        COURSES,
+        roster={"alpha@example.com", "bravo@example.com"},
+        # 甲已经有 c-1 的报课了（不论有没有场次）
+        existing={("alpha@example.com", "c-1")},
+    )
+
+    assert [r.student_email for r in result.to_create] == ["bravo@example.com"]
+    assert result.already_enrolled == ["alpha@example.com"]
+
+
+def test_an_existing_enrollment_in_another_course_does_not_block(tmp_path):
+    """挡的是"这门课已经有记录"，不是"这个人已经有任何报课"。"""
+    d = write_csv(tmp_path, "session1", [("学员甲", "alpha@example.com")])
+
+    result = plan(
+        [("session1", d / "grades.csv")],
+        COURSES,
+        roster={"alpha@example.com"},
+        existing={("alpha@example.com", "c-2")},  # 另一门课
+    )
+
+    assert [r.student_email for r in result.to_create] == ["alpha@example.com"]

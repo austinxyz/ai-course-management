@@ -42,6 +42,8 @@ class Plan:
     # 显式排除的邮箱（讲师自己的测试提交之类）。与 missing_students 分开列：
     # 那是"待补建的学员"，这是"本来就不该算报课的人"。
     excluded: list[str] = field(default_factory=list)
+    # 这门课已经有报课记录的人。与 excluded 分开：那是"不该算"，这是"已经算过了"。
+    already_enrolled: list[str] = field(default_factory=list)
 
 
 def normalize_alias(raw: str) -> str:
@@ -105,12 +107,17 @@ def plan(
     courses: list[dict[str, Any]],
     roster: set[str],
     exclude: set[str] | None = None,
+    existing: set[tuple[str, str]] | None = None,
 ) -> Plan:
     """(目录名, grades.csv 路径) 的若干份 → 将要创建的报课。
 
     `exclude` 里的邮箱一概不算报课（讲师自己的测试提交之类）。**排除优先于一切**——
     不进创建列表，也不进"未建档"名单：他不是待补建的学员。
     靠"他碰巧不在学员库里"来排除是脆的：哪天他被加进名单，记录就会静默变成报课。
+
+    `existing` 是已经存在的 (邮箱, 课程 id) 组合。倒推的前提是"他有作业成绩，
+    所以报过这门课"——这件事若已经有记录表达了，再建一条就是重复，不是重听。
+    唯一索引拦不住它：已有那条带场次、新建这条未定场次，**两条都合法**。
 
     `roster` 是学员库里已有的邮箱。匹配不到的**列出来但不建档**：
     `students` 的 region / level / source 都是必填而 CSV 里只有姓名与邮箱，
@@ -120,8 +127,10 @@ def plan(
     missing: list[str] = []
     skipped: list[tuple[str, str]] = []
     excluded: list[str] = []
+    already: list[str] = []
     lower_roster = {e.strip().lower() for e in roster}
     lower_exclude = {e.strip().lower() for e in (exclude or set())}
+    lower_existing = {(e.strip().lower(), c) for e, c in (existing or set())}
 
     for directory, path in sources:
         emails = read_submissions(path)
@@ -151,6 +160,11 @@ def plan(
                     missing.append(email)
                 continue
 
+            if (email, course["id"]) in lower_existing:
+                if email not in already:
+                    already.append(email)
+                continue
+
             to_create.append(
                 PlannedEnrollment(
                     student_email=email,
@@ -165,4 +179,5 @@ def plan(
         missing_students=missing,
         skipped_dirs=skipped,
         excluded=excluded,
+        already_enrolled=already,
     )

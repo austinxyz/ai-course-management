@@ -117,6 +117,12 @@ def describe(result: Plan) -> None:
             _say(f"  {email}")
         _say("  （补建这些学员后重跑一次即可补上他们的报课）")
 
+    if result.already_enrolled:
+        _say(f"\n跳过 {len(result.already_enrolled)} 人——这门课已经有报课记录了：")
+        for email in result.already_enrolled:
+            _say(f"  {email}")
+        _say("  （作业成绩只能证明「他报过这门课」，而那件事已经被既有记录表达了）")
+
     if result.excluded:
         _say(f"\n排除 {len(result.excluded)} 人——显式指定不算报课：")
         for email in result.excluded:
@@ -162,8 +168,17 @@ def main() -> int:
         ).json()
         roster = {s["email"] for s in students} | {s["email"] for s in archived}
 
+        # 已经有报课的 (邮箱, 课程)。重跑时它就是上一次自己写下的那批——
+        # 于是"新建 0 条"这个结果不再依赖唯一约束去挡，而是压根不会去写。
+        existing = {
+            (e["student_email"], e["course_id"])
+            for e in client.get(f"{base}/api/enrollments", headers=headers, timeout=60).json()
+        }
+
         try:
-            result = plan(sources, courses, roster, exclude=set(args.exclude))
+            result = plan(
+                sources, courses, roster, exclude=set(args.exclude), existing=existing
+            )
         except UnknownCourse as exc:
             # 认不出课程就中止，不猜——猜错的记录看起来和对的一模一样。
             print(f"\n中止：{exc}", file=sys.stderr)
