@@ -2,10 +2,14 @@ import { type KeyboardEvent } from "react";
 import { Badge, Button } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { FIELDS, LEVELS, SOURCES, TAG_COLORS, TAGS, TZ_BY_REGION } from "./vocab";
-import type { EditableFieldKey, FieldStatus, Student, WritableFieldKey } from "./types";
+import { EnrollmentRows } from "./EnrollmentRows";
+import type { EditableFieldKey, Enrollment, FieldStatus, Student, WritableFieldKey } from "./types";
 
 interface DetailPanelProps {
   student: Student;
+  /** 该学员的报课记录。状态由服务端派生，这里只渲染。 */
+  enrollments: Enrollment[];
+  onAddEnrollment: () => void;
   isArchived: boolean;
   editKey: EditableFieldKey | "note" | null;
   editValue: string;
@@ -71,7 +75,9 @@ function pillClass(active: boolean) {
 
 export function DetailPanel(props: DetailPanelProps) {
   const {
-    student, isArchived, editKey, editValue, tagEditing, askArchive,
+    student,
+    enrollments,
+    onAddEnrollment, isArchived, editKey, editValue, tagEditing, askArchive,
     archivePending, archiveError, fieldStatus, onRetryField,
     onClose, onStartEdit, onEditValueChange, onCommitEdit, onEditKeyDown, onPickEnum,
     onToggleTagEditing, onToggleTag,
@@ -372,10 +378,12 @@ export function DetailPanel(props: DetailPanelProps) {
             <div className="font-mono text-[11px] tracking-wide text-muted-foreground">详情页 · 草图</div>
             <Badge variant="muted">待设计</Badge>
           </div>
+          {/* 报课记录已经是真的了，从占位块里移除——它就在下面，说的是同一个学员。
+              另外两项的数字（4 / 6、最近 7 天 1 条）是设计稿的示例值：这两个能力
+              还不存在，写个数字在这儿等于凭空造事实。留标题，不留数。 */}
           {[
-            { title: "报课记录", meta: "2 条" },
-            { title: "作业提交", meta: "4 / 6" },
-            { title: "互动记录", meta: "最近 7 天 1 条" },
+            { title: "作业提交", meta: "还没做" },
+            { title: "互动记录", meta: "还没做" },
           ].map((sk) => (
             <div key={sk.title} className="flex flex-col gap-1.5 rounded-token border border-dashed border-border bg-surface-muted/60 px-3 py-2.5">
               <div className="flex items-center justify-between gap-2">
@@ -390,12 +398,26 @@ export function DetailPanel(props: DetailPanelProps) {
           ))}
         </div>
 
+        <div className="border-t border-border px-4 py-3.5">
+          <EnrollmentRows enrollments={enrollments} onAdd={onAddEnrollment} />
+        </div>
+
         {!isArchived && (
           <div className="flex flex-col gap-2 border-t border-border pt-3.5">
             {askArchive ? (
               <div className="flex flex-col gap-2.5 rounded-token border border-danger-border bg-danger-surface p-3">
-                <p className="m-0 font-sans text-[12.5px] leading-relaxed text-foreground">
-                  归档 <strong className="font-semibold">{student.name}</strong>？他的 2 条报课、4 份作业和互动记录会一起隐藏，但不会删除。可随时恢复。
+                <p
+                  data-testid="archive-impact"
+                  className="m-0 font-sans text-[12.5px] leading-relaxed text-foreground"
+                >
+                  {/* 原文写死着"他的 2 条报课、4 份作业"——设计稿的假数据被抄进了
+                      生产代码，对每个人都这么说。永远相同的数字比没有数字更糟：
+                      它看起来像信息。作业与互动记录这两个能力还不存在，不提。 */}
+                  归档 <strong className="font-semibold">{student.name}</strong>？
+                  {enrollments.length
+                    ? `他的 ${enrollments.length} 条报课会一起隐藏，但不会删除。`
+                    : "他没有报课记录。归档不会删除任何东西。"}
+                  可随时恢复。
                 </p>
                 {archiveError && (
                   <span className="font-sans text-[11.5px] text-danger">{archiveError}</span>

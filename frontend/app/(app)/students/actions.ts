@@ -20,10 +20,12 @@ import { headers } from "next/headers";
 
 import {
   archiveStudent,
+  createEnrollment,
   createStudent,
   restoreStudent,
   updateStudent,
   BackendError,
+  type NewEnrollment,
   type NewStudent,
   type StudentPatch,
 } from "@/lib/api";
@@ -105,4 +107,25 @@ export async function restoreStudentAction(email: string): Promise<void> {
   await requireSitePassword();
   await restoreStudent(email);
   revalidatePath("/students", "layout");
+}
+
+/**
+ * 补录一条报课。
+ *
+ * 预期内的失败（重复、课已下线）用**返回值**表达而不是抛：Next 在生产构建里
+ * 把 Server Action 抛出的错误抹成一个 digest，客户端拿不到原文——本地 dev
+ * 一切正常，上线后引导文案静默消失。判据是"用户正常操作会不会撞到"：会，就是返回值。
+ */
+export async function createEnrollmentAction(
+  draft: NewEnrollment,
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  await requireSitePassword();
+  try {
+    await createEnrollment(draft);
+  } catch (error) {
+    if (error instanceof BackendError) return { ok: false, message: error.detail };
+    return { ok: false, message: "没保存上。" };
+  }
+  revalidatePath("/students", "layout");
+  return { ok: true };
 }

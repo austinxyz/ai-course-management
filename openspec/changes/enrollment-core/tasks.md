@@ -97,7 +97,7 @@
 - [x] 3.6 GREEN — 补两个聚合
 - [x] 3.7 RED — 删除有报课的场次返回 409 且 detail 含条数；**只有退课记录时同样 409**
 - [x] 3.8 GREEN — 场次删除守卫
-- [ ] 3.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-3.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
+- [x] 3.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-3.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 4. 前端：学员详情的报课区块与补录
 
@@ -116,21 +116,21 @@
   - Server Action 的预期内失败用**返回值**表达，不要抛 —— 生产构建会把抛出的信息抹成 digest
 - **Threshold**: 70
 
-- [ ] 4.0 CONTRACT — write openspec/changes/enrollment-core/contracts/group-4.md with the ### Contract block above
-- [ ] 4.1 MOCK — 读 `docs/superpowers/specs/mocks/2026-07-30-enrollment-core-mocks.html`
+- [x] 4.0 CONTRACT — write openspec/changes/enrollment-core/contracts/group-4.md with the ### Contract block above
+- [x] 4.1 MOCK — 读 `docs/superpowers/specs/mocks/2026-07-30-enrollment-core-mocks.html`
       的「学员详情里的报课区块」与末尾「验收时最容易漏的两条」
-- [ ] 4.2 RED — 报课区块逐条显示课程/场次/日期/状态；**未定场次显示为"未定场次"而非留白**
-- [ ] 4.3 GREEN — `DetailPanel` 新增报课区块
-- [ ] 4.4 RED — 没有报课时显示说明文案而非空白
-- [ ] 4.5 GREEN — 空态
-- [ ] 4.6 RED — 补录弹窗：**填了可选字段（场次、备注）时它们确实出现在提交载荷里**
+- [x] 4.2 RED — 报课区块逐条显示课程/场次/日期/状态；**未定场次显示为"未定场次"而非留白**
+- [x] 4.3 GREEN — `DetailPanel` 新增报课区块
+- [x] 4.4 RED — 没有报课时显示说明文案而非空白
+- [x] 4.5 GREEN — 空态
+- [x] 4.6 RED — 补录弹窗：**填了可选字段（场次、备注）时它们确实出现在提交载荷里**
       （不是只断言"提交成功"—— 那分辨不出字段被丢掉）
-- [ ] 4.7 GREEN — 补录弹窗 + Server Action
-- [ ] 4.8 RED — 写入进行中所有出口被禁用（用**挂住不 resolve 的 promise** 断言 `disabled`）
-- [ ] 4.9 GREEN — busy 态
-- [ ] 4.10 RED — 归档确认里出现报课条数
-- [ ] 4.11 GREEN — 归档确认补上条数
-- [ ] 4.12 VISUAL DIFF — 起 dev stack 进 `/students`，对着 mocks 比：区块位置、未定场次的呈现、
+- [x] 4.7 GREEN — 补录弹窗 + Server Action
+- [x] 4.8 RED — 写入进行中所有出口被禁用（用**挂住不 resolve 的 promise** 断言 `disabled`）
+- [x] 4.9 GREEN — busy 态
+- [x] 4.10 RED — 归档确认里出现报课条数
+- [x] 4.11 GREEN — 归档确认补上条数
+- [x] 4.12 VISUAL DIFF — 起 dev stack 进 `/students`，对着 mocks 比：区块位置、未定场次的呈现、
       补录弹窗字段。**造一条未定场次的记录**再看 —— 只有指明场次的记录看不出这条
 - [ ] 4.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-4.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 70 → PASS; < 70 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 

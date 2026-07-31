@@ -68,7 +68,7 @@ function listedNames(): string[] {
 }
 
 function renderAndSearch(query: string) {
-  render(<StudentsClient students={[target, other]} archivedStudents={[]} />);
+  render(<StudentsClient students={[target, other]} archivedStudents={[]} enrollments={[]} courses={[]} />);
   return userEvent.setup().type(searchBox(), query);
 }
 
@@ -128,7 +128,7 @@ describe("roster search", () => {
     // The placeholder is the only place this is discoverable. A user who
     // believes only name and email are searchable will not try a nickname —
     // and the nickname is the whole point.
-    render(<StudentsClient students={[target]} archivedStudents={[]} />);
+    render(<StudentsClient students={[target]} archivedStudents={[]} enrollments={[]} courses={[]} />);
 
     expect(searchBox()).toHaveAttribute(
       "placeholder",

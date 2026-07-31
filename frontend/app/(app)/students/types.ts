@@ -68,3 +68,19 @@ export type EditableFieldKey =
   | "gender"
   | "age"
   | "note";
+
+/** 一条报课。`state` 是**服务端算出来的**，前端只渲染，不自己按日期推。 */
+export interface Enrollment {
+  id: string;
+  studentEmail: string;
+  courseId: string;
+  courseName: string;
+  /** null = 还没定上哪一场。是需要跟进的状态，不是缺陷。 */
+  sessionId: string | null;
+  sessionDate: string | null;
+  enrolledAt: string;
+  /** enrolled | completed | withdrawn —— 由后端派生，见 enrollment 能力。 */
+  state: string;
+  source: string;
+  note: string;
+}

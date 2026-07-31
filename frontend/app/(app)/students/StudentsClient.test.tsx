@@ -22,7 +22,7 @@ const unalignedStudent: Student = {
 
 describe("StudentsClient", () => {
   it("renders the 未对齐微信 badge with the danger design token for a student with no wechat", () => {
-    render(<StudentsClient students={[unalignedStudent]} archivedStudents={[]} />);
+    render(<StudentsClient students={[unalignedStudent]} archivedStudents={[]} enrollments={[]} courses={[]} />);
 
     // The lone student is also auto-selected (first in list), so the badge
     // renders both in the table row and the detail panel — either instance
@@ -35,7 +35,7 @@ describe("StudentsClient", () => {
     // The row displayed "stu_" + the email local part — an identifier the
     // database does not have. Email is the student's primary key here, and a
     // value that merely looks like a key invites being used as one.
-    render(<StudentsClient students={[unalignedStudent]} archivedStudents={[]} />);
+    render(<StudentsClient students={[unalignedStudent]} archivedStudents={[]} enrollments={[]} courses={[]} />);
 
     expect(screen.queryByText("学员 ID")).not.toBeInTheDocument();
     expect(document.querySelector('[data-field="sid"]')).toBeNull();

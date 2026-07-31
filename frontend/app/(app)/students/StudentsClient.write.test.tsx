@@ -61,7 +61,7 @@ describe("saving a field", () => {
     // in-progress state has to stay scoped to its own row.
     actions.updateStudentField.mockReturnValue(new Promise(() => {}));
 
-    render(<StudentsClient students={[student]} archivedStudents={[]} />);
+    render(<StudentsClient students={[student]} archivedStudents={[]} enrollments={[]} courses={[]} />);
     await editField("wechat", "wx_new");
 
     await waitFor(() => expect(fieldRow("wechat")).toHaveAttribute("aria-busy", "true"));
@@ -72,7 +72,7 @@ describe("saving a field", () => {
   it("clears the busy state once the save lands", async () => {
     actions.updateStudentField.mockResolvedValue(undefined);
 
-    render(<StudentsClient students={[student]} archivedStudents={[]} />);
+    render(<StudentsClient students={[student]} archivedStudents={[]} enrollments={[]} courses={[]} />);
     await editField("wechat", "wx_new");
 
     await waitFor(() =>
@@ -95,7 +95,7 @@ describe("a field that fails to save", () => {
     // newer than the stored one and usually much harder to obtain again — a
     // wechat handle takes a manual match against a group roster. Reverting on
     // failure would destroy the only copy of it.
-    render(<StudentsClient students={[student]} archivedStudents={[]} />);
+    render(<StudentsClient students={[student]} archivedStudents={[]} enrollments={[]} courses={[]} />);
     await editField("wechat", "wx_hard_to_find");
 
     const row = await waitFor(() => {
@@ -108,7 +108,7 @@ describe("a field that fails to save", () => {
   });
 
   it("shows the failure next to that field, not as a page-level message", async () => {
-    render(<StudentsClient students={[student]} archivedStudents={[]} />);
+    render(<StudentsClient students={[student]} archivedStudents={[]} enrollments={[]} courses={[]} />);
     await editField("wechat", "wx_hard_to_find");
 
     const row = await waitFor(() => {
@@ -124,7 +124,7 @@ describe("a field that fails to save", () => {
 
   it("retries with the value the user typed", async () => {
     const user = userEvent.setup();
-    render(<StudentsClient students={[student]} archivedStudents={[]} />);
+    render(<StudentsClient students={[student]} archivedStudents={[]} enrollments={[]} courses={[]} />);
     await editField("wechat", "wx_hard_to_find");
 
     const retry = await waitFor(() =>
@@ -171,7 +171,7 @@ describe("creating a student whose email belongs to an archived one", () => {
     // restore and no overwrite: the archived record's notes, tags and wechat
     // handle were expensive to collect, and taking them over silently to
     // satisfy a duplicate submission would destroy exactly that.
-    render(<StudentsClient students={[student]} archivedStudents={[archived]} />);
+    render(<StudentsClient students={[student]} archivedStudents={[archived]} enrollments={[]} courses={[]} />);
     await submitNewStudent();
 
     expect(
@@ -184,7 +184,7 @@ describe("creating a student whose email belongs to an archived one", () => {
   });
 
   it("does not silently restore when the user follows the banner", async () => {
-    render(<StudentsClient students={[student]} archivedStudents={[archived]} />);
+    render(<StudentsClient students={[student]} archivedStudents={[archived]} enrollments={[]} courses={[]} />);
     const user = await submitNewStudent();
 
     await user.click(
@@ -211,7 +211,7 @@ describe("writes that are not plain text fields", () => {
     // nowhere to appear — the pill reverts and nothing says why.
     actions.updateStudentField.mockRejectedValue(new Error("boom"));
     const user = userEvent.setup();
-    render(<StudentsClient students={[student]} archivedStudents={[]} />);
+    render(<StudentsClient students={[student]} archivedStudents={[]} enrollments={[]} courses={[]} />);
 
     await user.click(screen.getByRole("button", { name: "编辑" }));
     // Scoped to the tag block: the filter toolbar offers the same tag names,
@@ -229,7 +229,7 @@ describe("writes that are not plain text fields", () => {
   it("reports a failed archive rather than just re-enabling the button", async () => {
     actions.archiveStudentAction.mockRejectedValue(new Error("boom"));
     const user = userEvent.setup();
-    render(<StudentsClient students={[student]} archivedStudents={[]} />);
+    render(<StudentsClient students={[student]} archivedStudents={[]} enrollments={[]} courses={[]} />);
 
     await user.click(screen.getByRole("button", { name: "归档学员" }));
     await user.click(screen.getByRole("button", { name: "确认归档" }));
@@ -252,7 +252,7 @@ describe("an enum field that fails to save", () => {
     // renders instead of the picker, the only way out is a page reload — the
     // failure would take the field with it.
     const user = userEvent.setup();
-    render(<StudentsClient students={[student]} archivedStudents={[]} />);
+    render(<StudentsClient students={[student]} archivedStudents={[]} enrollments={[]} courses={[]} />);
 
     await user.click(within(fieldRow("region")).getByRole("button"));
     await user.click(within(fieldRow("region")).getByRole("button", { name: "美东" }));
@@ -280,7 +280,7 @@ describe("in-progress state is visible, not only announced", () => {
     // that sit outside the field table — easy to leave without the treatment
     // every row in that table gets.
     const user = userEvent.setup();
-    render(<StudentsClient students={[student]} archivedStudents={[]} />);
+    render(<StudentsClient students={[student]} archivedStudents={[]} enrollments={[]} courses={[]} />);
 
     await user.click(screen.getByRole("button", { name: "编辑" }));
     await user.click(within(fieldRow("tags")).getByRole("button", { name: "活跃" }));
@@ -292,7 +292,7 @@ describe("in-progress state is visible, not only announced", () => {
 
   it("shows a spinner while the note is being saved", async () => {
     const user = userEvent.setup();
-    render(<StudentsClient students={[student]} archivedStudents={[]} />);
+    render(<StudentsClient students={[student]} archivedStudents={[]} enrollments={[]} courses={[]} />);
 
     await user.click(within(fieldRow("note")).getByRole("button"));
     await user.type(within(fieldRow("note")).getByRole("textbox"), "写点东西");
@@ -316,7 +316,7 @@ describe("creating a student", () => {
     // costs a manual match against a group roster is silently discarded at the
     // exact moment it was easiest to record.
     const user = userEvent.setup();
-    render(<StudentsClient students={[]} archivedStudents={[]} />);
+    render(<StudentsClient students={[]} archivedStudents={[]} enrollments={[]} courses={[]} />);
 
     await user.click(screen.getByRole("button", { name: "新增学员" }));
     await user.type(screen.getByPlaceholderText("如 陈嘉禾"), "新同学");
@@ -349,7 +349,7 @@ describe("editing the name", () => {
     // discards the note — the least reproducible data in the system.
     actions.updateStudentField.mockResolvedValue(undefined);
 
-    render(<StudentsClient students={[student]} archivedStudents={[]} />);
+    render(<StudentsClient students={[student]} archivedStudents={[]} enrollments={[]} courses={[]} />);
     await editField("name", "真名");
 
     await waitFor(() =>
@@ -362,7 +362,7 @@ describe("editing the name", () => {
   it("keeps the typed name when the save fails", async () => {
     actions.updateStudentField.mockRejectedValue(new Error("boom"));
 
-    render(<StudentsClient students={[student]} archivedStudents={[]} />);
+    render(<StudentsClient students={[student]} archivedStudents={[]} enrollments={[]} courses={[]} />);
     await editField("name", "改了一半");
 
     const row = await waitFor(() => {
@@ -381,7 +381,7 @@ describe("editing the name", () => {
     actions.updateStudentField.mockResolvedValue(undefined);
     const other: Student = { ...student, name: "阿甲", email: "jia@example.com" };
 
-    render(<StudentsClient students={[other, student]} archivedStudents={[]} />);
+    render(<StudentsClient students={[other, student]} archivedStudents={[]} enrollments={[]} courses={[]} />);
     const user = userEvent.setup();
     await user.click(screen.getByText(student.name));
     await editField("name", "zzz 排到最后");

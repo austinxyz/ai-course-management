@@ -5,6 +5,7 @@ import { Button } from "@/components/ui";
 import { BLANK_FORM, TZ_BY_REGION } from "./vocab";
 import {
   archiveStudentAction,
+  createEnrollmentAction,
   createStudentAction,
   restoreStudentAction,
   updateStudentField,
@@ -13,8 +14,11 @@ import { FilterBar } from "./FilterBar";
 import { StudentsTable, NoResultsState, EmptyDatabaseState } from "./StudentsTable";
 import { DetailPanel } from "./DetailPanel";
 import { NewStudentModal } from "./NewStudentModal";
+import { EnrollmentModal } from "./EnrollmentModal";
+import type { Course } from "@/app/(app)/courses/types";
 import type {
   EditableFieldKey,
+  Enrollment,
   FieldStatus,
   NewStudentForm,
   Student,
@@ -25,6 +29,8 @@ import type {
 interface StudentsClientProps {
   students: Student[];
   archivedStudents: Student[];
+  enrollments: Enrollment[];
+  courses: Course[];
 }
 
 /**
@@ -38,7 +44,12 @@ function fieldKey(email: string, field: string): string {
   return `${email}:${field}`;
 }
 
-export function StudentsClient({ students, archivedStudents }: StudentsClientProps) {
+export function StudentsClient({
+  students,
+  archivedStudents,
+  enrollments,
+  courses,
+}: StudentsClientProps) {
   const [scope, setScope] = useState<"active" | "archived">("active");
   const [query, setQuery] = useState("");
   const [align, setAlign] = useState<"all" | "aligned" | "unaligned">("all");
@@ -63,6 +74,12 @@ export function StudentsClient({ students, archivedStudents }: StudentsClientPro
   const [editVal, setEditVal] = useState("");
 
   const [showNew, setShowNew] = useState(false);
+  const [showEnroll, setShowEnroll] = useState(false);
+  // 报课日期的默认值取**美西的今天**，与后端判断场次已上/未到用的是同一个时区。
+  // 用浏览器本地日期会让美东傍晚之后录入的记录比讲师所想的早一天。
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Los_Angeles",
+  }).format(new Date());
   const [form, setFormState] = useState<NewStudentForm>(BLANK_FORM);
 
   const inScope = scope === "archived";
@@ -389,6 +406,8 @@ export function StudentsClient({ students, archivedStudents }: StudentsClientPro
               {selectedStudent && (
                 <DetailPanel
                   student={selectedStudent}
+                  enrollments={enrollments.filter((e) => e.studentEmail === selectedStudent.email)}
+                  onAddEnrollment={() => setShowEnroll(true)}
                   isArchived={isSelectedArchived}
                   editKey={editKey}
                   editValue={editVal}
@@ -419,6 +438,32 @@ export function StudentsClient({ students, archivedStudents }: StudentsClientPro
             </div>
         </div>
       </main>
+
+      {showEnroll && selectedStudent && (
+        <EnrollmentModal
+          studentName={selectedStudent.name}
+          courses={courses.map((c) => ({
+            id: c.id,
+            name: c.name,
+            offline: c.offline,
+            sessions: c.sessions.map((s) => ({
+              id: s.id,
+              label: `${s.local_date} ${s.local_time.slice(0, 5)}`,
+            })),
+          }))}
+          today={today}
+          onSave={(draft) =>
+            createEnrollmentAction({
+              studentEmail: selectedStudent.email,
+              courseId: draft.courseId,
+              sessionId: draft.sessionId,
+              enrolledAt: draft.enrolledAt,
+              note: draft.note,
+            })
+          }
+          onClose={() => setShowEnroll(false)}
+        />
+      )}
 
       {showNew && (
         <NewStudentModal

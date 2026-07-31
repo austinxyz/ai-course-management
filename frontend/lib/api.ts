@@ -3,7 +3,7 @@
 // outside Next's own build pipeline, which breaks unit testing this file
 // directly under vitest.)
 import type { Course } from "@/app/(app)/courses/types";
-import type { Student } from "@/app/(app)/students/types";
+import type { Enrollment, Student } from "@/app/(app)/students/types";
 
 interface ApiStudent {
   email: string;
@@ -347,4 +347,64 @@ export async function deleteSession(id: string, sessionId: string): Promise<Cour
     `/api/courses/${id}/sessions/${sessionId}`,
     "DELETE",
   ) as Promise<Course>;
+}
+
+/**
+ * 报课记录的线上形状。蛇形是后端的口径，前端类型用驼峰——
+ * 映射只在这一层做一次，漏一个字段的症状是"填了却没保存上"。
+ */
+interface ApiEnrollment {
+  id: string;
+  student_email: string;
+  course_id: string;
+  course_name: string;
+  session_id: string | null;
+  session_date: string | null;
+  enrolled_at: string;
+  state: string;
+  source: string;
+  note: string;
+}
+
+function toEnrollment(api: ApiEnrollment): Enrollment {
+  return {
+    id: api.id,
+    studentEmail: api.student_email,
+    courseId: api.course_id,
+    courseName: api.course_name,
+    sessionId: api.session_id,
+    sessionDate: api.session_date,
+    enrolledAt: api.enrolled_at,
+    state: api.state,
+    source: api.source,
+    note: api.note,
+  };
+}
+
+export async function getEnrollments(): Promise<Enrollment[]> {
+  const res = await fetch(backendUrl("/api/enrollments"), backendRequestInit());
+  if (!res.ok) throw new Error(`getEnrollments failed: ${res.status}`);
+  const data: ApiEnrollment[] = await res.json();
+  return data.map(toEnrollment);
+}
+
+export interface NewEnrollment {
+  studentEmail: string;
+  courseId: string;
+  sessionId: string | null;
+  enrolledAt: string;
+  note: string;
+}
+
+export async function createEnrollment(draft: NewEnrollment): Promise<Enrollment> {
+  // 四个字段全都送出去，不只必填的两个：后端对其余几项都有默认值，
+  // 漏送不会报错，症状是"我填的备注没保存上"。
+  const data = (await backendWrite("/api/enrollments", "POST", {
+    student_email: draft.studentEmail,
+    course_id: draft.courseId,
+    session_id: draft.sessionId,
+    enrolled_at: draft.enrolledAt,
+    note: draft.note,
+  })) as ApiEnrollment;
+  return toEnrollment(data);
 }
