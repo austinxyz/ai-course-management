@@ -23,7 +23,7 @@
 - [x] 1.4 GREEN — `EnrollmentCreate` 接受 `source`
 - [x] 1.5 RED — 给第四种值（如 `"imported"`）被拒（422）
 - [x] 1.6 GREEN — 边界校验
-- [ ] 1.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-1.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
+- [x] 1.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-1.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 2. 倒推脚本
 
@@ -44,17 +44,17 @@
   - dry-run 默认，`--apply` 才写；**不提供 `--undo`**（只在出错时才跑的删除路径本身就是没被测过的危险代码）
 - **Threshold**: 80
 
-- [ ] 2.0 CONTRACT — write openspec/changes/enrollment-backfill/contracts/group-2.md with the ### Contract block above
-- [ ] 2.1 RED — 读一份**虚构的** CSV（虚构姓名 + `@example.com`）：解析出 (邮箱, 课程目录) 列表，
+- [x] 2.0 CONTRACT — write openspec/changes/enrollment-backfill/contracts/group-2.md with the ### Contract block above
+- [x] 2.1 RED — 读一份**虚构的** CSV（虚构姓名 + `@example.com`）：解析出 (邮箱, 课程目录) 列表，
       同一门课的重复提交按邮箱去重
-- [ ] 2.2 GREEN — CSV 解析 + 去重（纯函数，不碰网络）
-- [ ] 2.3 RED — 别名归一化：`session1` → `s1`；给一份不含该别名的课程表时**中止并报告**，不猜
-- [ ] 2.4 GREEN — 别名匹配（复用 `normalize_alias` 的规则）
-- [ ] 2.5 RED — `enrolled_at` 取最早一场；课程无场次时中止
-- [ ] 2.6 GREEN — 日期推导
-- [ ] 2.7 RED — 计划输出：将建 N 条、跳过哪些邮箱、`session4` 不导且带原因
-- [ ] 2.8 GREEN — `plan()` 纯函数 + dry-run 打印
-- [ ] 2.9 GREEN — `--apply` 写入路径：409 归类为"已存在，跳过"，不失败退出
+- [x] 2.2 GREEN — CSV 解析 + 去重（纯函数，不碰网络）
+- [x] 2.3 RED — 别名归一化：`session1` → `s1`；给一份不含该别名的课程表时**中止并报告**，不猜
+- [x] 2.4 GREEN — 别名匹配（复用 `normalize_alias` 的规则）
+- [x] 2.5 RED — `enrolled_at` 取最早一场；课程无场次时中止
+- [x] 2.6 GREEN — 日期推导
+- [x] 2.7 RED — 计划输出：将建 N 条、跳过哪些邮箱、`session4` 不导且带原因
+- [x] 2.8 GREEN — `plan()` 纯函数 + dry-run 打印
+- [x] 2.9 GREEN — `--apply` 写入路径：409 归类为"已存在，跳过"，不失败退出
 - [ ] 2.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-2.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 3. 学员详情：逐条改场次与删除

@@ -1,0 +1,61 @@
+# 报课倒推（一次性）
+
+从**已有的作业成绩**倒推报课记录。前提是一句话：
+
+> 一个学员如果有某门课的作业成绩，他必然报过那门课。
+
+批次（场次）推不出来 —— 作业成绩说不出他上的是哪一场 —— 所以全部落成**未定场次**。
+那是模型里的一等状态，不是缺陷。
+
+## 用法
+
+```bash
+export BACKEND_URL=https://<service>.onrender.com
+export BACKEND_SECRET=<Render 上那个值>
+
+python tools/enrollment-backfill/backfill.py            # dry-run，只读
+python tools/enrollment-backfill/backfill.py --apply    # 唯一会写的路径
+```
+
+数据源默认在 `~/projects/ai-course/tools/homework-grader/session*/grades.csv`，
+可用 `--grades-root` 指向别处。**跨仓库一次性读入，不建立运行时依赖。**
+
+## 语义
+
+- **权威源是 `grades.csv`，不是 Notion。** Notion 里那 19 条「作业」记录本身是
+  `sync_to_notion.py` 从这些 CSV 生成的衍生数据（见
+  `docs/superpowers/specs/2026-07-29-notion-import-design.md:31`）——走 Notion 是绕道读一份有损副本。
+
+- **课程靠别名查**（`session1` → 别名 `s1`），与 `tools/course-import` 同一套归一化规则。
+  别名查不到就**中止并报告**，不猜：硬编码 `{"session1": "S1"}` 看起来更短，
+  但课程改名或别名调整之后脚本会继续按旧映射写入，且没有任何征兆。
+
+- **报名日期取该课程最早一场的日期。** 作业成绩里没有报名时间，`提交时间` 必然晚于报名。
+  取最早一场，语义是"这一期的人"。它仍是推出来的值 —— 这正是 `source = derived` 要标记的。
+  课程没有任何场次时中止：编一个日期（比如今天）会让记录看起来像今天报的。
+
+- **来源标为 `derived`**，与 `manual`（人特意录的）、`platform`（平台同步）区分开。
+  将来 EliteCoach101 接上时，平台数据**可以覆盖 `derived`、不得覆盖 `manual`** ——
+  两者塞进同一个值就分不出哪些能覆盖，而那时错的方向是把手工补录的记录冲掉，且不可逆。
+
+- **不自动新建学员。** 匹配不到的邮箱列出来但不建档：`students` 的 `region`/`level`/`source`
+  都是必填而 CSV 里只有姓名与邮箱，自动建就得给这三项编值；且姓名可能是群昵称残留。
+  补建这些学员后**重跑一次**即可补上他们的报课。
+
+- **重跑安全靠数据库**，不靠脚本自觉：第二遍每条都会撞 `enrollments_unique_undecided`，
+  脚本把 409 计为"已存在"而不是失败退出。同一门课交两次的人也因此只得一条。
+
+- **不提供 `--undo`**：只在出错时才跑的删除路径，本身就是没被测过的危险代码。
+  要撤销就用界面上的删除入口。
+
+## 已知的存疑之处
+
+`session4/grades.csv` 是 0 行，且表头（`K1网站上线` / `K4设计一致性` …）与 session3 高度重合，
+而 S4 是「AI 炒股分析系统」，评分项本应完全不同。**`session4 → S4` 这条映射没有证据**，
+脚本按"空文件"跳过并说明原因，不去认它的课程。
+（CLAUDE.md 里"S4 是 K1–M2 共 8 项"那句多半正是照这份可疑表头写的。）
+
+## 隐私
+
+脚本输出**只打印邮箱与计数，不打印姓名**。测试夹具全部虚构（`@example.com`），
+不读真实的 `grades.csv`。
