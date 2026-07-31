@@ -41,3 +41,13 @@
     - "spec: All 4 SHALLs satisfied — enrollment records display (course/session/date/state); session null state explicitly shown as '未定场次'; no-data message when no records; archive confirmation shows actual enrollment count (not hardcoded 2/4/7)"
     - "runtime: npm run test: 137/137 passed (20 files, 15 new tests in EnrollmentModal/EnrollmentRows/DetailPanel.archive). npm run build: success. npx tsc --noEmit: no errors"
     - "code: 0 CRITICAL/HIGH/MEDIUM/LOW issues found. Code review verified: all 4 form fields sent on create (not just required ones), frontend does NOT re-derive state from dates, null session visually distinct, failures prevent form close + all exits disabled during write, no hardcoded mock data, archive text dynamic. Matches student-write pitfalls & course-catalog group 6 guardrails perfectly"
+
+- group: 5
+  attempt: 1
+  scores: {spec: 100, runtime: 100, code: 95}
+  total: 99
+  status: PASS
+  findings:
+    - "spec: All SHALLs satisfied — enrolled_count shown when >0 (SessionRows:196-199), hidden when 0; undecided_count shown when >0 (CoursesClient:346-349), hidden when 0; delete rejection with message count hardwired via sessionErrors keyed by session id"
+    - "runtime: npm run test: 142/142 passed (21 files). npm run build: compiled successfully. All new tests in CoursesClient.counts.test.tsx & CoursesClient.write.test.tsx pass (4 display scenarios + delete error location verification)"
+    - "code: No CRITICAL/HIGH/MEDIUM issues. Error state keyed by session id & rendered inline in SessionRow (not course modal), matching group-6 pitfall guardrails. Tests verify both display logic and error location. Minor: unused enrolled_people field added to Course type (acceptable as future-proofing per reviewer)"

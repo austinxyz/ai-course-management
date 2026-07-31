@@ -81,11 +81,17 @@ def empty_course_tables(db_session):
     学员那边不需要这条：邮箱唯一性只在同一封邮箱上撞，而测试用的是 @example.com。
     这里清空而不是改用随机别名，是因为"别名撞了"本身就是被测行为之一，
     随机化会把它一起绕过去。
+
+    报课记录也一并清：它引用 `course_sessions`，本地库里只要留着一条
+    （手工建的、截图用的），删场次就会撞外键，而失败会落在某个与报课
+    毫不相干的课程测试上——看着像那个测试坏了。
+    删除顺序跟着外键走：先引用方，后被引用方。
     """
     from sqlmodel import delete
 
-    from app.models import Course, CourseAlias, CourseSession
+    from app.models import Course, CourseAlias, CourseSession, Enrollment
 
+    db_session.exec(delete(Enrollment))
     db_session.exec(delete(CourseSession))
     db_session.exec(delete(CourseAlias))
     db_session.exec(delete(Course))

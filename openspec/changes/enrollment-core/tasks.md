@@ -160,14 +160,14 @@
 - [x] 5.7 GREEN — 行内错误呈现，按场次 id 分开存
 - [x] 5.8 VISUAL DIFF — 对着 mocks 比：两个数字的零值行为、错误信息的位置。
       **必须在课程弹窗关闭的状态下触发一次删除失败** —— 弹窗开着时看不出这个缺陷
-- [ ] 5.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-5.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 70 → PASS; < 70 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
+- [x] 5.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-5.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 70 → PASS; < 70 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 6. 验证与上线
 
-- [ ] 6.1 Run backend test suite — `cd backend && uv run pytest`
-- [ ] 6.2 Run frontend test suite — `cd frontend && npm run test`；另跑 `npm run build` 与 `npx tsc --noEmit`
-- [ ] 6.3 e2e — `project.e2e_command` 为空，本 change 不新增 e2e
-- [ ] 6.4 Run superpowers:verification-before-completion — 跑 `project.test_commands` 与
+- [x] 6.1 Run backend test suite — `cd backend && uv run pytest`
+- [x] 6.2 Run frontend test suite — `cd frontend && npm run test`；另跑 `npm run build` 与 `npx tsc --noEmit`
+- [x] 6.3 e2e — `project.e2e_command` 为空，本 change 不新增 e2e
+- [x] 6.4 Run superpowers:verification-before-completion — 跑 `project.test_commands` 与
       `project.custom_verification_checks`（`console.log` 与密钥泄漏两条）
 - [ ] 6.5 上线 —— **后端先**（新端点 + 删除守卫），前端后。中间态"后端能拒绝删除、前端还没有报课区块"无害。
       migration 是新建表，无回填
