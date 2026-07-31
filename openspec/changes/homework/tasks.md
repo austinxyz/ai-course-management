@@ -100,7 +100,7 @@
 - [x] 3.11 GREEN — 实现排名，排序键加入邮箱等可打破并列的字段
 - [x] 3.12 RED — 往返次数：在 `tests/test_query_roundtrips.py` 加一条，断言 `GET /api/homework` 的查询数 == 1。先写断言、确认它对朴素实现是红的
 - [x] 3.13 GREEN — 合并成单条 JOIN 查询
-- [ ] 3.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-3.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
+- [x] 3.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-3.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 4. 作业页
 
@@ -122,23 +122,23 @@
   - `vi.clearAllMocks()` 清调用记录但不清实现 —— 用例内显式设定自己依赖的返回值（CLAUDE.md）
 - **Threshold**: 70
 
-- [ ] 4.0 CONTRACT — write openspec/changes/homework/contracts/group-4.md with the ### Contract block above
-- [ ] 4.1 MOCK — 打开 docs/superpowers/specs/mocks/2026-07-31-homework-mocks.html；对照「照做 / 有意不做」两节与「四种状态的呈现」「详情面板」，记下 token（`--color-primary: #9c3417`、`#4c8a63`、`#b3261e`、`#c9c3b6`）与逐字文案（「未交 · 有报课无提交」「未定场次」）。视觉基准是 2026-07-31-course-enrollment-design.dc.html 的 `sc-if isHomework` 分支
-- [ ] 4.2 RED — 名单渲染：四种状态各一行，断言状态文案与 `wrapper.classes()` 里的 token 类（未定场次用主色、未交用 danger）
-- [ ] 4.3 GREEN — `frontend/app/(app)/homework/` 的名单组件；`lib/api.ts` 增 `getHomework`
-- [ ] 4.4 VISUAL DIFF — 起 dev stack（`npm run dev --prefix frontend`），打开 /homework，对照 mock 校 token、颜色与文案；**用 S1 的全量数据（17 行）** 确认最后一行够得着、滚动条在该在的地方
-- [ ] 4.5 RED — 筛选：「未交」筛选后只剩未交的人；「待回复」= 已交且回复状态 ≠「已回复」（构造一条「草稿已创建」断言它**在**待回复里，一条「已回复」断言它**不在**）
-- [ ] 4.6 GREEN — 实现四个筛选项与计数
-- [ ] 4.7 RED — 回复状态原样显示：源值「草稿已创建」在页面上逐字出现，不被改写
-- [ ] 4.8 GREEN — 让 4.7 通过（不建立任何取值映射表）
-- [ ] 4.9 MOCK — 打开 mock 的「详情面板」一节；记下分项行的 zebra 斑马纹与「本课第 3 / 17」的排版
-- [ ] 4.10 RED — 详情面板：显示总分、排名、各分项原始分、亮点、改进、回复状态、来源行号；断言**不含** `/` 满分写法、不含任何按比例的宽度样式；断言分项中的 `0` 分**照常出现**
-- [ ] 4.11 GREEN — 实现详情面板
-- [ ] 4.12 VISUAL DIFF — 对照 mock 校详情面板；确认没有条形图、没有 `11 / 15`
-- [ ] 4.13 RED — 只读：页面上查不到任何名称匹配 /修改|删除|新增|同步|补录/ 的按钮
-- [ ] 4.14 RED — 空态：一门课没有任何提交记录时出现说明文字而非空表格
-- [ ] 4.15 GREEN — 实现只读约束与空态
-- [ ] 4.16 GREEN — 侧边导航「作业」指向 `/homework` 真实路由；确认外壳的取数仍不阻塞导航（layout 不得变成 async）
+- [x] 4.0 CONTRACT — write openspec/changes/homework/contracts/group-4.md with the ### Contract block above
+- [x] 4.1 MOCK — 打开 docs/superpowers/specs/mocks/2026-07-31-homework-mocks.html；对照「照做 / 有意不做」两节与「四种状态的呈现」「详情面板」，记下 token（`--color-primary: #9c3417`、`#4c8a63`、`#b3261e`、`#c9c3b6`）与逐字文案（「未交 · 有报课无提交」「未定场次」）。视觉基准是 2026-07-31-course-enrollment-design.dc.html 的 `sc-if isHomework` 分支
+- [x] 4.2 RED — 名单渲染：四种状态各一行，断言状态文案与 `wrapper.classes()` 里的 token 类（未定场次用主色、未交用 danger）
+- [x] 4.3 GREEN — `frontend/app/(app)/homework/` 的名单组件；`lib/api.ts` 增 `getHomework`
+- [x] 4.4 VISUAL DIFF — 起 dev stack（`npm run dev --prefix frontend`），打开 /homework，对照 mock 校 token、颜色与文案；**用 S1 的全量数据（17 行）** 确认最后一行够得着、滚动条在该在的地方
+- [x] 4.5 RED — 筛选：「未交」筛选后只剩未交的人；「待回复」= 已交且回复状态 ≠「已回复」（构造一条「草稿已创建」断言它**在**待回复里，一条「已回复」断言它**不在**）
+- [x] 4.6 GREEN — 实现四个筛选项与计数
+- [x] 4.7 RED — 回复状态原样显示：源值「草稿已创建」在页面上逐字出现，不被改写
+- [x] 4.8 GREEN — 让 4.7 通过（不建立任何取值映射表）
+- [x] 4.9 MOCK — 打开 mock 的「详情面板」一节；记下分项行的 zebra 斑马纹与「本课第 3 / 17」的排版
+- [x] 4.10 RED — 详情面板：显示总分、排名、各分项原始分、亮点、改进、回复状态、来源行号；断言**不含** `/` 满分写法、不含任何按比例的宽度样式；断言分项中的 `0` 分**照常出现**
+- [x] 4.11 GREEN — 实现详情面板
+- [x] 4.12 VISUAL DIFF — 对照 mock 校详情面板；确认没有条形图、没有 `11 / 15`
+- [x] 4.13 RED — 只读：页面上查不到任何名称匹配 /修改|删除|新增|同步|补录/ 的按钮
+- [x] 4.14 RED — 空态：一门课没有任何提交记录时出现说明文字而非空表格
+- [x] 4.15 GREEN — 实现只读约束与空态
+- [x] 4.16 GREEN — 侧边导航「作业」指向 `/homework` 真实路由；确认外壳的取数仍不阻塞导航（layout 不得变成 async）
 - [ ] 4.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-4.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 70 → PASS; < 70 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 5. 验证与上线

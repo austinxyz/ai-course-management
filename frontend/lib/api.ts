@@ -3,6 +3,7 @@
 // outside Next's own build pipeline, which breaks unit testing this file
 // directly under vitest.)
 import type { Course } from "@/app/(app)/courses/types";
+import type { HomeworkPerson } from "@/app/(app)/homework/types";
 import type { Enrollment, Student } from "@/app/(app)/students/types";
 
 interface ApiStudent {
@@ -427,4 +428,54 @@ export async function updateEnrollmentSession(
 
 export async function deleteEnrollment(id: string): Promise<void> {
   await backendWrite(`/api/enrollments/${id}`, "DELETE");
+}
+
+/**
+ * 作业名单的线上形状。蛇形是后端的口径，前端类型用驼峰——
+ * 映射只在这一层做一次，漏一个字段的症状是"值悄悄不见了"。
+ */
+interface ApiHomeworkPerson {
+  student_email: string;
+  name: string;
+  wechat: string;
+  state: string;
+  submitted_at: string | null;
+  total: number | null;
+  scores: { item: string; score: number }[];
+  highlight: string;
+  improve: string;
+  reply_status: string;
+  source_ref: string;
+  rank: number | null;
+  rank_of: number;
+}
+
+/**
+ * 一门课的作业名单。
+ *
+ * 只有读。同步是本地命令行的事——`grades.csv` 在另一个仓库，
+ * 部署环境的后端看不到那些文件，所以这里**不存在**对应的写方法。
+ */
+export async function getHomework(courseId: string): Promise<HomeworkPerson[]> {
+  const res = await fetch(
+    backendUrl(`/api/homework?course=${encodeURIComponent(courseId)}`),
+    backendRequestInit(),
+  );
+  if (!res.ok) throw new Error(`getHomework failed: ${res.status}`);
+  const data: ApiHomeworkPerson[] = await res.json();
+  return data.map((api) => ({
+    studentEmail: api.student_email,
+    name: api.name,
+    wechat: api.wechat,
+    state: api.state,
+    submittedAt: api.submitted_at,
+    total: api.total,
+    scores: api.scores,
+    highlight: api.highlight,
+    improve: api.improve,
+    replyStatus: api.reply_status,
+    sourceRef: api.source_ref,
+    rank: api.rank,
+    rankOf: api.rank_of,
+  }));
 }

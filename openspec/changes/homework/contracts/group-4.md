@@ -1,0 +1,17 @@
+### Contract
+- **Spec**:
+  - 作业页 SHALL 按课程组织，逐门课列出名单，并 SHALL 提供「全部 / 已交 / 未交 / 待回复」四个筛选项，各自带计数。
+  - 「待回复」SHALL 定义为：已交，且回复状态不等于「已回复」。
+  - 回复状态 SHALL 原样取自源文件，系统 SHALL NOT 归一化其取值。
+  - 选中名单中的一名学员时，系统 SHALL 显示：总分、该课程内的排名、各分项的**原始分**、亮点、改进建议、回复状态，以及这条记录的来源（源文件名与行号）。
+  - 系统 SHALL NOT 显示各分项的满分，SHALL NOT 以满分为基准绘制比例图形。
+  - 作业页 SHALL NOT 提供修改、删除、新增或触发同步的入口。
+  - 某门课程尚无任何提交记录时，作业页 SHALL 显示说明文字……SHALL NOT 只呈现一个空表格。
+- **Runtime**: `cd frontend && npm run test` → expected: 全部通过，无新增 console 噪声
+- **Code**:
+  - 表格外框须 `flex-none`：`overflow-hidden`（为圆角）配可压缩 flex 子项会**静默裁掉**内容且哪儿都没有滚动条。S1 有 17 行，够撞上（CLAUDE.md + design Risks）
+  - jsdom 没有布局，裁切缺陷单测量不出来 —— 只能钉类名，必须在 VISUAL DIFF 里用足量数据在真实浏览器验一次
+  - 页面全只读，`lib/api.ts` 只加 `getHomework`，不加任何写方法（design 非目标）
+  - Server Component 的 fetch 必须设显式超时，且短于平台函数执行上限（CLAUDE.md）
+  - `vi.clearAllMocks()` 清调用记录但不清实现 —— 用例内显式设定自己依赖的返回值（CLAUDE.md）
+- **Threshold**: 70

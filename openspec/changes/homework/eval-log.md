@@ -30,3 +30,19 @@
     - "cp1252 edge case genuinely tested with cp1252-strict TextIOWrapper; mutation of _say() to print() would fail the test as documented"
     - "Manual verification confirms describe() rendering works correctly; test gap is coverage, not functionality"
     - "Path inference correctly rejected with examples (session3/session4 rubric swap); course resolved through same course_aliases table as backend"
+
+- group: 3
+  attempt: 1
+  scores: {spec: 100, runtime: 100, code: 95}
+  total: 99
+  status: PASS
+  findings:
+    - "spec: All 6 SHALL requirements satisfied — driving table is Enrollment, outer join to HomeworkSubmission, four states correctly implemented, deduplication by email, archived/withdrawn filtered, state logic uses derive_session_state, ranking deterministic with tiebreaker"
+    - "runtime: 23/23 tests pass including query roundtrip assertion (1 query verified); all four states tested (submitted, missing, not_open, no_session); deduplication, filtering, ranking, and payload tested; anonymous requests blocked"
+    - "code: No CRITICAL/HIGH issues. 7 strengths: correct query architecture, comprehensive tests, robust merge logic, deterministic output, type safety, correct filtering, proper null handling. 1 MINOR: missing direct unit test for merge_states (logic correctly verified through integration tests but documented separately for clarity)"
+  notes:
+    - "Query architecture verified: Enrollment driving table with outer joins to HomeworkSubmission ensures all students appear even without submissions; single roundtrip achieved; test correctly measures query count by reading course.id before zeroing counter to avoid ORM refresh query"
+    - "Deduplication robust: merge_states() is named function with specific tests designed to catch 'take first' bug pattern; ORDER BY on name+email ensures stable list ordering across requests"
+    - "Filtering correct: archived students and withdrawn enrollments excluded from roster (but submission records remain in DB for archival-reversibility scenario)"
+    - "Ranking deterministic: two-field sort key (total desc, email asc) breaks ties; tests verify same ranking order across multiple requests"
+    - "Response model uses str for state field (not Literal), avoiding the 500-on-outlier-value pitfall documented in CLAUDE.md"
