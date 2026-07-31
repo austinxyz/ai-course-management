@@ -6,7 +6,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from backfill import Outcome, push  # noqa: E402
+from backfill import Outcome, Plan, push  # noqa: E402
 from planning import PlannedEnrollment  # noqa: E402
 
 
@@ -116,3 +116,38 @@ def test_an_offline_course_is_not_miscounted_as_already_there():
     assert result.already_there == 0
     assert len(result.failed) == 1
     assert "已下线" in result.failed[0]
+
+
+def test_output_survives_a_non_utf8_console(capsys, monkeypatch):
+    """Windows 控制台默认 cp1252，而这个脚本的输出整个是中文。
+
+    不显式设编码的话，`describe` 第一行就抛 UnicodeEncodeError ——
+    一次只读的 dry-run 变成崩溃，而崩在哪里跟"数据有问题"看起来很像。
+    """
+    import io
+
+    import backfill
+
+    # 模拟一个只认 cp1252 的 stdout
+    raw = io.BytesIO()
+    monkeypatch.setattr(
+        backfill.sys, "stdout", io.TextIOWrapper(raw, encoding="cp1252", errors="strict")
+    )
+
+    backfill.describe(
+        backfill.Plan(
+            to_create=[
+                PlannedEnrollment(
+                    student_email="a@example.com",
+                    course_id="c-1",
+                    course_name="从零开始",
+                    enrolled_at=date(2026, 6, 7),
+                )
+            ],
+            missing_students=["stranger@example.com"],
+            skipped_dirs=[("session4", "文件里没有任何提交记录")],
+        )
+    )
+
+    backfill.sys.stdout.flush()
+    assert "从零开始" in raw.getvalue().decode("utf-8")

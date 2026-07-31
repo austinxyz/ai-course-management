@@ -84,32 +84,61 @@ def push(
     return outcome
 
 
+def _say(line: str = "") -> None:
+    """打一行，且不因控制台编码而崩。
+
+    Windows 控制台默认 cp1252，而这个脚本的输出整个是中文——直接 print 会在
+    第一行就抛 UnicodeEncodeError，把一次**只读**的 dry-run 变成崩溃。
+    而崩溃的样子跟"数据有问题"很像，最容易被误判。
+
+    写进 stdout 的 buffer 并显式用 UTF-8 编码，绕开控制台自己的编码设定。
+    """
+    stream = getattr(sys.stdout, "buffer", None)
+    if stream is None:
+        print(line)
+        return
+    stream.write((line + "\n").encode("utf-8"))
+    stream.flush()
+
+
 def describe(result: Plan) -> None:
     """把计划打出来。**只打邮箱与计数，不打姓名。**"""
-    print(f"\n将创建 {len(result.to_create)} 条报课（全部未定场次、来源 derived）：")
+    _say(f"\n将创建 {len(result.to_create)} 条报课（全部未定场次、来源 derived）：")
     by_course: dict[str, int] = {}
     for row in result.to_create:
         by_course[row.course_name] = by_course.get(row.course_name, 0) + 1
     for name, n in by_course.items():
         day = next(r.enrolled_at for r in result.to_create if r.course_name == name)
-        print(f"  {name}: {n} 条，报名日期取最早一场 {day}")
+        _say(f"  {name}: {n} 条，报名日期取最早一场 {day}")
 
     if result.missing_students:
-        print(f"\n跳过 {len(result.missing_students)} 人——不在学员库里，且**不自动建档**：")
+        _say(f"\n跳过 {len(result.missing_students)} 人——不在学员库里，且**不自动建档**：")
         for email in result.missing_students:
-            print(f"  {email}")
-        print("  （补建这些学员后重跑一次即可补上他们的报课）")
+            _say(f"  {email}")
+        _say("  （补建这些学员后重跑一次即可补上他们的报课）")
+
+    if result.excluded:
+        _say(f"\n排除 {len(result.excluded)} 人——显式指定不算报课：")
+        for email in result.excluded:
+            _say(f"  {email}")
 
     if result.skipped_dirs:
-        print("\n跳过的目录：")
+        _say("\n跳过的目录：")
         for directory, why in result.skipped_dirs:
-            print(f"  {directory}：{why}")
+            _say(f"  {directory}：{why}")
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="从作业成绩倒推报课记录")
     parser.add_argument("--apply", action="store_true", help="真正写入（默认只做 dry-run）")
     parser.add_argument("--grades-root", default=str(GRADES_ROOT))
+    parser.add_argument(
+        "--exclude",
+        action="append",
+        default=[],
+        metavar="EMAIL",
+        help="这个邮箱的提交不算报课（讲师自己的测试提交之类）。可重复。",
+    )
     args = parser.parse_args()
 
     base = os.environ["BACKEND_URL"].rstrip("/")
@@ -134,7 +163,7 @@ def main() -> int:
         roster = {s["email"] for s in students} | {s["email"] for s in archived}
 
         try:
-            result = plan(sources, courses, roster)
+            result = plan(sources, courses, roster, exclude=set(args.exclude))
         except UnknownCourse as exc:
             # 认不出课程就中止，不猜——猜错的记录看起来和对的一模一样。
             print(f"\n中止：{exc}", file=sys.stderr)
@@ -143,16 +172,16 @@ def main() -> int:
         describe(result)
 
         if not args.apply:
-            print("\n（dry-run。加 --apply 才会写入。）")
+            _say("\n（dry-run。加 --apply 才会写入。）")
             return 0
 
         outcome = push(client, base, headers, result.to_create)
 
-    print(f"\n新建 {outcome.created} 条；已存在 {outcome.already_there} 条")
+    _say(f"\n新建 {outcome.created} 条；已存在 {outcome.already_there} 条")
     if outcome.failed:
-        print(f"失败 {len(outcome.failed)} 条：")
+        _say(f"失败 {len(outcome.failed)} 条：")
         for line in outcome.failed:
-            print(f"  {line}")
+            _say(f"  {line}")
         return 1
     return 0
 

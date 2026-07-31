@@ -165,3 +165,28 @@ def test_an_empty_file_does_not_need_a_known_alias(tmp_path):
 
     assert result.skipped_dirs == [("session9", "文件里没有任何提交记录")]
     assert result.to_create == []
+
+
+def test_excluded_emails_never_become_enrollments(tmp_path):
+    """讲师自己的测试提交不是报课。
+
+    靠"他碰巧不在学员库里"来排除是脆的——哪天他被加进名单，这些记录就会
+    静默地变成报课。要显式排除，且**排除优先于一切**：不进创建列表，
+    也不进"未建档"名单（他不是待补建的学员）。
+    """
+    d = write_csv(
+        tmp_path,
+        "session1",
+        [("讲师", "teacher@example.com"), ("学员甲", "alpha@example.com")],
+    )
+
+    result = plan(
+        [("session1", d / "grades.csv")],
+        COURSES,
+        roster={"alpha@example.com", "teacher@example.com"},
+        exclude={"TEACHER@example.com"},  # 大小写不敏感
+    )
+
+    assert [r.student_email for r in result.to_create] == ["alpha@example.com"]
+    assert result.missing_students == []
+    assert result.excluded == ["teacher@example.com"]

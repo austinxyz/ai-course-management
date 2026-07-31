@@ -8,7 +8,7 @@
 """
 
 import csv
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
 from typing import Any, Iterable
@@ -39,6 +39,9 @@ class Plan:
     to_create: list[PlannedEnrollment]
     missing_students: list[str]
     skipped_dirs: list[tuple[str, str]]  # (目录名, 原因)
+    # 显式排除的邮箱（讲师自己的测试提交之类）。与 missing_students 分开列：
+    # 那是"待补建的学员"，这是"本来就不该算报课的人"。
+    excluded: list[str] = field(default_factory=list)
 
 
 def normalize_alias(raw: str) -> str:
@@ -101,8 +104,13 @@ def plan(
     sources: Iterable[tuple[str, Path]],
     courses: list[dict[str, Any]],
     roster: set[str],
+    exclude: set[str] | None = None,
 ) -> Plan:
     """(目录名, grades.csv 路径) 的若干份 → 将要创建的报课。
+
+    `exclude` 里的邮箱一概不算报课（讲师自己的测试提交之类）。**排除优先于一切**——
+    不进创建列表，也不进"未建档"名单：他不是待补建的学员。
+    靠"他碰巧不在学员库里"来排除是脆的：哪天他被加进名单，记录就会静默变成报课。
 
     `roster` 是学员库里已有的邮箱。匹配不到的**列出来但不建档**：
     `students` 的 region / level / source 都是必填而 CSV 里只有姓名与邮箱，
@@ -111,7 +119,9 @@ def plan(
     to_create: list[PlannedEnrollment] = []
     missing: list[str] = []
     skipped: list[tuple[str, str]] = []
+    excluded: list[str] = []
     lower_roster = {e.strip().lower() for e in roster}
+    lower_exclude = {e.strip().lower() for e in (exclude or set())}
 
     for directory, path in sources:
         emails = read_submissions(path)
@@ -131,6 +141,11 @@ def plan(
                 continue
             seen.add(email)
 
+            if email in lower_exclude:
+                if email not in excluded:
+                    excluded.append(email)
+                continue
+
             if email not in lower_roster:
                 if email not in missing:
                     missing.append(email)
@@ -145,4 +160,9 @@ def plan(
                 )
             )
 
-    return Plan(to_create=to_create, missing_students=missing, skipped_dirs=skipped)
+    return Plan(
+        to_create=to_create,
+        missing_students=missing,
+        skipped_dirs=skipped,
+        excluded=excluded,
+    )
