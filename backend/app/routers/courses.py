@@ -146,32 +146,56 @@ def _to_course_read(
 def list_courses(session: Session = Depends(get_session)):
     """课程、别名与场次一次取全。
 
-    课程页要同时显示三者；分成三个请求只会让页面分三次抖动，而课程数量是个位数,
-    一次取全比省几行 join 更值。别名与场次在内存里按 course_id 归拢，
-    避免 N+1：课程数少不代表可以每门课再发两条查询。
+    课程页要同时显示三者；分成三个请求只会让页面分三次抖动。
+
+    **两次数据库往返，不是四次。** 实测每次往返 ≈ 64ms（Render → Supabase），
+    而学员页、课程页、报课页的时长都被这个接口卡着——四查变两查省掉约 128ms。
+
+    第一条把课程、别名、场次一起 JOIN 出来。这会产生别名 × 场次的笛卡尔积
+    （一门课 2 个别名 3 场 = 6 行），按 id 去重即可。之所以可接受：这两个集合
+    在领域上都很小（别名 1–3 个、场次 1–5 场），乘积有界。**若哪天场次多到几十场，
+    这里要拆回两条**——那时多一次往返比多几百行划算。
     """
-    courses = session.exec(select(Course)).all()
-    if not courses:
+    joined = session.exec(
+        select(Course, CourseAlias, CourseSession)
+        .outerjoin(CourseAlias, CourseAlias.course_id == Course.id)
+        .outerjoin(CourseSession, CourseSession.course_id == Course.id)
+    ).all()
+    if not joined:
         return []
 
-    aliases: dict[uuid.UUID, list[CourseAlias]] = {}
-    for alias in session.exec(select(CourseAlias).order_by(CourseAlias.raw)).all():
-        aliases.setdefault(alias.course_id, []).append(alias)
+    courses_by_id: dict[uuid.UUID, Course] = {}
+    aliases: dict[uuid.UUID, dict[str, CourseAlias]] = {}
+    sessions_by_id: dict[uuid.UUID, dict[uuid.UUID, CourseSession]] = {}
+    for course, alias, session_row in joined:
+        courses_by_id.setdefault(course.id, course)
+        if alias is not None:
+            aliases.setdefault(course.id, {})[alias.alias] = alias
+        if session_row is not None:
+            sessions_by_id.setdefault(course.id, {})[session_row.id] = session_row
 
-    sessions: dict[uuid.UUID, list[CourseSession]] = {}
-    # 场次按日期升序：没有 ORDER BY 时 Postgres 给的是堆顺序，而 UPDATE 会把改过的行
+    courses = list(courses_by_id.values())
+
+    # 排序在这里做而不是靠 SQL：JOIN 之后每个子集合都重复出现，SQL 的 ORDER BY
+    # 管的是整个结果集的行序，不是"每门课自己的别名怎么排"。
+    aliases_by_course = {
+        cid: sorted(found.values(), key=lambda a: a.raw) for cid, found in aliases.items()
+    }
+    # 场次按日期升序：没有排序时 Postgres 给的是堆顺序，而 UPDATE 会把改过的行
     # 写到堆尾——改一场的时间就会让它跳到列表末尾。
-    ordered = select(CourseSession).order_by(
-        CourseSession.local_date, CourseSession.local_time, CourseSession.id
-    )
-    for row in session.exec(ordered).all():
-        sessions.setdefault(row.course_id, []).append(row)
+    sessions: dict[uuid.UUID, list[CourseSession]] = {
+        cid: sorted(found.values(), key=lambda s: (s.local_date, s.local_time, str(s.id)))
+        for cid, found in sessions_by_id.items()
+    }
 
     counts = tally_enrollments(list(session.exec(select(Enrollment)).all()))
 
     return [
         _to_course_read(
-            c, aliases.get(c.id, []), sessions.get(c.id, []), counts.get(c.id, EMPTY_COUNTS)
+            c,
+            aliases_by_course.get(c.id, []),
+            sessions.get(c.id, []),
+            counts.get(c.id, EMPTY_COUNTS),
         )
         for c in sorted(courses, key=lambda c: _list_order(c, sessions))
     ]
