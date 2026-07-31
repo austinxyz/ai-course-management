@@ -78,3 +78,20 @@ describe("报课总表", () => {
     expect(screen.queryByRole("button", { name: /改场次|删除|编辑|补录/ })).toBeNull();
   });
 });
+
+/**
+ * 表格外框上的 `overflow-hidden` 是为了圆角，但它同时是个会被压缩的 flex 子项：
+ * 被挤扁之后它**裁掉**超出的行，而外层的滚动容器因此看不到任何溢出——
+ * 于是哪儿都没有滚动条，够不着的记录就这么消失了。
+ *
+ * 生产上 22 条记录时实测：外框 1226/555，最后一行 y=1314 而视口高 720。
+ * jsdom 没有布局，量不出这些，只能钉住"外框不参与压缩"这个类。
+ */
+describe("表格不能被裁掉", () => {
+  it("表格外框不随 flex 压缩，否则超出的行既看不到也滚不到", () => {
+    render(<EnrollClient enrollments={[row()]} namesByEmail={NAMES} />);
+
+    const frame = screen.getByTestId("enroll-row-e1").closest("table")?.parentElement;
+    expect(frame?.className).toContain("flex-none");
+  });
+});

@@ -77,7 +77,10 @@ export function EnrollClient({ enrollments, namesByEmail }: EnrollClientProps) {
               ))}
             </div>
 
-            <div className="overflow-hidden rounded-token border border-border bg-surface">
+            {/* flex-none 不能省：外框上的 overflow-hidden 是为了圆角，但它同时是个
+                会被压缩的 flex 子项——被挤扁后它把超出的行**裁掉**，而外层滚动容器
+                因此看不到任何溢出，于是哪儿都没有滚动条。记录不是"看不到"，是够不着。 */}
+            <div className="flex-none overflow-hidden rounded-token border border-border bg-surface">
               <table className="w-full border-collapse font-sans text-[12.5px]">
                 <thead>
                   <tr className="border-b border-border bg-surface-muted text-left">
