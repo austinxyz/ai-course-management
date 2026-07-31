@@ -1,5 +1,6 @@
 import { getCourses, getHomework } from "@/lib/api";
 import { HomeworkClient } from "./HomeworkClient";
+import { pickCourse } from "./pickCourse";
 
 /**
  * 作业页。课程走 URL 参数，切课是一次真正的导航。
@@ -15,9 +16,9 @@ export default async function HomeworkPage({
   const { course } = await searchParams;
   const courses = await getCourses();
 
-  // 默认选第一门。课程列表本身已经按最近开课排过序，所以"第一门"是有含义的，
-  // 不是堆顺序里碰巧排在前面的那一门。
-  const courseId = course && courses.some((c) => c.id === course) ? course : courses[0]?.id;
+  // 默认落在第一门**有人报课**的课上，不是列表第一门——课程列表按最近开课倒序，
+  // 而那个顺序与"这门课有没有人"完全不相干（生产上排最前的 S4 一条报课都没有）。
+  const courseId = pickCourse(courses, course);
 
   const people = courseId ? await getHomework(courseId) : [];
 
