@@ -88,3 +88,19 @@
 > **本能力不提供**（归 `enrollment-import`，阻塞于 EliteCoach101 导出方式未知）：CSV / 手工粘贴 / API 三通道导入、待处理队列、`raw_payload` 原始行留档、**批量**指派场次（逐条指派已有）。
 >
 > 也不提供：出勤记录（来没来）、退款与收费、名额上限。
+
+### `homework` ✅ 已实现 · 🌐 已上线
+**用户故事**: 作为讲师，我批完的成绩只存在另一个仓库的 `grades.csv` 里和我自己脑子里 —— 我想在系统里看到某门课谁交了谁没交、某人的分项得分与我当时写的改进建议；更要紧的是「有报课记录但没提交」这个判断在此之前**根本算不出来**，而它是催作业的第一前提
+**覆盖需求**: docs/superpowers/specs/2026-07-31-homework-requirements.md
+**设计基准**: docs/superpowers/specs/mocks/2026-07-31-course-enrollment-design.dc.html（`sc-if isHomework` 分支）+ docs/superpowers/specs/mocks/2026-07-31-homework-mocks.html（照做 / 有意不做的逐条对照）
+
+**后台**: `homework_submissions` 表 —— 唯一键 `(student_email, course_id)`，**不含 `session_id`**；`scores` 是 `jsonb` **数组** `[{item, score}]`；`total` / `highlight` / `improve` / `reply_status` / `source_ref`（`session1/grades.csv:7`）；`PUT /api/homework`（幂等 upsert，`?dry_run=true` 算完不落库，返回 `created` / `updated` / **两份**跳过清单）；`GET /api/homework?course=<id>`（**一次** JOIN 取全，以 `Enrollment` 为驱动表 outer join 作业）；`tools/homework-sync/`（纯函数解析层 + 薄 I/O 层，`--course` 显式指定、`--exclude`、默认 dry-run）
+**前台**: `/homework` **全只读** —— 课程 chip（按课程名，与报课页一致）、四态名单（已交 / 未交 / 未开放 / 未定场次，三种"没交"三种颜色）、四个筛选（全部 / 已交 / 未交 / 待回复）、详情面板（总分 · 本课名次 · 分项**原始分** · 亮点 · 改进 · 回复状态 · 来源行号）；无任何修改、删除、新增或同步入口
+**关键性质**: **分项列整列原样存下且保序** —— 列的先后是评分表分组（A 工作流 / B 提示词 / C 输出 / D 心得）的唯一载体，而 `jsonb` 不保对象键序（实测 10 个真实列名过一遍对象被打散成 A2 A3 B2 B3 D1 D2 A1 C1 C2 B1），所以只能是数组；新增课程只是多一套 item 名，**不动表结构**。**总分取自源文件不重算** —— `session2/grades.csv` 里真有一行总分与分项之和不符，镜像的职责是忠实不是纠正。**覆盖式不是同步式删除** —— 源文件少一行，库里那条仍在。名单**按人去重**（重听同一门课只欠一份作业），**已归档与已退课不进计数** —— 与报课页**有意不同**：那边是历史统计，这里的计数直接导向"催谁"。「场次已结束」复用 `derive_session_state`，不另写日期比较。两份跳过清单**分开列**，因为处置相反（一类先建学员、一类补报课）
+**验收标准**: 生产 26 条真实成绩 —— S1 已交 16 / 未交 1、S2 已交 9 / 未交 3、S3 已交 1；三份 csv 复跑均为「将新建 0 条」；真实浏览器里 S1 的 17 行外框 957 ≈ 表格 955（未被裁切）、滚到底最后一行 y=697 ≤ 视口 720、`<main>` 内写入控件 0 个、console 错误 0 条
+
+> **本能力不提供**（归 `homework-rubric`）：各分项满分、`11 / 15` 写法、分项条形图与按比例着色的总分 —— 满分不在 `grades.csv` 里，而 S3/S4 的加分列本来就没有申报满分。
+>
+> 也不提供（归 `homework-upload`）：**网页上传 `grades.csv`** —— 目前导入只能在本地跑命令行。
+>
+> 也不提供（归催作业那一片）：起草文案、发邮件、回写互动记录、已催次数、作业截止日期。
