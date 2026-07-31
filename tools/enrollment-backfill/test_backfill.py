@@ -151,3 +151,58 @@ def test_output_survives_a_non_utf8_console(capsys, monkeypatch):
 
     backfill.sys.stdout.flush()
     assert "从零开始" in raw.getvalue().decode("utf-8")
+
+
+# --- 建档缺失的学员（显式开关） -------------------------------------------
+
+
+def test_creating_missing_students_requires_the_three_values_to_be_given():
+    """`region` / `level` / `source` 都是必填枚举，而 CSV 里只有姓名与邮箱。
+
+    三个值**必须由调用方给出**，函数不设默认 —— 有默认就等于"编一个"，
+    而编出来的"小白"在界面上看着和真的一模一样。
+    """
+    import inspect
+
+    import backfill
+
+    sig = inspect.signature(backfill.create_students)
+    for name in ("region", "level", "source"):
+        assert sig.parameters[name].default is inspect.Parameter.empty, name
+
+
+def test_creates_one_student_per_missing_email():
+    import backfill
+
+    client = FakeClient([201, 201])
+
+    made = backfill.create_students(
+        client,
+        "http://backend",
+        {},
+        [("a@example.com", "学员甲"), ("b@example.com", "学员乙")],
+        region="美东",
+        level="有基础",
+        source="讲武堂",
+    )
+
+    assert made == 2
+    assert [c["email"] for c in client.sent] == ["a@example.com", "b@example.com"]
+    assert client.sent[0]["region"] == "美东"
+    assert client.sent[0]["level"] == "有基础"
+    assert client.sent[0]["source"] == "讲武堂"
+    assert client.sent[0]["name"] == "学员甲"
+
+
+def test_an_already_existing_student_is_not_counted_as_created():
+    """重跑时这些人已经在库里了，409 是预期而不是错误。"""
+    import backfill
+
+    client = FakeClient([409])
+
+    made = backfill.create_students(
+        client, "http://backend", {}, [("a@example.com", "学员甲")],
+        region="美东", level="有基础", source="讲武堂",
+    )
+
+    assert made == 0

@@ -70,6 +70,21 @@ def read_submissions(path: Path) -> list[str]:
         ]
 
 
+def read_names(path: Path) -> dict[str, str]:
+    """一份 grades.csv → {邮箱: 姓名}。
+
+    只在**建档**时才需要姓名；倒推报课本身用不到它。分成单独的函数，
+    是为了让"什么时候会碰姓名"这件事在调用点上看得见——
+    CLAUDE.md 要求脚本输出不打印姓名，而能不读就不读是更省事的守法方式。
+    """
+    with path.open(encoding="utf-8-sig", newline="") as fh:
+        return {
+            row["邮件"].strip().lower(): (row.get("姓名") or "").strip()
+            for row in csv.DictReader(fh)
+            if (row.get("邮件") or "").strip()
+        }
+
+
 def find_course(directory: str, courses: list[dict[str, Any]]) -> dict[str, Any]:
     """`session1` → 别名 `s1` → 课程。
 
