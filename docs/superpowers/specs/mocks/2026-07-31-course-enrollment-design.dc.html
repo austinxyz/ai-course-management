@@ -1,0 +1,2437 @@
+<!--
+  来源：claude.ai/design 项目「讲武堂学员管理系统」
+  https://claude.ai/design/p/1d976911-7272-4c83-aa54-715d22105341?file=ClaudeAI%E8%AF%BE%E7%A8%8B%E5%AD%A6%E5%91%98%E7%AE%A1%E7%90%86%E9%A1%B5.dc.html
+  导入日期：2026-07-31（UTC；本机 PT 为 07-30 深夜），新增「作业」页后重新拉取
+
+  这份文件是 claude.ai/design 的 .dc.html，依赖设计面板的运行时
+  （support.js 与 _ds/**/_ds_bundle.js），**直接在浏览器里打开不会渲染** —— 要看效果去上面那个链接。
+
+  与 2026-07-29 那份的差异：**只多了一个 `isHomework` 分支**（+424 行 / −3 行）。
+  学员、课程、报课三个分支逐行未变——也就是说实现里那些有意的偏离（下方「已知偏离」）
+  并没有被稿子采纳，仍然是偏离。
+
+  五块界面，按 sc-if 分支划分：
+    isStudents    学员名单页 —— 已实现
+    isCourses     课程页 —— 已实现
+    isEnroll      报课页 —— 已实现（只读总表；稿子里的导入向导与两个徽标有意未做）
+    isHomework    作业页 —— **未实现**（本次新增）
+    isPlaceholder 占位页 —— 已实现（作业/催作业/互动记录仍是占位）
+
+  ## 作业页（新增）说明
+
+  它是 `grades.csv` 的**只读镜像**：界面上写着「重新同步 grades.csv」「只读镜像」，
+  并注明「分项列按课程各自定义，同步时整列原样存下——新增课程只是多一套列名，不动表结构」，
+  与 CLAUDE.md 的「新增课程不得要求修改数据库结构」一致。
+
+  名单来自报课（`hwSelC.roster`），每人三态：已交 / 未交 / **未开放**（该课还没开过）。
+  筛选：全部 / 已交 / 未交 / 待回复。每份提交带 `highlight`（亮点）与 `improve`（改进），
+  以及回复状态：已回复 / 草稿待发 / 未回复。页首有「催未交的人」——通向 §4.4 催作业。
+
+  ## ⚠️ 两处稿子与真实数据不符（实现前必须以真实数据为准）
+
+  1. **评分项是编的。** 稿里 `intro` 是 A1 任务真实性 / A2 任务价值 / B1 提示清晰度…；
+     而 `ai-course/tools/homework-grader/session1/grades.csv` 的真实表头是
+     A1工作流结构 / A2数据传递 / **A3Cowork特性** / B1提示词三要素 / B2输出路径 / B3可复现性…
+     数量与名称都不同。这正是 CLAUDE.md 记的那条：**稿子里的示例值不是真实约束**
+     （`course-catalog` 曾照稿子把时长做成 1–4 小时，而真实课程是 150 分钟）。
+
+  2. **稿子只有 3 套评分表**（intro / advanced / agent），而课程有 4 门。
+     缺 S3「从一句话到成品」（对应 `session3`，其表头含 N1海报 / N2PPT）。
+     且 `agent → session4` 这条映射与 `enrollment-backfill` 存疑的那条是同一个：
+     `session4/grades.csv` 是 0 行且表头与 session3 高度重合，**S4 是「AI 炒股分析系统」，
+     评分项本应完全不同**。稿子沿用了这个未经证实的假设。
+
+  ## 已知偏离（实现有意与稿子不同，不要照稿子改回去）
+
+  - 学员详情栏 **560px + 字段两列**（稿子是 358px 单列）：面板有 10 个字段 + 标签 + 备注 +
+    报课记录，单列太挤；不做五五分是因为名单有 8 列，每让出 50px 都直接增加横滚幅度。
+    2026-07-31 由用户确认。列表的姓名列横滚时 sticky。
+  - 报课页**只读**，稿子里的「导入平台数据」按钮与「与平台不一致 / 本地已改」两个徽标未做 ——
+    要有平台数据才有意义，而 EliteCoach101 的导出方式至今未知。
+-->
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="stylesheet" href="_ds/ai-course-design-ea9f49ce-5e52-44c8-a330-bcbd975e4bc1/styles.css">
+<script src="_ds/ai-course-design-ea9f49ce-5e52-44c8-a330-bcbd975e4bc1/_ds_bundle.js"></script>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600&family=Noto+Serif+SC:wght@600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root,:root:not(.light){
+  --radius:8px;
+  --color-bg:#f6f4f0; --color-fg:#1a1917;
+  --color-surface:#ffffff; --color-surface-muted:#f2efe9; --color-border:#e4e0d8;
+  --color-primary:#9c3417; --color-primary-fg:#ffffff;
+  --color-muted:#79736a; --color-muted-fg:#a09a90;
+  --color-danger:#b3261e; --color-danger-fg:#ffffff;
+  --color-success:#2f6b4f; --color-success-fg:#ffffff;
+  --font-sans:"Noto Sans SC",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-mono:"JetBrains Mono",ui-monospace,monospace;
+}
+html,body{margin:0;padding:0}
+body{background:#f6f4f0;color:#1a1917;font-family:"Noto Sans SC",system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#9c3417;text-decoration:none}
+a:hover{color:#7d2911;text-decoration:underline}
+*{box-sizing:border-box}
+input,button{font-family:inherit}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:#dcd7cc;border-radius:8px;border:3px solid #f6f4f0}
+</style>
+</helmet>
+<div style="display:flex;height:100vh;min-height:640px;overflow:hidden;background:#f6f4f0">
+
+  <aside style="width:216px;flex:none;display:flex;flex-direction:column;background:#1c1b18;color:#b8b2a6;border-right:1px solid #14130f">
+    <div style="padding:18px 16px 16px;border-bottom:1px solid #2a2823;display:flex;flex-direction:column;gap:3px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="width:20px;height:20px;flex:none;border-radius:5px;background:#9c3417;display:flex;align-items:center;justify-content:center;font:600 11px/1 'JetBrains Mono',monospace;color:#fff">C</div>
+        <div style="font:600 14px/1.2 'Noto Sans SC',sans-serif;color:#f2eee7;letter-spacing:.02em">Claude AI 课程</div>
+      </div>
+      <div style="font:400 10.5px/1.4 'JetBrains Mono',ui-monospace,monospace;color:#6f6a60;padding-left:28px;letter-spacing:.02em">ADMIN CONSOLE</div>
+    </div>
+
+    <nav style="flex:1;padding:10px 8px;display:flex;flex-direction:column;gap:2px;overflow-y:auto">
+      <sc-for list="{{ nav }}" as="item" hint-placeholder-count="5">
+        <button type="button" onClick="{{ item.onClick }}" style="{{ item.style }}">
+          <span style="display:flex;align-items:center;gap:9px;min-width:0">
+            <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" style="flex:none;opacity:.85"><path d="{{ item.icon }}"></path></svg>
+            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ item.label }}</span>
+          </span>
+          <span style="{{ item.countStyle }}">{{ item.count }}</span>
+        </button>
+      </sc-for>
+      <div style="margin:14px 8px 6px;font:500 10px/1 'JetBrains Mono',monospace;letter-spacing:.12em;color:#5f5a51">数据</div>
+      <button type="button" style="display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;padding:0 10px;height:32px;border:0;background:transparent;color:#8d877c;font:400 13px/1 'Noto Sans SC',sans-serif;border-radius:8px;cursor:default;text-align:left">
+        <span>导入 / 同步</span>
+        <span style="font:400 10px/1 'JetBrains Mono',monospace;color:#5f5a51">CSV</span>
+      </button>
+    </nav>
+
+    <div style="padding:10px 14px 12px;border-top:1px solid #2a2823;display:flex;flex-direction:column;gap:2px">
+      <div style="font:400 11px/1.5 'JetBrains Mono',monospace;color:#8d877c;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">yan@jiangwutang.cn</div>
+      <div style="display:flex;align-items:center;gap:6px;font:400 10.5px/1.5 'JetBrains Mono',monospace;color:#5f5a51">
+        <span style="width:5px;height:5px;border-radius:50%;background:#4c8a63;flex:none"></span>
+        <span>管理员 · 生产环境</span>
+      </div>
+    </div>
+  </aside>
+
+  <main style="flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden">
+
+    <sc-if value="{{ isStudents }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;flex-direction:column;flex:1;min-height:0">
+
+        <header style="flex:none;padding:16px 22px 13px;background:#fff;border-bottom:1px solid #e4e0d8;display:flex;align-items:flex-end;justify-content:space-between;gap:20px">
+          <div style="display:flex;flex-direction:column;gap:4px;min-width:0">
+            <div style="display:flex;align-items:baseline;gap:10px">
+              <h1 style="margin:0;font:600 19px/1.2 'Noto Sans SC',sans-serif;letter-spacing:-.01em">学员</h1>
+              <span style="font:400 12px/1.4 'JetBrains Mono',monospace;color:#79736a">{{ totalLabel }}</span>
+            </div>
+            <p style="margin:0;font:400 12.5px/1.5 'Noto Sans SC',sans-serif;color:#79736a">邮箱为唯一标识；微信号用于催作业，需人工对齐。</p>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;flex:none">
+            <button type="button" style="display:inline-flex;align-items:center;justify-content:center;height:32px;padding:0 12px;border-radius:8px;border:1px solid #e4e0d8;background:#f2efe9;color:#1a1917;font:500 13px/1 'Noto Sans SC',sans-serif;cursor:pointer">导出 CSV</button>
+            <button type="button" onClick="{{ onOpenNew }}" style="display:inline-flex;align-items:center;justify-content:center;height:32px;padding:0 12px;border-radius:8px;border:0;background:#9c3417;color:#fff;font:500 13px/1 'Noto Sans SC',sans-serif;cursor:pointer">新增学员</button>
+          </div>
+        </header>
+
+        <div style="flex:none;padding:11px 22px;background:#fff;border-bottom:1px solid #e4e0d8;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:0;padding:2px;background:#f2efe9;border:1px solid #e4e0d8;border-radius:8px;flex:none">
+            <sc-for list="{{ scopeFilters }}" as="f" hint-placeholder-count="2">
+              <button type="button" onClick="{{ f.onClick }}" style="{{ f.style }}">{{ f.label }}<span style="{{ f.numStyle }}">{{ f.count }}</span></button>
+            </sc-for>
+          </div>
+
+          <div style="position:relative;width:250px;flex:none">
+            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="#a09a90" stroke-width="1.3" stroke-linecap="round" style="position:absolute;left:11px;top:11px"><circle cx="7" cy="7" r="4.4"></circle><path d="M10.4 10.4L14 14"></path></svg>
+            <input type="text" placeholder="搜索姓名或邮箱" value="{{ query }}" onInput="{{ onQuery }}" style="height:36px;width:100%;border-radius:8px;border:1px solid #e4e0d8;background:#fff;padding:0 12px 0 31px;font:400 13px/1 'Noto Sans SC',sans-serif;color:#1a1917;outline:none">
+          </div>
+
+          <div style="display:flex;align-items:center;gap:0;padding:2px;background:#f2efe9;border:1px solid #e4e0d8;border-radius:8px">
+            <sc-for list="{{ alignFilters }}" as="f" hint-placeholder-count="3">
+              <button type="button" onClick="{{ f.onClick }}" style="{{ f.style }}">{{ f.label }}<span style="{{ f.numStyle }}">{{ f.count }}</span></button>
+            </sc-for>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding-left:4px;border-left:1px solid #e8e4dc;margin-left:2px">
+            <span style="font:500 11px/1 'JetBrains Mono',monospace;color:#a09a90;letter-spacing:.08em;padding-right:2px">标签</span>
+            <sc-for list="{{ tagFilters }}" as="t" hint-placeholder-count="4">
+              <button type="button" onClick="{{ t.onClick }}" style="{{ t.style }}">{{ t.label }}</button>
+            </sc-for>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding-left:4px;border-left:1px solid #e8e4dc">
+            <span style="font:500 11px/1 'JetBrains Mono',monospace;color:#a09a90;letter-spacing:.08em;padding-right:2px">来源</span>
+            <sc-for list="{{ sourceFilters }}" as="src" hint-placeholder-count="4">
+              <button type="button" onClick="{{ src.onClick }}" style="{{ src.style }}">{{ src.label }}</button>
+            </sc-for>
+          </div>
+
+          <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
+            <sc-if value="{{ isFiltered }}" hint-placeholder-val="{{ false }}">
+              <button type="button" onClick="{{ onReset }}" style="display:inline-flex;align-items:center;height:28px;padding:0 9px;border-radius:8px;border:0;background:transparent;color:#9c3417;font:500 12.5px/1 'Noto Sans SC',sans-serif;cursor:pointer">清除筛选</button>
+            </sc-if>
+            <span style="font:400 12px/1 'JetBrains Mono',monospace;color:#79736a">{{ resultLabel }}</span>
+          </div>
+        </div>
+
+        <div style="flex:1;min-height:0;display:flex;overflow:hidden">
+          <div style="flex:1;min-width:0;overflow:auto">
+
+            <sc-if value="{{ showTable }}" hint-placeholder-val="{{ true }}">
+              <table style="width:100%;border-collapse:separate;border-spacing:0;background:#fff;table-layout:fixed;min-width:1180px">
+                <colgroup>
+                  <col style="width:148px"><col style="width:216px"><col style="width:176px"><col style="width:132px"><col style="width:92px"><col style="width:112px"><col style="width:190px"><col>
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th style="position:sticky;top:0;z-index:2;text-align:left;padding:0 14px;height:34px;background:#f2efe9;border-bottom:1px solid #e4e0d8;font:500 11px/1 'JetBrains Mono',monospace;letter-spacing:.09em;color:#79736a">姓名</th>
+                    <th style="position:sticky;top:0;z-index:2;text-align:left;padding:0 14px;height:34px;background:#f2efe9;border-bottom:1px solid #e4e0d8;font:500 11px/1 'JetBrains Mono',monospace;letter-spacing:.09em;color:#79736a">邮箱 · 唯一标识</th>
+                    <th style="position:sticky;top:0;z-index:2;text-align:left;padding:0 14px;height:34px;background:#f2efe9;border-bottom:1px solid #e4e0d8;font:500 11px/1 'JetBrains Mono',monospace;letter-spacing:.09em;color:#79736a">微信号</th>
+                    <th style="position:sticky;top:0;z-index:2;text-align:left;padding:0 14px;height:34px;background:#f2efe9;border-bottom:1px solid #e4e0d8;font:500 11px/1 'JetBrains Mono',monospace;letter-spacing:.09em;color:#79736a">区域</th>
+                    <th style="position:sticky;top:0;z-index:2;text-align:left;padding:0 14px;height:34px;background:#f2efe9;border-bottom:1px solid #e4e0d8;font:500 11px/1 'JetBrains Mono',monospace;letter-spacing:.09em;color:#79736a">基础</th>
+                    <th style="position:sticky;top:0;z-index:2;text-align:left;padding:0 14px;height:34px;background:#f2efe9;border-bottom:1px solid #e4e0d8;font:500 11px/1 'JetBrains Mono',monospace;letter-spacing:.09em;color:#79736a">来源</th>
+                    <th style="position:sticky;top:0;z-index:2;text-align:left;padding:0 14px;height:34px;background:#f2efe9;border-bottom:1px solid #e4e0d8;font:500 11px/1 'JetBrains Mono',monospace;letter-spacing:.09em;color:#79736a">标签</th>
+                    <th style="position:sticky;top:0;z-index:2;text-align:left;padding:0 14px;height:34px;background:#f2efe9;border-bottom:1px solid #e4e0d8;font:500 11px/1 'JetBrains Mono',monospace;letter-spacing:.09em;color:#79736a">备注</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <sc-for list="{{ rows }}" as="row" hint-placeholder-count="9">
+                    <tr onClick="{{ row.onSelect }}" style="{{ row.trStyle }}">
+                      <td style="{{ row.tdName }}">
+                        <div style="display:flex;align-items:center;gap:8px;min-width:0">
+                          <span style="{{ row.dotStyle }}"></span>
+                          <span style="{{ row.nameStyle }}">{{ row.name }}</span>
+                          <sc-if value="{{ row.isArchived }}" hint-placeholder-val="{{ false }}">
+                            <span style="display:inline-flex;align-items:center;border-radius:8px;padding:1px 6px;font:500 10.5px/1.45 'Noto Sans SC',sans-serif;background:#f2efe9;color:#a09a90;border:1px solid #e4e0d8;flex:none">已归档</span>
+                          </sc-if>
+                        </div>
+                      </td>
+                      <td style="{{ row.td }}">
+                        <span style="font:400 12.5px/1.3 'JetBrains Mono',monospace;color:#3c3a35;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block">{{ row.email }}</span>
+                      </td>
+                      <td style="{{ row.td }}">
+                        <sc-if value="{{ row.hasWechat }}" hint-placeholder-val="{{ true }}">
+                          <span style="font:400 12.5px/1.3 'JetBrains Mono',monospace;color:#3c3a35;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block">{{ row.wechat }}</span>
+                        </sc-if>
+                        <sc-if value="{{ row.noWechat }}" hint-placeholder-val="{{ false }}">
+                          <span style="display:inline-flex;align-items:center;gap:5px;border-radius:8px;padding:2px 8px;font:500 11.5px/1.45 'Noto Sans SC',sans-serif;background:#b3261e;color:#fff">
+                            <svg viewBox="0 0 12 12" width="10" height="10" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M6 2.2v4.2M6 8.9v.2"></path></svg>未对齐微信
+                          </span>
+                        </sc-if>
+                      </td>
+                      <td style="{{ row.td }}">
+                        <div style="display:flex;flex-direction:column;gap:1px">
+                          <span style="font:400 13px/1.3 'Noto Sans SC',sans-serif;color:#1a1917">{{ row.region }}</span>
+                          <span style="font:400 10.5px/1.3 'JetBrains Mono',monospace;color:#a09a90">{{ row.tz }}</span>
+                        </div>
+                      </td>
+                      <td style="{{ row.td }}">
+                        <span style="display:inline-flex;align-items:center;border-radius:8px;padding:2px 8px;font:500 11.5px/1.45 'Noto Sans SC',sans-serif;background:#f2efe9;color:#79736a;border:1px solid #e4e0d8;white-space:nowrap">{{ row.level }}</span>
+                      </td>
+                      <td style="{{ row.td }}">
+                        <span style="font:400 12.5px/1.4 'Noto Sans SC',sans-serif;color:#3c3a35;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ row.source }}</span>
+                      </td>
+                      <td style="{{ row.td }}">
+                        <div style="display:flex;flex-wrap:wrap;gap:4px">
+                          <sc-for list="{{ row.tags }}" as="tag" hint-placeholder-count="2">
+                            <span style="{{ tag.style }}">{{ tag.label }}</span>
+                          </sc-for>
+                        </div>
+                      </td>
+                      <td style="{{ row.td }}">
+                        <span style="font:400 12.5px/1.4 'Noto Sans SC',sans-serif;color:#79736a;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ row.note }}</span>
+                      </td>
+                    </tr>
+                  </sc-for>
+                </tbody>
+              </table>
+            </sc-if>
+
+            <sc-if value="{{ showNoResults }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:56px 24px;display:flex;justify-content:center;background:#f6f4f0;min-height:100%">
+                <div style="border-radius:8px;border:1px solid #e4e0d8;background:#fff;padding:16px;width:400px;max-width:100%;text-align:center">
+                  <div style="margin-bottom:12px;display:flex;flex-direction:column;gap:4px">
+                    <h3 style="margin:0;font:600 14px/1.4 'Noto Sans SC',sans-serif">没有符合条件的学员</h3>
+                    <p style="margin:0;font:400 13px/1.6 'Noto Sans SC',sans-serif;color:#79736a">当前筛选组合下没有记录。放宽标签或微信对齐条件后再试。</p>
+                  </div>
+                  <button type="button" onClick="{{ onReset }}" style="display:inline-flex;align-items:center;justify-content:center;height:32px;padding:0 12px;border-radius:8px;border:1px solid #e4e0d8;background:#f2efe9;color:#1a1917;font:500 13px/1 'Noto Sans SC',sans-serif;cursor:pointer">清除筛选</button>
+                </div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ showEmpty }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:64px 24px;display:flex;justify-content:center;background:#f6f4f0;min-height:100%">
+                <div style="border-radius:8px;border:1px solid #e4e0d8;background:#fff;padding:16px;width:420px;max-width:100%">
+                  <div style="width:34px;height:34px;border-radius:8px;background:#f2efe9;border:1px solid #e4e0d8;display:flex;align-items:center;justify-content:center;margin-bottom:12px">
+                    <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="#79736a" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M6 7.2a2.4 2.4 0 100-4.8 2.4 2.4 0 000 4.8zM1.8 13.6c0-2.3 1.9-3.6 4.2-3.6s4.2 1.3 4.2 3.6M11 3.2a2 2 0 010 4M12.4 10.4c1.2.4 1.9 1.4 1.9 3.2"></path></svg>
+                  </div>
+                  <div style="margin-bottom:12px;display:flex;flex-direction:column;gap:4px">
+                    <h3 style="margin:0;font:600 14px/1.4 'Noto Sans SC',sans-serif">暂无学员</h3>
+                    <p style="margin:0;font:400 13px/1.6 'Noto Sans SC',sans-serif;color:#79736a">学员库为空。从报课表导入 CSV，或手动添加第一位学员。邮箱作为唯一标识，重复导入会自动合并。</p>
+                  </div>
+                  <div style="display:flex;gap:8px">
+                    <button type="button" style="display:inline-flex;align-items:center;justify-content:center;height:32px;padding:0 12px;border-radius:8px;border:0;background:#9c3417;color:#fff;font:500 13px/1 'Noto Sans SC',sans-serif;cursor:pointer">导入 CSV</button>
+                    <button type="button" onClick="{{ onOpenNew }}" style="display:inline-flex;align-items:center;justify-content:center;height:32px;padding:0 12px;border-radius:8px;border:1px solid #e4e0d8;background:#f2efe9;color:#1a1917;font:500 13px/1 'Noto Sans SC',sans-serif;cursor:pointer">手动添加</button>
+                  </div>
+                </div>
+              </div>
+            </sc-if>
+          </div>
+
+          <sc-if value="{{ hasSelection }}" hint-placeholder-val="{{ false }}">
+            <aside style="width:358px;flex:none;border-left:1px solid #e4e0d8;background:#fff;overflow-y:auto;display:flex;flex-direction:column">
+              <div style="padding:14px 18px 12px;border-bottom:1px solid #e4e0d8;display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
+                <div style="display:flex;flex-direction:column;gap:5px;min-width:0">
+                  <div style="font:600 16px/1.3 'Noto Sans SC',sans-serif">{{ detail.name }}</div>
+                  <div style="display:flex;align-items:center;gap:6px;min-width:0">
+                    <span style="font:400 12px/1.4 'JetBrains Mono',monospace;color:#79736a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ detail.email }}</span>
+                    <span style="flex:none;display:inline-flex;align-items:center;border-radius:8px;padding:1px 6px;font:500 10.5px/1.45 'Noto Sans SC',sans-serif;background:#f2efe9;color:#a09a90;border:1px solid #e4e0d8">只读</span>
+                  </div>
+                </div>
+                <button type="button" onClick="{{ onClose }}" style="flex:none;width:26px;height:26px;border-radius:8px;border:1px solid #e4e0d8;background:#f2efe9;color:#79736a;font:400 14px/1 'Noto Sans SC',sans-serif;cursor:pointer">×</button>
+              </div>
+
+              <div style="padding:14px 18px;display:flex;flex-direction:column;gap:14px">
+                <sc-if value="{{ detail.isArchived }}" hint-placeholder-val="{{ false }}">
+                  <div style="border-radius:8px;border:1px solid #e4e0d8;background:#f2efe9;padding:12px;display:flex;flex-direction:column;gap:8px">
+                    <div style="display:flex;align-items:center;gap:7px">
+                      <span style="display:inline-flex;align-items:center;border-radius:8px;padding:2px 8px;font:500 11.5px/1.45 'Noto Sans SC',sans-serif;background:#f6f4f0;color:#79736a;border:1px solid #dcd7cc">已归档</span>
+                      <span style="font:400 12px/1.4 'Noto Sans SC',sans-serif;color:#79736a">不进入名单、催作业与统计</span>
+                    </div>
+                    <p style="margin:0;font:400 12.5px/1.6 'Noto Sans SC',sans-serif;color:#79736a">作业与互动记录都还在。重新导入同一邮箱不会新建学员，会提示恢复这条记录。</p>
+                    <button type="button" onClick="{{ detail.onRestore }}" style="align-self:flex-start;display:inline-flex;align-items:center;justify-content:center;height:32px;padding:0 12px;border-radius:8px;border:0;background:#9c3417;color:#fff;font:500 13px/1 'Noto Sans SC',sans-serif;cursor:pointer">恢复为在读</button>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ detail.noWechat }}" hint-placeholder-val="{{ false }}">
+                  <div style="border-radius:8px;border:1px solid #f0cfc9;background:#fbf0ee;padding:12px;display:flex;flex-direction:column;gap:8px">
+                    <div style="display:flex;align-items:center;gap:7px">
+                      <span style="display:inline-flex;align-items:center;border-radius:8px;padding:2px 8px;font:500 11.5px/1.45 'Noto Sans SC',sans-serif;background:#b3261e;color:#fff">未对齐微信</span>
+                      <span style="font:400 12px/1.4 'Noto Sans SC',sans-serif;color:#8a4136">只能走邮件催作业</span>
+                    </div>
+                    <p style="margin:0;font:400 12.5px/1.6 'Noto Sans SC',sans-serif;color:#79736a">仍可用邮箱催作业，但触达率低。用下面的微信昵称在群成员里人工比对，确认后回填微信号。</p>
+                    <button type="button" onClick="{{ detail.onFillWechat }}" style="align-self:flex-start;display:inline-flex;align-items:center;justify-content:center;height:32px;padding:0 12px;border-radius:8px;border:0;background:#9c3417;color:#fff;font:500 13px/1 'Noto Sans SC',sans-serif;cursor:pointer">回填微信号</button>
+                  </div>
+                </sc-if>
+
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+                  <div style="font:500 11px/1 'JetBrains Mono',monospace;letter-spacing:.09em;color:#a09a90">字段 · 点击即改</div>
+                  <span style="font:400 11px/1.4 'Noto Sans SC',sans-serif;color:#c0bab0">回车保存 · Esc 取消</span>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:0;border-radius:8px;border:1px solid #e4e0d8;overflow:hidden;margin-top:-7px">
+                  <sc-for list="{{ detail.fields }}" as="f" hint-placeholder-count="9">
+                    <div style="{{ f.style }}">
+                      <span style="font:400 12px/1.5 'Noto Sans SC',sans-serif;color:#79736a;flex:none;width:74px;padding-top:1px">{{ f.label }}</span>
+                      <div style="flex:1;min-width:0">
+                        <sc-if value="{{ f.view }}" hint-placeholder-val="{{ true }}">
+                          <button type="button" onClick="{{ f.onEdit }}" style="{{ f.valStyle }}">{{ f.value }}</button>
+                        </sc-if>
+                        <sc-if value="{{ f.editText }}" hint-placeholder-val="{{ false }}">
+                          <input type="text" value="{{ editVal }}" onChange="{{ onEditVal }}" onBlur="{{ onCommit }}" onKeyDown="{{ onEditKey }}" autoFocus="{{ true }}" style="{{ f.inputStyle }}">
+                        </sc-if>
+                        <sc-if value="{{ f.editEnum }}" hint-placeholder-val="{{ false }}">
+                          <div style="display:flex;flex-wrap:wrap;gap:5px;padding:1px 0 2px">
+                            <sc-for list="{{ f.options }}" as="o" hint-placeholder-count="4">
+                              <button type="button" onClick="{{ o.onClick }}" style="{{ o.style }}">{{ o.label }}</button>
+                            </sc-for>
+                          </div>
+                        </sc-if>
+                      </div>
+                    </div>
+                  </sc-for>
+                </div>
+
+                <div style="display:flex;flex-direction:column;gap:7px">
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+                    <div style="font:500 11px/1 'JetBrains Mono',monospace;letter-spacing:.09em;color:#a09a90">标签</div>
+                    <button type="button" onClick="{{ detail.onToggleTagEdit }}" style="display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:8px;border:1px solid #e4e0d8;background:#f2efe9;color:#3c3a35;font:500 11.5px/1 'Noto Sans SC',sans-serif;cursor:pointer">{{ detail.tagEditLabel }}</button>
+                  </div>
+                  <div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center">
+                    <sc-for list="{{ detail.tags }}" as="tag" hint-placeholder-count="2">
+                      <button type="button" onClick="{{ tag.onClick }}" style="{{ tag.style }}">{{ tag.label }}</button>
+                    </sc-for>
+                    <sc-if value="{{ detail.noTags }}" hint-placeholder-val="{{ false }}">
+                      <span style="font:400 12px/1.5 'Noto Sans SC',sans-serif;color:#c0bab0">无标签</span>
+                    </sc-if>
+                  </div>
+                </div>
+
+                <div style="display:flex;flex-direction:column;gap:7px">
+                  <div style="font:500 11px/1 'JetBrains Mono',monospace;letter-spacing:.09em;color:#a09a90">备注</div>
+                  <sc-if value="{{ detail.noteView }}" hint-placeholder-val="{{ true }}">
+                    <button type="button" onClick="{{ detail.onEditNote }}" style="{{ detail.noteStyle }}">{{ detail.note }}</button>
+                  </sc-if>
+                  <sc-if value="{{ detail.noteEditing }}" hint-placeholder-val="{{ false }}">
+                    <textarea rows="4" value="{{ editVal }}" onChange="{{ onEditVal }}" onBlur="{{ onCommit }}" autoFocus="{{ true }}" style="width:100%;border-radius:8px;border:1px solid #9c3417;background:#fff;padding:9px 12px;font:400 12.5px/1.7 'Noto Sans SC',sans-serif;color:#1a1917;outline:none;resize:vertical"></textarea>
+                  </sc-if>
+                </div>
+
+                <div style="border-top:1px solid #e4e0d8;padding-top:13px;display:flex;flex-direction:column;gap:8px">
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+                    <div style="display:flex;align-items:baseline;gap:8px">
+                      <div style="font:500 11px/1 'JetBrains Mono',monospace;letter-spacing:.09em;color:#a09a90">报课记录</div>
+                      <span style="font:400 11.5px/1.4 'JetBrains Mono',monospace;color:#a09a90">{{ detail.enrollCountLabel }}</span>
+                    </div>
+                    <x-import component-from-global-scope="AiCourseUI.Button" variant="ghost" size="sm" onClick="{{ detail.onAddEnroll }}" class-name="text-primary" hint-size="auto,32px">补录报课</x-import>
+                  </div>
+
+                  <sc-for list="{{ detail.enrollments }}" as="e" hint-placeholder-count="2">
+                    <div style="{{ e.style }}">
+                      <div style="display:flex;align-items:center;gap:8px">
+                        <span style="font:500 12.5px/1.35 'Noto Sans SC',sans-serif;color:#1a1917;flex:1;min-width:0">{{ e.course }}</span>
+                        <x-import component-from-global-scope="AiCourseUI.Badge" variant="{{ e.statusVariant }}" hint-size="auto,20px">{{ e.status }}</x-import>
+                      </div>
+                      <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
+                        <span style="font:400 11px/1.4 'JetBrains Mono',monospace;color:#a09a90">{{ e.when }}</span>
+                        <sc-if value="{{ e.manual }}" hint-placeholder-val="{{ false }}">
+                          <x-import component-from-global-scope="AiCourseUI.Badge" variant="muted" hint-size="auto,18px">手工补录</x-import>
+                        </sc-if>
+                      </div>
+                    </div>
+                  </sc-for>
+
+                  <sc-if value="{{ detail.noEnrollments }}" hint-placeholder-val="{{ false }}">
+                    <div style="padding:11px 12px;border-radius:8px;border:1px dashed #ddd8cd;background:#faf8f5;font:400 12.5px/1.6 'Noto Sans SC',sans-serif;color:#79736a">还没有报课记录。平台数据导入后会自动挂上，也可以先手工补录。</div>
+                  </sc-if>
+                </div>
+
+                <div style="border-top:1px dashed #ddd8cd;padding-top:13px;display:flex;flex-direction:column;gap:9px">
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <div style="font:500 11px/1 'JetBrains Mono',monospace;letter-spacing:.09em;color:#a09a90">其余区块 · 草图</div>
+                    <span style="display:inline-flex;align-items:center;border-radius:8px;padding:2px 8px;font:500 11px/1.45 'Noto Sans SC',sans-serif;background:#f2efe9;color:#79736a;border:1px solid #e4e0d8">待设计</span>
+                  </div>
+                  <sc-for list="{{ detail.sketch }}" as="sk" hint-placeholder-count="3">
+                    <div style="border-radius:8px;border:1px dashed #ddd8cd;background:#faf8f5;padding:11px 12px;display:flex;flex-direction:column;gap:7px">
+                      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+                        <span style="font:500 12.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">{{ sk.title }}</span>
+                        <span style="font:400 11px/1 'JetBrains Mono',monospace;color:#a09a90">{{ sk.meta }}</span>
+                      </div>
+                      <div style="display:flex;flex-direction:column;gap:5px">
+                        <div style="height:6px;border-radius:3px;background:#eae5db;width:100%"></div>
+                        <div style="height:6px;border-radius:3px;background:#eae5db;width:64%"></div>
+                      </div>
+                    </div>
+                  </sc-for>
+                </div>
+
+                <sc-if value="{{ detail.canArchive }}" hint-placeholder-val="{{ true }}">
+                  <div style="border-top:1px solid #e4e0d8;padding-top:13px;display:flex;flex-direction:column;gap:8px">
+                    <sc-if value="{{ detail.askArchive }}" hint-placeholder-val="{{ false }}">
+                      <div style="border-radius:8px;border:1px solid #f0cfc9;background:#fbf0ee;padding:12px;display:flex;flex-direction:column;gap:9px">
+                        <p style="margin:0;font:400 12.5px/1.6 'Noto Sans SC',sans-serif;color:#3c3a35">归档 <strong style="font-weight:600">{{ detail.name }}</strong>？{{ detail.archiveImpact }} 会一起隐藏，但不会删除。可随时恢复。</p>
+                        <div style="display:flex;gap:8px">
+                          <button type="button" onClick="{{ detail.onArchive }}" style="display:inline-flex;align-items:center;justify-content:center;height:32px;padding:0 12px;border-radius:8px;border:0;background:#b3261e;color:#fff;font:500 13px/1 'Noto Sans SC',sans-serif;cursor:pointer">确认归档</button>
+                          <button type="button" onClick="{{ detail.onCancelArchive }}" style="display:inline-flex;align-items:center;justify-content:center;height:32px;padding:0 12px;border-radius:8px;border:1px solid #e4e0d8;background:#f2efe9;color:#1a1917;font:500 13px/1 'Noto Sans SC',sans-serif;cursor:pointer">取消</button>
+                        </div>
+                      </div>
+                    </sc-if>
+                    <sc-if value="{{ detail.showArchiveBtn }}" hint-placeholder-val="{{ true }}">
+                      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+                        <button type="button" onClick="{{ detail.onAskArchive }}" style="display:inline-flex;align-items:center;justify-content:center;height:32px;padding:0 12px;border-radius:8px;border:1px solid #e4e0d8;background:#f2efe9;color:#1a1917;font:500 13px/1 'Noto Sans SC',sans-serif;cursor:pointer">归档学员</button>
+                        <span style="font:400 11.5px/1.5 'Noto Sans SC',sans-serif;color:#a09a90">硬删除需超管权限</span>
+                      </div>
+                    </sc-if>
+                  </div>
+                </sc-if>
+              </div>
+            </aside>
+          </sc-if>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isCourses }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;flex:1;min-height:0">
+        <header style="flex:none;padding:16px 22px 13px;background:#fff;border-bottom:1px solid #e4e0d8;display:flex;align-items:flex-end;justify-content:space-between;gap:20px">
+          <div style="display:flex;flex-direction:column;gap:4px;min-width:0">
+            <div style="display:flex;align-items:baseline;gap:10px">
+              <h1 style="margin:0;font:600 19px/1.2 'Noto Sans SC',sans-serif;letter-spacing:-.01em">课程</h1>
+              <span style="font:400 12px/1.4 'JetBrains Mono',monospace;color:#79736a">{{ co.countLabel }}</span>
+            </div>
+            <p style="margin:0;font:400 12.5px/1.5 'Noto Sans SC',sans-serif;color:#79736a">每门课上一次、交一次作业。课程是报课、作业、催作业共用的口径，改这里会影响所有引用它的页面。</p>
+          </div>
+          <span style="flex:none;white-space:nowrap">
+            <x-import component-from-global-scope="AiCourseUI.Button" variant="primary" size="sm" onClick="{{ co.onNew }}" hint-size="auto,32px">新建课程</x-import>
+          </span>
+        </header>
+
+        <div style="flex:1;min-height:0;display:flex;overflow:hidden">
+          <div style="width:264px;flex:none;border-right:1px solid #e4e0d8;background:#fbfaf8;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px">
+            <sc-for list="{{ co.list }}" as="c" hint-placeholder-count="3">
+              <button type="button" onClick="{{ c.onClick }}" style="{{ c.style }}">
+                <span style="display:flex;align-items:center;gap:7px;width:100%">
+                  <span style="font:500 13.5px/1.3 'Noto Sans SC',sans-serif;color:#1a1917;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ c.name }}</span>
+                  <sc-if value="{{ c.offline }}" hint-placeholder-val="{{ false }}">
+                    <x-import component-from-global-scope="AiCourseUI.Badge" variant="muted" hint-size="auto,20px">已下线</x-import>
+                  </sc-if>
+                </span>
+                <span style="font:400 11.5px/1.4 'JetBrains Mono',monospace;color:#a09a90">{{ c.meta }}</span>
+              </button>
+            </sc-for>
+          </div>
+
+          <div style="flex:1;min-width:0;overflow-y:auto;display:flex;flex-direction:column">
+            <div style="flex:none;padding:16px 22px 14px;background:#fff;border-bottom:1px solid #e4e0d8;display:flex;flex-direction:column;gap:11px">
+              <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
+                <div style="display:flex;flex-direction:column;gap:5px;min-width:0">
+                  <div style="display:flex;align-items:center;gap:9px">
+                    <h2 style="margin:0;font:600 16px/1.3 'Noto Sans SC',sans-serif">{{ co.name }}</h2>
+                    <sc-if value="{{ co.offline }}" hint-placeholder-val="{{ false }}">
+                      <x-import component-from-global-scope="AiCourseUI.Badge" variant="muted" hint-size="auto,20px">已下线</x-import>
+                    </sc-if>
+                  </div>
+                  <p style="margin:0;font:400 12.5px/1.6 'Noto Sans SC',sans-serif;color:#79736a;max-width:620px">{{ co.desc }}</p>
+                  <p style="margin:4px 0 0;font:400 12.5px/1.75 'Noto Sans SC',sans-serif;color:#3c3a35;max-width:620px;text-wrap:pretty">{{ co.intro }}</p>
+                </div>
+                <span style="flex:none;white-space:nowrap">
+                  <x-import component-from-global-scope="AiCourseUI.Button" variant="secondary" size="sm" onClick="{{ co.onEdit }}" hint-size="auto,32px">编辑课程</x-import>
+                </span>
+              </div>
+
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding-top:2px;border-top:1px dashed #e8e4dc">
+                <span style="font:500 11px/1 'JetBrains Mono',monospace;letter-spacing:.09em;color:#a09a90;padding-top:9px">平台别名</span>
+                <sc-for list="{{ co.aliases }}" as="a" hint-placeholder-count="3">
+                  <span style="margin-top:9px;display:inline-flex;align-items:center;height:24px;padding:0 9px;border-radius:8px;border:1px solid #e4e0d8;background:#f2efe9;color:#3c3a35;font:400 11.5px/1 'JetBrains Mono',monospace;white-space:nowrap">{{ a }}</span>
+                </sc-for>
+                <span style="margin-top:9px;font:400 11.5px/1.5 'Noto Sans SC',sans-serif;color:#a09a90">导入时按这些写法匹配到本课程</span>
+              </div>
+            </div>
+
+            <div style="flex:none;padding:14px 22px 0;display:flex;flex-direction:column;gap:9px">
+              <div style="font:500 11px/1 'JetBrains Mono',monospace;letter-spacing:.09em;color:#a09a90">这门课</div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px">
+                <sc-for list="{{ co.facts }}" as="f" hint-placeholder-count="4">
+                  <div style="{{ f.style }}">
+                    <span style="font:400 11.5px/1.4 'Noto Sans SC',sans-serif;color:#79736a">{{ f.label }}</span>
+                    <span style="{{ f.valStyle }}">{{ f.value }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+
+            <div style="flex:none;padding:14px 22px 0;display:flex;flex-direction:column;gap:9px">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+                <div style="font:500 11px/1 'JetBrains Mono',monospace;letter-spacing:.09em;color:#a09a90">上课时间 · 每场独立讲师与学员</div>
+                <span style="font:400 11.5px/1.5 'Noto Sans SC',sans-serif;color:#a09a90">时间按美西记，下面一行是各时区对应时间</span>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:7px">
+                <sc-for list="{{ co.sessionRows }}" as="s" hint-placeholder-count="2">
+                  <div style="{{ s.style }}">
+                    <div style="display:flex;flex-direction:column;gap:8px;width:100%">
+                      <div style="display:flex;align-items:center;gap:11px">
+                        <span style="font:400 11px/1.3 'JetBrains Mono',monospace;color:#a09a90;flex:none;width:44px">{{ s.idx }}</span>
+                        <span style="font:500 13px/1.35 'JetBrains Mono',monospace;color:#1a1917;flex:none">{{ s.label }}</span>
+                        <span style="font:400 12.5px/1.4 'Noto Sans SC',sans-serif;color:#1a1917;flex:none">{{ s.teacher }}</span>
+                        <span style="font:400 12px/1.4 'Noto Sans SC',sans-serif;color:#79736a;flex:1;min-width:0">{{ s.zone }}</span>
+                        <span style="font:400 12px/1.4 'JetBrains Mono',monospace;color:#79736a;flex:none">{{ s.enrolled }}</span>
+                        <x-import component-from-global-scope="AiCourseUI.Badge" variant="{{ s.stateVariant }}" hint-size="auto,20px">{{ s.state }}</x-import>
+                        <span style="flex:none;white-space:nowrap">
+                          <x-import component-from-global-scope="AiCourseUI.Button" variant="ghost" size="sm" onClick="{{ s.onToggleEdit }}" class-name="text-primary" hint-size="auto,32px">{{ s.editLabel }}</x-import>
+                        </span>
+                      </div>
+
+                      <sc-if value="{{ s.notEditing }}" hint-placeholder-val="{{ true }}">
+                        <div style="padding-left:55px;display:flex;flex-direction:column;gap:3px">
+                          <span style="font:400 11.5px/1.5 'JetBrains Mono',monospace;color:#a09a90">{{ s.zoneLine }}</span>
+                          <span style="font:400 12px/1.5 'Noto Sans SC',sans-serif;color:#79736a">{{ s.note }}</span>
+                        </div>
+                      </sc-if>
+
+                      <sc-if value="{{ s.editing }}" hint-placeholder-val="{{ false }}">
+                        <div style="margin-left:55px;padding:11px 12px;border-radius:8px;border:1px solid #9c3417;background:#fff;display:flex;flex-direction:column;gap:9px">
+                          <sc-if value="{{ s.pastWarn }}" hint-placeholder-val="{{ false }}">
+                            <div style="font:400 11.5px/1.5 'Noto Sans SC',sans-serif;color:#8a4136">这一场已经上过，改动会影响历史记录和作业统计，只在修正错误时改。</div>
+                          </sc-if>
+                          <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap">
+                            <label style="width:150px;flex:none;display:flex;flex-direction:column;gap:5px">
+                              <span style="font:500 11.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">上课日期</span>
+                              <x-import component-from-global-scope="AiCourseUI.Input" type="date" value="{{ s.date }}" onChange="{{ s.onDate }}" hint-size="100%,40px"></x-import>
+                            </label>
+                            <label style="width:96px;flex:none;display:flex;flex-direction:column;gap:5px">
+                              <span style="font:500 11.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">时间</span>
+                              <x-import component-from-global-scope="AiCourseUI.Input" type="time" value="{{ s.timeValue }}" onChange="{{ s.onTime }}" hint-size="100%,40px"></x-import>
+                            </label>
+                            <div style="flex:1;min-width:170px;display:flex;flex-direction:column;gap:5px">
+                              <span style="font:500 11.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">讲师</span>
+                              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-height:40px">
+                                <sc-for list="{{ s.teacherPicks }}" as="tp" hint-placeholder-count="3">
+                                  <button type="button" onClick="{{ tp.onClick }}" style="{{ tp.style }}">{{ tp.label }}</button>
+                                </sc-for>
+                              </div>
+                            </div>
+                          </div>
+                          <div style="display:flex;flex-direction:column;gap:5px">
+                            <span style="font:500 11.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">状态 <span style="font-weight:400;color:#a09a90">默认按日期自动判断，取消或补记时手动改</span></span>
+                            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                              <sc-for list="{{ s.statePicks }}" as="sp" hint-placeholder-count="3">
+                                <button type="button" onClick="{{ sp.onClick }}" style="{{ sp.style }}">{{ sp.label }}</button>
+                              </sc-for>
+                              <sc-if value="{{ s.stateAuto }}" hint-placeholder-val="{{ true }}">
+                                <span style="font:400 11px/1 'Noto Sans SC',sans-serif;color:#a09a90;padding-left:2px">跟随日期</span>
+                              </sc-if>
+                              <sc-if value="{{ s.stateManual }}" hint-placeholder-val="{{ false }}">
+                                <button type="button" onClick="{{ s.onResetState }}" style="display:inline-flex;align-items:center;height:26px;padding:0 9px;border:0;background:transparent;color:#9c3417;font:500 11.5px/1 'Noto Sans SC',sans-serif;cursor:pointer">恢复跟随日期</button>
+                              </sc-if>
+                            </div>
+                          </div>
+                          <label style="display:flex;flex-direction:column;gap:5px">
+                            <span style="font:500 11.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">备注</span>
+                            <x-import component-from-global-scope="AiCourseUI.Input" type="text" placeholder="这一场为什么开：加场 / 时区 / 合作方专场…" value="{{ s.note }}" onChange="{{ s.onNote }}" hint-size="100%,40px"></x-import>
+                          </label>
+                          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+                            <x-import component-from-global-scope="AiCourseUI.Button" variant="ghost" size="sm" onClick="{{ s.onRemove }}" hint-size="auto,32px">删除这一场</x-import>
+                            <x-import component-from-global-scope="AiCourseUI.Button" variant="secondary" size="sm" onClick="{{ s.onToggleEdit }}" hint-size="auto,32px">完成</x-import>
+                          </div>
+                        </div>
+                      </sc-if>
+                    </div>
+                  </div>
+                </sc-for>
+
+                <sc-if value="{{ co.noSessions }}" hint-placeholder-val="{{ false }}">
+                  <div style="padding:12px 13px;border-radius:8px;border:1px dashed #ddd8cd;background:#faf8f5;font:400 12.5px/1.6 'Noto Sans SC',sans-serif;color:#79736a">还没有排课。加一个上课时间后，这门课才会出现在报课的场次选项里。</div>
+                </sc-if>
+
+                <sc-if value="{{ co.addOpen }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;flex-direction:column;gap:7px;padding:11px 13px;border-radius:8px;border:1px solid #9c3417;background:#fff">
+                    <div style="font:500 11px/1 'JetBrains Mono',monospace;letter-spacing:.09em;color:#a09a90">新增一场 · 时间按美西填，其他时区自动换算</div>
+                    <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap">
+                      <label style="width:150px;flex:none;display:flex;flex-direction:column;gap:5px">
+                        <span style="font:500 11.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">上课日期 <span style="color:#b3261e">*</span></span>
+                        <x-import component-from-global-scope="AiCourseUI.Input" type="date" value="{{ co.addDate }}" onChange="{{ co.onAddDate }}" hint-size="100%,40px"></x-import>
+                      </label>
+                      <label style="width:96px;flex:none;display:flex;flex-direction:column;gap:5px">
+                        <span style="font:500 11.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">时间（美西）<span style="color:#b3261e">*</span></span>
+                        <x-import component-from-global-scope="AiCourseUI.Input" type="time" value="{{ co.addTime }}" onChange="{{ co.onAddTime }}" hint-size="100%,40px"></x-import>
+                      </label>
+                      <div style="flex:1;min-width:180px;display:flex;flex-direction:column;gap:5px">
+                        <span style="font:500 11.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">讲师 <span style="color:#b3261e">*</span></span>
+                        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-height:40px">
+                          <sc-for list="{{ co.addTeachers }}" as="tp" hint-placeholder-count="3">
+                            <button type="button" onClick="{{ tp.onClick }}" style="{{ tp.style }}">{{ tp.label }}</button>
+                          </sc-for>
+                          <sc-if value="{{ co.tAddClosed }}" hint-placeholder-val="{{ true }}">
+                            <button type="button" onClick="{{ co.onTAddOpen }}" style="display:inline-flex;align-items:center;height:26px;padding:0 9px;border-radius:8px;border:1px dashed #d8d3c8;background:transparent;color:#79736a;font:400 12px/1 'Noto Sans SC',sans-serif;cursor:pointer">+ 新讲师</button>
+                          </sc-if>
+                        </div>
+                        <sc-if value="{{ co.tAddOpen }}" hint-placeholder-val="{{ false }}">
+                          <div style="display:flex;align-items:center;gap:8px">
+                            <div style="flex:1;min-width:0">
+                              <x-import component-from-global-scope="AiCourseUI.Input" type="text" placeholder="讲师姓名" value="{{ co.tAddName }}" onChange="{{ co.onTAddName }}" hint-size="100%,40px"></x-import>
+                            </div>
+                            <x-import component-from-global-scope="AiCourseUI.Button" variant="primary" size="sm" onClick="{{ co.onTAddSave }}" disabled="{{ co.tAddDisabled }}" hint-size="auto,32px">加入</x-import>
+                            <x-import component-from-global-scope="AiCourseUI.Button" variant="secondary" size="sm" onClick="{{ co.onTAddCancel }}" hint-size="auto,32px">取消</x-import>
+                          </div>
+                        </sc-if>
+                      </div>
+                    </div>
+                    <label style="display:flex;flex-direction:column;gap:5px">
+                      <span style="font:500 11.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">备注 <span style="font-weight:400;color:#a09a90">这一场为什么开</span></span>
+                      <x-import component-from-global-scope="AiCourseUI.Input" type="text" placeholder="如 第一场报满后加的第二场 / 为亚洲时区加的晚场" value="{{ co.addNote }}" onChange="{{ co.onAddNote }}" hint-size="100%,40px"></x-import>
+                    </label>
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding-top:2px">
+                      <span style="{{ co.addHintStyle }}">{{ co.addHint }}</span>
+                      <div style="display:flex;align-items:center;gap:8px;flex:none">
+                        <x-import component-from-global-scope="AiCourseUI.Button" variant="secondary" size="sm" onClick="{{ co.onCancelAdd }}" hint-size="auto,32px">取消</x-import>
+                        <x-import component-from-global-scope="AiCourseUI.Button" variant="primary" size="sm" onClick="{{ co.onConfirmAdd }}" disabled="{{ co.addDisabled }}" hint-size="auto,32px">添加这一场</x-import>
+                      </div>
+                    </div>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{ co.addClosed }}" hint-placeholder-val="{{ true }}">
+                  <div>
+                    <x-import component-from-global-scope="AiCourseUI.Button" variant="secondary" size="sm" onClick="{{ co.onOpenAdd }}" hint-size="auto,32px">+ 添加上课时间</x-import>
+                  </div>
+                </sc-if>
+              </div>
+            </div>
+
+            <div style="flex:none;padding:14px 22px 0;display:flex;flex-direction:column;gap:9px">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+                <div style="font:500 11px/1 'JetBrains Mono',monospace;letter-spacing:.09em;color:#a09a90">作业 · 一次</div>
+                <span style="flex:none;white-space:nowrap">
+                  <x-import component-from-global-scope="AiCourseUI.Button" variant="secondary" size="sm" hint-size="auto,32px">编辑作业要求</x-import>
+                </span>
+              </div>
+              <div style="display:flex;align-items:center;gap:12px;padding:12px 13px;border-radius:8px;border:1px solid #e4e0d8;background:#fff">
+                <span style="font:400 13px/1.5 'Noto Sans SC',sans-serif;color:#1a1917;flex:1;min-width:0">{{ co.hwTitle }}</span>
+                <span style="font:400 11.5px/1.5 'Noto Sans SC',sans-serif;color:#a09a90;flex:none">截止日期按场次定</span>
+              </div>
+            </div>
+
+            <div style="flex:none;height:22px"></div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isEnroll }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;flex:1;min-height:0">
+
+        <header style="flex:none;padding:16px 22px 13px;background:#fff;border-bottom:1px solid #e4e0d8;display:flex;align-items:flex-end;justify-content:space-between;gap:20px">
+          <div style="display:flex;flex-direction:column;gap:4px;min-width:0">
+            <div style="display:flex;align-items:baseline;gap:10px">
+              <h1 style="margin:0;font:600 19px/1.2 'Noto Sans SC',sans-serif;letter-spacing:-.01em">报课</h1>
+              <span style="font:400 12px/1.4 'JetBrains Mono',monospace;color:#79736a">{{ en.totalLabel }}</span>
+            </div>
+            <p style="margin:0;font:400 12.5px/1.5 'Noto Sans SC',sans-serif;color:#79736a">每条记录 = 一名学员报一门课。EliteCoach101 为权威源，本系统只做镜像与补录。</p>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;flex:none">
+            <x-import component-from-global-scope="AiCourseUI.Button" variant="secondary" size="sm" onClick="{{ en.onOpenManual }}" hint-size="auto,32px">手工补录</x-import>
+            <x-import component-from-global-scope="AiCourseUI.Button" variant="primary" size="sm" onClick="{{ en.onOpenIntake }}" hint-size="auto,32px">导入平台数据</x-import>
+          </div>
+        </header>
+
+        <div style="flex:none;padding:11px 22px;background:#fbfaf8;border-bottom:1px solid #e4e0d8;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="width:6px;height:6px;border-radius:50%;background:#c58a1a;flex:none"></span>
+            <span style="font:500 12.5px/1.4 'Noto Sans SC',sans-serif;color:#1a1917">EliteCoach101</span>
+            <x-import component-from-global-scope="AiCourseUI.Badge" variant="muted" hint-size="auto,20px">导出方式待确认</x-import>
+          </div>
+          <span style="font:400 12px/1.4 'JetBrains Mono',monospace;color:#79736a">上次导入 2026-07-24 · 手工粘贴 · 12 条</span>
+          <div style="margin-left:auto;display:flex;align-items:center;gap:7px">
+            <sc-for list="{{ en.channels }}" as="c" hint-placeholder-count="3">
+              <x-import component-from-global-scope="AiCourseUI.Badge" variant="muted" hint-size="auto,20px">
+                <span style="{{ c.dotStyle }}"></span>{{ c.label }} · {{ c.state }}
+              </x-import>
+            </sc-for>
+            <x-import component-from-global-scope="AiCourseUI.Button" variant="ghost" size="sm" onClick="{{ en.onOpenIntake }}" class-name="text-primary" hint-size="auto,32px">查看接入格式</x-import>
+          </div>
+        </div>
+
+        <div style="flex:none;padding:11px 22px;background:#fff;border-bottom:1px solid #e4e0d8;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:7px;width:272px;flex:none">
+            <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="#a09a90" stroke-width="1.3" stroke-linecap="round" style="flex:none"><circle cx="7" cy="7" r="4.4"></circle><path d="M10.4 10.4L14 14"></path></svg>
+            <div style="flex:1;min-width:0">
+              <x-import component-from-global-scope="AiCourseUI.Input" type="text" placeholder="搜索学员或邮箱" value="{{ en.query }}" onChange="{{ en.onQuery }}" hint-size="100%,40px"></x-import>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:0;padding:2px;background:#f2efe9;border:1px solid #e4e0d8;border-radius:8px">
+            <sc-for list="{{ en.statusFilters }}" as="f" hint-placeholder-count="4">
+              <button type="button" onClick="{{ f.onClick }}" style="{{ f.style }}">{{ f.label }}<span style="{{ f.numStyle }}">{{ f.count }}</span></button>
+            </sc-for>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding-left:4px;border-left:1px solid #e8e4dc">
+            <span style="font:500 11px/1 'JetBrains Mono',monospace;color:#a09a90;letter-spacing:.08em;padding-right:2px">课程</span>
+            <sc-for list="{{ en.courseFilters }}" as="c" hint-placeholder-count="3">
+              <button type="button" onClick="{{ c.onClick }}" style="{{ c.style }}">{{ c.label }}</button>
+            </sc-for>
+          </div>
+          <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
+            <sc-if value="{{ en.isFiltered }}" hint-placeholder-val="{{ false }}">
+              <x-import component-from-global-scope="AiCourseUI.Button" variant="ghost" size="sm" onClick="{{ en.onReset }}" class-name="text-primary" hint-size="auto,32px">清除筛选</x-import>
+            </sc-if>
+            <span style="font:400 12px/1 'JetBrains Mono',monospace;color:#79736a">{{ en.resultLabel }}</span>
+          </div>
+        </div>
+
+        <div style="flex:1;min-height:0;overflow:auto">
+          <sc-if value="{{ en.showTable }}" hint-placeholder-val="{{ true }}">
+            <table style="width:100%;border-collapse:separate;border-spacing:0;background:#fff;table-layout:fixed;min-width:1120px">
+              <colgroup>
+                <col style="width:196px"><col style="width:264px"><col style="width:120px"><col style="width:96px"><col style="width:156px"><col>
+              </colgroup>
+              <thead>
+                <tr>
+                  <sc-for list="{{ en.head }}" as="h" hint-placeholder-count="6">
+                    <th style="{{ h.style }}">{{ h.label }}</th>
+                  </sc-for>
+                </tr>
+              </thead>
+              <tbody>
+                <sc-for list="{{ en.rows }}" as="r" hint-placeholder-count="10">
+                  <tr onClick="{{ r.onEdit }}" style="{{ r.trStyle }}">
+                    <td style="{{ r.td }}">
+                      <div style="display:flex;flex-direction:column;gap:1px;min-width:0">
+                        <span style="font:500 13.5px/1.3 'Noto Sans SC',sans-serif;color:#1a1917;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.name }}</span>
+                        <span style="font:400 11px/1.3 'JetBrains Mono',monospace;color:#a09a90;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.email }}</span>
+                      </div>
+                    </td>
+                    <td style="{{ r.td }}">
+                      <div style="display:flex;flex-direction:column;gap:1px;min-width:0">
+                        <span style="font:400 13px/1.4 'Noto Sans SC',sans-serif;color:#1a1917;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.course }}</span>
+                        <span style="font:400 11px/1.3 'JetBrains Mono',monospace;color:#a09a90;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.session }}</span>
+                      </div>
+                    </td>
+                    <td style="{{ r.td }}">
+                      <span style="font:400 12.5px/1.3 'JetBrains Mono',monospace;color:#3c3a35">{{ r.date }}</span>
+                    </td>
+                    <td style="{{ r.td }}">
+                      <x-import component-from-global-scope="AiCourseUI.Badge" variant="{{ r.statusVariant }}" hint-size="auto,20px">{{ r.status }}</x-import>
+                    </td>
+                    <td style="{{ r.td }}">
+                      <div style="display:flex;align-items:center;gap:6px">
+                        <x-import component-from-global-scope="AiCourseUI.Badge" variant="muted" hint-size="auto,20px">{{ r.origin }}</x-import>
+                        <sc-if value="{{ r.conflict }}" hint-placeholder-val="{{ false }}">
+                          <x-import component-from-global-scope="AiCourseUI.Badge" variant="danger" hint-size="auto,20px">与平台不一致</x-import>
+                        </sc-if>
+                        <sc-if value="{{ r.edited }}" hint-placeholder-val="{{ false }}">
+                          <x-import component-from-global-scope="AiCourseUI.Badge" variant="danger" hint-size="auto,20px">本地已改</x-import>
+                        </sc-if>
+                      </div>
+                    </td>
+                    <td style="{{ r.td }}">
+                      <span style="font:400 12.5px/1.4 'Noto Sans SC',sans-serif;color:#79736a;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.note }}</span>
+                    </td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+          </sc-if>
+
+          <sc-if value="{{ en.showEmpty }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:56px 24px;display:flex;justify-content:center;background:#f6f4f0;min-height:100%">
+              <div style="width:420px;max-width:100%">
+              <x-import component-from-global-scope="AiCourseUI.Card" hint-size="100%,150px">
+                <x-import component-from-global-scope="AiCourseUI.CardHeader" hint-size="100%,52px">
+                  <x-import component-from-global-scope="AiCourseUI.CardTitle" hint-size="100%,20px">暂无报课记录</x-import>
+                  <x-import component-from-global-scope="AiCourseUI.CardDescription" hint-size="100%,32px">{{ en.emptyDesc }}</x-import>
+                </x-import>
+                <div style="display:flex;gap:8px">
+                  <x-import component-from-global-scope="AiCourseUI.Button" variant="primary" size="sm" onClick="{{ en.onOpenIntake }}" hint-size="auto,32px">导入平台数据</x-import>
+                  <x-import component-from-global-scope="AiCourseUI.Button" variant="secondary" size="sm" onClick="{{ en.onReset }}" hint-size="auto,32px">清除筛选</x-import>
+                </div>
+              </x-import>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isHomework }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;flex:1;min-height:0">
+
+        <header style="flex:none;padding:16px 22px 13px;background:#fff;border-bottom:1px solid #e4e0d8;display:flex;align-items:flex-end;justify-content:space-between;gap:20px">
+          <div style="display:flex;flex-direction:column;gap:4px;min-width:0">
+            <div style="display:flex;align-items:baseline;gap:10px">
+              <h1 style="margin:0;font:600 19px/1.2 'Noto Sans SC',sans-serif;letter-spacing:-.01em">作业</h1>
+              <span style="font:400 12px/1.4 'JetBrains Mono',monospace;color:#79736a">{{ hw.totalLabel }}</span>
+            </div>
+            <p style="margin:0;font:400 12.5px/1.5 'Noto Sans SC',sans-serif;color:#79736a">评分来自 homework-grader，本页只做镜像。课上完了、有报课记录、却没有提交记录 = 未交。截止日期只做参考，不卡。</p>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;flex:none">
+            <x-import component-from-global-scope="AiCourseUI.Button" variant="secondary" size="sm" onClick="{{ hw.onNudgeAll }}" hint-size="auto,32px">催未交的人</x-import>
+            <x-import component-from-global-scope="AiCourseUI.Button" variant="primary" size="sm" hint-size="auto,32px">重新同步 grades.csv</x-import>
+          </div>
+        </header>
+
+        <div style="flex:none;padding:11px 22px;background:#fbfaf8;border-bottom:1px solid #e4e0d8;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:8px;min-width:0">
+            <span style="width:6px;height:6px;border-radius:50%;background:#4c8a63;flex:none"></span>
+            <span style="font:400 12px/1.4 'JetBrains Mono',monospace;color:#3c3a35;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ hw.srcPath }}</span>
+            <x-import component-from-global-scope="AiCourseUI.Badge" variant="muted" hint-size="auto,20px">只读镜像</x-import>
+          </div>
+          <span style="font:400 12px/1.4 'JetBrains Mono',monospace;color:#79736a">{{ hw.srcMeta }}</span>
+          <span style="margin-left:auto;font:400 12px/1.5 'Noto Sans SC',sans-serif;color:#79736a;max-width:520px">分项列按课程各自定义，同步时整列原样存下——新增课程只是多一套列名，不动表结构。</span>
+        </div>
+
+        <div style="flex:none;padding:11px 22px;background:#fff;border-bottom:1px solid #e4e0d8;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+            <span style="font:500 11px/1 'JetBrains Mono',monospace;color:#a09a90;letter-spacing:.08em;padding-right:2px">课程</span>
+            <sc-for list="{{ hw.courseTabs }}" as="c" hint-placeholder-count="3">
+              <button type="button" onClick="{{ c.onClick }}" style="{{ c.style }}">{{ c.label }}<span style="{{ c.numStyle }}">{{ c.count }}</span></button>
+            </sc-for>
+          </div>
+          <div style="display:flex;align-items:center;gap:0;padding:2px;background:#f2efe9;border:1px solid #e4e0d8;border-radius:8px;margin-left:4px">
+            <sc-for list="{{ hw.stateFilters }}" as="f" hint-placeholder-count="4">
+              <button type="button" onClick="{{ f.onClick }}" style="{{ f.style }}">{{ f.label }}<span style="{{ f.numStyle }}">{{ f.count }}</span></button>
+            </sc-for>
+          </div>
+          <div style="margin-left:auto;display:flex;align-items:center;gap:7px;width:236px;flex:none">
+            <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="#a09a90" stroke-width="1.3" stroke-linecap="round" style="flex:none"><circle cx="7" cy="7" r="4.4"></circle><path d="M10.4 10.4L14 14"></path></svg>
+            <div style="flex:1;min-width:0">
+              <x-import component-from-global-scope="AiCourseUI.Input" type="text" placeholder="搜索学员或邮箱" value="{{ hw.query }}" onChange="{{ hw.onQuery }}" hint-size="100%,40px"></x-import>
+            </div>
+          </div>
+        </div>
+
+        <sc-if value="{{ hw.notOpen }}" hint-placeholder-val="{{ false }}">
+          <div style="flex:none;padding:9px 22px;background:#fdf9f0;border-bottom:1px solid #eadfc6;display:flex;align-items:center;gap:9px">
+            <span style="display:inline-flex;align-items:center;border-radius:8px;padding:2px 8px;font:500 11.5px/1.45 'Noto Sans SC',sans-serif;background:#f6ecdf;color:#8a5a10;border:1px solid #ecdcc6">作业未开放</span>
+            <span style="font:400 12.5px/1.5 'Noto Sans SC',sans-serif;color:#79736a">{{ hw.notOpenText }}</span>
+          </div>
+        </sc-if>
+
+        <div style="flex:1;min-height:0;display:flex">
+          <div style="flex:1;min-width:0;overflow:auto">
+            <table style="width:100%;border-collapse:separate;border-spacing:0;background:#fff;table-layout:fixed;min-width:760px">
+              <colgroup>
+                <col style="width:210px"><col style="width:150px"><col style="width:104px"><col><col style="width:112px">
+              </colgroup>
+              <thead>
+                <tr>
+                  <sc-for list="{{ hw.head }}" as="h" hint-placeholder-count="5">
+                    <th style="{{ h.style }}">{{ h.label }}</th>
+                  </sc-for>
+                </tr>
+              </thead>
+              <tbody>
+                <sc-for list="{{ hw.rows }}" as="r" hint-placeholder-count="8">
+                  <tr onClick="{{ r.onClick }}" style="{{ r.trStyle }}">
+                    <td style="{{ r.td }}">
+                      <div style="display:flex;align-items:center;gap:8px;min-width:0">
+                        <span style="{{ r.dotStyle }}"></span>
+                        <div style="display:flex;flex-direction:column;gap:1px;min-width:0">
+                          <span style="font:500 13.5px/1.3 'Noto Sans SC',sans-serif;color:#1a1917;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.name }}</span>
+                          <span style="font:400 11px/1.3 'JetBrains Mono',monospace;color:#a09a90;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.email }}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td style="{{ r.td }}">
+                      <div style="display:flex;flex-direction:column;gap:1px">
+                        <span style="{{ r.subStyle }}">{{ r.submitted }}</span>
+                        <span style="font:400 11px/1.3 'Noto Sans SC',sans-serif;color:#a09a90">{{ r.subNote }}</span>
+                      </div>
+                    </td>
+                    <td style="{{ r.td }}">
+                      <span style="{{ r.totalStyle }}">{{ r.total }}</span>
+                    </td>
+                    <td style="{{ r.td }}">
+                      <div style="display:flex;align-items:flex-end;gap:3px;height:24px">
+                        <sc-for list="{{ r.bars }}" as="b" hint-placeholder-count="8">
+                          <span title="{{ b.title }}" style="{{ b.style }}"></span>
+                        </sc-for>
+                      </div>
+                    </td>
+                    <td style="{{ r.td }}">
+                      <x-import component-from-global-scope="AiCourseUI.Badge" variant="{{ r.replyVariant }}" hint-size="auto,20px">{{ r.reply }}</x-import>
+                    </td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+          </div>
+
+          <aside style="width:396px;flex:none;border-left:1px solid #e4e0d8;background:#fff;overflow:auto;display:flex;flex-direction:column">
+            <div style="flex:none;padding:16px 20px 13px;border-bottom:1px solid #eeeae2;display:flex;flex-direction:column;gap:7px">
+              <div style="display:flex;align-items:baseline;gap:9px;min-width:0">
+                <span style="font:600 16px/1.3 'Noto Sans SC',sans-serif;color:#1a1917">{{ hw.d.name }}</span>
+                <span style="font:400 11.5px/1.4 'JetBrains Mono',monospace;color:#a09a90;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ hw.d.email }}</span>
+              </div>
+              <div style="font:400 12.5px/1.5 'Noto Sans SC',sans-serif;color:#79736a">{{ hw.d.courseLine }}</div>
+            </div>
+
+            <sc-if value="{{ hw.d.missing }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:16px 20px;display:flex;flex-direction:column;gap:11px">
+                <div style="border-radius:8px;border:1px solid #e8c8c2;background:#fdf6f4;padding:12px 13px;display:flex;flex-direction:column;gap:8px">
+                  <div style="display:flex;align-items:center;gap:7px">
+                    <span style="display:inline-flex;align-items:center;border-radius:8px;padding:2px 8px;font:500 11.5px/1.45 'Noto Sans SC',sans-serif;background:#b3261e;color:#fff">未交</span>
+                    <span style="font:400 12px/1.4 'Noto Sans SC',sans-serif;color:#8a4136">{{ hw.d.missText }}</span>
+                  </div>
+                  <p style="margin:0;font:400 12.5px/1.6 'Noto Sans SC',sans-serif;color:#79736a">grades.csv 里没有这个邮箱的行。判据只看报课记录和提交记录，不需要人工标记。</p>
+                  <div style="display:flex;gap:8px">
+                    <x-import component-from-global-scope="AiCourseUI.Button" variant="primary" size="sm" onClick="{{ hw.onNudgeAll }}" hint-size="auto,32px">去催作业</x-import>
+                    <x-import component-from-global-scope="AiCourseUI.Button" variant="secondary" size="sm" hint-size="auto,32px">标记为免交</x-import>
+                  </div>
+                </div>
+                <div style="font:400 12px/1.6 'Noto Sans SC',sans-serif;color:#a09a90">{{ hw.d.wechatHint }}</div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ hw.d.waiting }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:16px 20px;display:flex;flex-direction:column;gap:11px">
+                <div style="border-radius:8px;border:1px solid #eadfc6;background:#fdf9f0;padding:12px 13px;display:flex;flex-direction:column;gap:8px">
+                  <div style="display:flex;align-items:center;gap:7px">
+                    <span style="display:inline-flex;align-items:center;border-radius:8px;padding:2px 8px;font:500 11.5px/1.45 'Noto Sans SC',sans-serif;background:#f6ecdf;color:#8a5a10;border:1px solid #ecdcc6">未开放</span>
+                    <span style="font:400 12px/1.4 'Noto Sans SC',sans-serif;color:#8a5a10">还没到交作业的时候</span>
+                  </div>
+                  <p style="margin:0;font:400 12.5px/1.6 'Noto Sans SC',sans-serif;color:#79736a">{{ hw.d.waitText }}</p>
+                </div>
+                <div style="font:400 12px/1.6 'Noto Sans SC',sans-serif;color:#a09a90">截止之后仍没有提交记录，才会变成未交并进入催作业。</div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ hw.d.graded }}" hint-placeholder-val="{{ true }}">
+              <div style="padding:14px 20px 20px;display:flex;flex-direction:column;gap:16px">
+
+                <div style="display:flex;align-items:flex-end;gap:14px">
+                  <div style="display:flex;flex-direction:column;gap:2px">
+                    <span style="font:500 10.5px/1 'JetBrains Mono',monospace;letter-spacing:.09em;color:#a09a90">TOTAL</span>
+                    <div style="display:flex;align-items:baseline;gap:3px">
+                      <span style="font:600 30px/1 'JetBrains Mono',monospace;color:#1a1917">{{ hw.d.score }}</span>
+                      <span style="font:400 13px/1 'JetBrains Mono',monospace;color:#a09a90">{{ hw.d.outOf }}</span>
+                    </div>
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:3px;padding-bottom:2px">
+                    <span style="font:400 12px/1.4 'JetBrains Mono',monospace;color:#79736a">{{ hw.d.submitted }}</span>
+                    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                      <x-import component-from-global-scope="AiCourseUI.Badge" variant="{{ hw.d.lateVariant }}" hint-size="auto,20px">{{ hw.d.lateLabel }}</x-import>
+                      <sc-if value="{{ hw.d.hasHist }}" hint-placeholder-val="{{ false }}">
+                        <span style="{{ hw.d.deltaStyle }}">{{ hw.d.deltaLabel }}</span>
+                      </sc-if>
+                      <span style="font:400 11.5px/1.4 'Noto Sans SC',sans-serif;color:#a09a90">{{ hw.d.rankText }}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <sc-if value="{{ hw.d.hasHist }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;flex-direction:column;gap:8px">
+                    <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px">
+                      <div style="font:500 11px/1 'JetBrains Mono',monospace;letter-spacing:.09em;color:#a09a90">提交历史</div>
+                      <span style="font:400 11px/1.4 'Noto Sans SC',sans-serif;color:#a09a90">{{ hw.d.verLabel }}</span>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:1px;border-radius:8px;border:1px solid #e8e4dc;overflow:hidden">
+                      <sc-for list="{{ hw.d.histItems }}" as="h" hint-placeholder-count="1">
+                        <div style="{{ h.rowStyle }}">
+                          <span style="font:400 12px/1.4 'JetBrains Mono',monospace;color:#79736a;flex:none">{{ h.at }}</span>
+                          <span style="font:400 12px/1.4 'JetBrains Mono',monospace;color:#a09a90;flex:none">{{ h.total }}</span>
+                          <span style="font:400 11.5px/1.4 'Noto Sans SC',sans-serif;color:#a09a90;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right">{{ h.synced }}</span>
+                        </div>
+                      </sc-for>
+                    </div>
+                    <div style="font:400 11.5px/1.6 'Noto Sans SC',sans-serif;color:#a09a90">{{ hw.d.histNote }}</div>
+                  </div>
+                </sc-if>
+
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px">
+                    <div style="font:500 11px/1 'JetBrains Mono',monospace;letter-spacing:.09em;color:#a09a90">分项评分</div>
+                    <span style="font:400 11px/1.4 'Noto Sans SC',sans-serif;color:#a09a90">{{ hw.d.rubricNote }}</span>
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:1px;border-radius:8px;border:1px solid #e8e4dc;overflow:hidden">
+                    <sc-for list="{{ hw.d.items }}" as="it" hint-placeholder-count="10">
+                      <div style="{{ it.rowStyle }}">
+                        <span style="font:500 11px/1 'JetBrains Mono',monospace;color:#9c3417;width:26px;flex:none">{{ it.code }}</span>
+                        <span style="font:400 12.5px/1.4 'Noto Sans SC',sans-serif;color:#3c3a35;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ it.label }}</span>
+                        <span style="width:60px;flex:none;height:5px;border-radius:3px;background:#eeeae2;overflow:hidden;display:block">
+                          <span style="{{ it.fillStyle }}"></span>
+                        </span>
+                        <span style="{{ it.scoreStyle }}">{{ it.score }}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+
+                <div style="display:flex;flex-direction:column;gap:6px">
+                  <div style="font:500 11px/1 'JetBrains Mono',monospace;letter-spacing:.09em;color:#a09a90">亮点</div>
+                  <p style="margin:0;font:400 13px/1.7 'Noto Sans SC',sans-serif;color:#3c3a35;text-wrap:pretty">{{ hw.d.highlight }}</p>
+                </div>
+
+                <div style="display:flex;flex-direction:column;gap:6px">
+                  <div style="font:500 11px/1 'JetBrains Mono',monospace;letter-spacing:.09em;color:#a09a90">改进建议</div>
+                  <p style="margin:0;font:400 13px/1.7 'Noto Sans SC',sans-serif;color:#3c3a35;text-wrap:pretty">{{ hw.d.improve }}</p>
+                </div>
+
+                <div style="display:flex;flex-direction:column;gap:8px;padding-top:14px;border-top:1px solid #eeeae2">
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+                    <div style="font:500 11px/1 'JetBrains Mono',monospace;letter-spacing:.09em;color:#a09a90">回复状态</div>
+                    <span style="font:400 11px/1.4 'Noto Sans SC',sans-serif;color:#a09a90">只记在本系统</span>
+                  </div>
+                  <sc-if value="{{ hw.d.resubmit }}" hint-placeholder-val="{{ false }}">
+                    <div style="border-radius:8px;border:1px solid #eadfc6;background:#fdf9f0;padding:9px 11px;font:400 12.5px/1.6 'Noto Sans SC',sans-serif;color:#8a5a10">上一版已经回复过了，学员又交了一版，回复状态自动退回未回复。</div>
+                  </sc-if>
+                  <div style="display:flex;align-items:center;gap:0;padding:2px;background:#f2efe9;border:1px solid #e4e0d8;border-radius:8px;align-self:flex-start">
+                    <sc-for list="{{ hw.d.replyOpts }}" as="o" hint-placeholder-count="3">
+                      <button type="button" onClick="{{ o.onClick }}" style="{{ o.style }}">{{ o.label }}</button>
+                    </sc-for>
+                  </div>
+                  <div style="font:400 11.5px/1.6 'JetBrains Mono',monospace;color:#a09a90">{{ hw.d.srcLine }}</div>
+                </div>
+              </div>
+            </sc-if>
+          </aside>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isPlaceholder }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;flex:1;min-height:0">
+        <header style="flex:none;padding:16px 22px 13px;background:#fff;border-bottom:1px solid #e4e0d8;display:flex;align-items:flex-end;justify-content:space-between;gap:20px">
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <div style="display:flex;align-items:baseline;gap:10px">
+              <h1 style="margin:0;font:600 19px/1.2 'Noto Sans SC',sans-serif;letter-spacing:-.01em">{{ page.title }}</h1>
+              <span style="display:inline-flex;align-items:center;border-radius:8px;padding:2px 8px;font:500 11.5px/1.45 'Noto Sans SC',sans-serif;background:#f2efe9;color:#79736a;border:1px solid #e4e0d8">未开始设计</span>
+            </div>
+            <p style="margin:0;font:400 12.5px/1.5 'Noto Sans SC',sans-serif;color:#79736a">{{ page.desc }}</p>
+          </div>
+        </header>
+        <div style="flex:1;overflow:auto;padding:22px;display:flex;flex-direction:column;gap:14px;background:#f6f4f0">
+          <div style="border-radius:8px;border:1px solid #e4e0d8;background:#fff;padding:16px;max-width:640px">
+            <div style="margin-bottom:12px;display:flex;flex-direction:column;gap:4px">
+              <h3 style="margin:0;font:600 14px/1.4 'Noto Sans SC',sans-serif">{{ page.cardTitle }}</h3>
+              <p style="margin:0;font:400 13px/1.6 'Noto Sans SC',sans-serif;color:#79736a">{{ page.cardDesc }}</p>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px">
+              <sc-for list="{{ page.bullets }}" as="b" hint-placeholder-count="3">
+                <div style="display:flex;gap:9px;align-items:flex-start">
+                  <span style="width:5px;height:5px;border-radius:50%;background:#c9c3b6;margin-top:7px;flex:none"></span>
+                  <span style="font:400 12.5px/1.6 'Noto Sans SC',sans-serif;color:#3c3a35">{{ b.text }}</span>
+                </div>
+              </sc-for>
+            </div>
+            <button type="button" onClick="{{ onBackToStudents }}" style="display:inline-flex;align-items:center;justify-content:center;height:32px;padding:0 12px;border-radius:8px;border:1px solid #e4e0d8;background:#f2efe9;color:#1a1917;font:500 13px/1 'Noto Sans SC',sans-serif;cursor:pointer">返回学员名单</button>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;max-width:640px">
+            <div style="border-radius:8px;border:1px dashed #ddd8cd;background:#faf8f5;height:96px"></div>
+            <div style="border-radius:8px;border:1px dashed #ddd8cd;background:#faf8f5;height:96px"></div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+  </main>
+
+  <sc-if value="{{ showCourse }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;inset:0;z-index:62;background:rgba(26,25,23,.40);display:flex;align-items:flex-start;justify-content:center;padding:48px 24px 24px">
+      <div style="width:620px;max-width:100%;max-height:calc(100vh - 72px);background:#fff;border:1px solid #e4e0d8;border-radius:8px;box-shadow:0 18px 48px rgba(26,25,23,.22);display:flex;flex-direction:column;overflow:hidden">
+        <div style="flex:none;padding:15px 18px 13px;border-bottom:1px solid #e4e0d8;display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+          <div style="display:flex;flex-direction:column;gap:3px">
+            <h3 style="margin:0;font:600 15px/1.3 'Noto Sans SC',sans-serif">{{ cform.title }}</h3>
+            <p style="margin:0;font:400 12.5px/1.5 'Noto Sans SC',sans-serif;color:#79736a">{{ cform.desc }}</p>
+          </div>
+          <button type="button" onClick="{{ cform.onClose }}" style="flex:none;width:26px;height:26px;border-radius:8px;border:1px solid #e4e0d8;background:#f2efe9;color:#79736a;font:400 14px/1 'Noto Sans SC',sans-serif;cursor:pointer">×</button>
+        </div>
+
+        <div style="flex:1;min-height:0;overflow-y:auto;padding:16px 18px;display:flex;flex-direction:column;gap:15px">
+          <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px">
+            <label style="display:flex;flex-direction:column;gap:5px">
+              <span style="font:500 11.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">课程名 <span style="color:#b3261e">*</span></span>
+              <x-import component-from-global-scope="AiCourseUI.Input" type="text" placeholder="如 Claude 实战入门" value="{{ cform.name }}" onChange="{{ cform.onName }}" hint-size="100%,40px"></x-import>
+            </label>
+            <label style="display:flex;flex-direction:column;gap:5px">
+              <span style="font:500 11.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">简称</span>
+              <x-import component-from-global-scope="AiCourseUI.Input" type="text" placeholder="入门" value="{{ cform.short }}" onChange="{{ cform.onShort }}" hint-size="100%,40px"></x-import>
+            </label>
+          </div>
+
+          <label style="display:flex;flex-direction:column;gap:5px">
+            <span style="font:500 11.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">一句话定位 <span style="font-weight:400;color:#a09a90">列表和卡片上显示</span></span>
+            <textarea rows="2" placeholder="讲给谁、一次课解决什么问题" value="{{ cform.descText }}" onChange="{{ cform.onDesc }}" class="rounded-token border border-border bg-surface text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40" style="width:100%;padding:9px 12px;font:400 13px/1.6 'Noto Sans SC',sans-serif;resize:vertical"></textarea>
+          </label>
+
+          <label style="display:flex;flex-direction:column;gap:5px">
+            <span style="font:500 11.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">课程介绍 <span style="font-weight:400;color:#a09a90">招生和答疑时用的完整说明</span></span>
+            <textarea rows="6" placeholder="这门课怎么上、上完能做到什么、对学员有什么要求…" value="{{ cform.introText }}" onChange="{{ cform.onIntro }}" class="rounded-token border border-border bg-surface text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40" style="width:100%;padding:9px 12px;font:400 13px/1.7 'Noto Sans SC',sans-serif;resize:vertical"></textarea>
+          </label>
+
+          <div style="display:flex;flex-direction:column;gap:11px;padding:13px;border-radius:8px;border:1px solid #e4e0d8;background:#fbfaf8">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+              <span style="font:500 11px/1 'JetBrains Mono',monospace;letter-spacing:.09em;color:#a09a90">默认上课设置</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <span style="font:500 11.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">每场时长 <span style="font-weight:400;color:#a09a90">上课时间统一按美西记</span></span>
+              <div style="display:flex;flex-wrap:wrap;gap:6px">
+                <sc-for list="{{ cform.hours }}" as="h" hint-placeholder-count="4">
+                  <button type="button" onClick="{{ h.onClick }}" style="{{ h.style }}">{{ h.label }}</button>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+
+          <label style="display:flex;flex-direction:column;gap:5px">
+            <span style="font:500 11.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">作业题目 <span style="font-weight:400;color:#a09a90">一次 · 截止日期按场次定</span></span>
+            <x-import component-from-global-scope="AiCourseUI.Input" type="text" placeholder="用 Claude 完成一件自己的真实工作" value="{{ cform.hwTitle }}" onChange="{{ cform.onHwTitle }}" hint-size="100%,40px"></x-import>
+          </label>
+
+          <div style="display:flex;flex-direction:column;gap:7px">
+            <span style="font:500 11.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">平台别名 <span style="font-weight:400;color:#a09a90">导入时按这些写法匹配</span></span>
+            <div style="display:flex;flex-wrap:wrap;gap:6px">
+              <sc-for list="{{ cform.aliases }}" as="a" hint-placeholder-count="2">
+                <span style="{{ a.style }}">{{ a.label }}<button type="button" onClick="{{ a.onRemove }}" style="width:16px;height:16px;border:0;border-radius:5px;background:#e4e0d8;color:#79736a;font:400 11px/1 'Noto Sans SC',sans-serif;cursor:pointer">×</button></span>
+              </sc-for>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <div style="flex:1;min-width:0">
+                <x-import component-from-global-scope="AiCourseUI.Input" type="text" placeholder="平台里的另一种写法" value="{{ cform.aliasDraft }}" onChange="{{ cform.onAliasDraft }}" hint-size="100%,40px"></x-import>
+              </div>
+              <x-import component-from-global-scope="AiCourseUI.Button" variant="secondary" size="sm" onClick="{{ cform.onAddAlias }}" hint-size="auto,32px">添加别名</x-import>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:7px">
+            <span style="font:500 11.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">上架状态</span>
+            <div style="display:flex;flex-wrap:wrap;gap:6px">
+              <sc-for list="{{ cform.offlineChips }}" as="o" hint-placeholder-count="2">
+                <button type="button" onClick="{{ o.onClick }}" style="{{ o.style }}">{{ o.label }}</button>
+              </sc-for>
+            </div>
+            <span style="font:400 11.5px/1.5 'Noto Sans SC',sans-serif;color:#a09a90">待开课 / 已上课 由上课日期自动判断，这里只管上下架。</span>
+          </div>
+        </div>
+
+        <div style="flex:none;padding:12px 18px;border-top:1px solid #e4e0d8;background:#fbfaf8;display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <span style="font:400 12px/1.5 'Noto Sans SC',sans-serif;color:#a09a90">已有报课不会因为改课程信息而变动</span>
+          <div style="display:flex;align-items:center;gap:8px">
+            <x-import component-from-global-scope="AiCourseUI.Button" variant="secondary" size="sm" onClick="{{ cform.onClose }}" hint-size="auto,32px">取消</x-import>
+            <x-import component-from-global-scope="AiCourseUI.Button" variant="primary" size="sm" onClick="{{ cform.onSave }}" disabled="{{ cform.saveDisabled }}" hint-size="auto,32px">{{ cform.saveLabel }}</x-import>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ en.showIntake }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;inset:0;z-index:60;background:rgba(26,25,23,.40);display:flex;align-items:flex-start;justify-content:center;padding:48px 24px 24px">
+      <div style="width:720px;max-width:100%;max-height:calc(100vh - 72px);background:#fff;border:1px solid #e4e0d8;border-radius:8px;box-shadow:0 18px 48px rgba(26,25,23,.22);display:flex;flex-direction:column;overflow:hidden">
+        <div style="flex:none;padding:15px 18px 13px;border-bottom:1px solid #e4e0d8;display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+          <div style="display:flex;flex-direction:column;gap:3px">
+            <h3 style="margin:0;font:600 15px/1.3 'Noto Sans SC',sans-serif">导入报课数据</h3>
+            <p style="margin:0;font:400 12.5px/1.5 'Noto Sans SC',sans-serif;color:#79736a">任何通道都先转成下面这份中间格式再入库，换导出方式不用改后面的逻辑。</p>
+          </div>
+          <button type="button" onClick="{{ en.onCloseIntake }}" style="flex:none;width:26px;height:26px;border-radius:8px;border:1px solid #e4e0d8;background:#f2efe9;color:#79736a;font:400 14px/1 'Noto Sans SC',sans-serif;cursor:pointer">×</button>
+        </div>
+
+        <div style="flex:none;padding:12px 18px 0;display:flex;gap:8px">
+          <sc-for list="{{ en.intakeTabs }}" as="t" hint-placeholder-count="3">
+            <button type="button" onClick="{{ t.onClick }}" style="{{ t.style }}">
+              <span style="display:flex;flex-direction:column;gap:3px;align-items:flex-start">
+                <span style="font:500 13px/1 'Noto Sans SC',sans-serif">{{ t.label }}</span>
+                <span style="{{ t.stateStyle }}">{{ t.state }}</span>
+              </span>
+            </button>
+          </sc-for>
+        </div>
+
+        <div style="flex:1;min-height:0;overflow-y:auto;padding:14px 18px 16px;display:flex;flex-direction:column;gap:14px">
+          <x-import component-from-global-scope="AiCourseUI.Card" class-name="bg-surface-muted" hint-size="100%,150px">
+            <x-import component-from-global-scope="AiCourseUI.CardHeader" hint-size="100%,50px">
+              <x-import component-from-global-scope="AiCourseUI.CardTitle" hint-size="100%,20px">{{ en.intake.title }}</x-import>
+              <x-import component-from-global-scope="AiCourseUI.CardDescription" hint-size="100%,34px">{{ en.intake.desc }}</x-import>
+            </x-import>
+            <sc-if value="{{ en.intake.blocked }}" hint-placeholder-val="{{ false }}">
+              <div style="border-radius:8px;border:1px solid #ecdcc6;background:#f6ecdf;padding:10px 12px;font:400 12.5px/1.6 'Noto Sans SC',sans-serif;color:#8a5a10">{{ en.intake.blockedText }}</div>
+            </sc-if>
+            <sc-if value="{{ en.intake.showDrop }}" hint-placeholder-val="{{ true }}">
+              <div style="border-radius:8px;border:1px dashed #d8d3c8;background:#fff;padding:22px;display:flex;flex-direction:column;align-items:center;gap:7px">
+                <span style="font:500 13px/1 'Noto Sans SC',sans-serif;color:#3c3a35">{{ en.intake.dropTitle }}</span>
+                <span style="font:400 12px/1.5 'Noto Sans SC',sans-serif;color:#a09a90">{{ en.intake.dropHint }}</span>
+              </div>
+            </sc-if>
+            <sc-if value="{{ en.intake.showPaste }}" hint-placeholder-val="{{ false }}">
+              <textarea rows="5" placeholder="从平台后台整块复制表格，直接粘贴到这里（Tab 分隔）" class="rounded-token border border-border bg-surface text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40" style="width:100%;padding:9px 12px;font:400 12.5px/1.6 'JetBrains Mono',monospace;resize:vertical"></textarea>
+            </sc-if>
+          </x-import>
+
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+              <div style="font:500 11px/1 'JetBrains Mono',monospace;letter-spacing:.09em;color:#a09a90">中间格式 · 字段契约</div>
+              <span style="font:400 11.5px/1.4 'Noto Sans SC',sans-serif;color:#a09a90">三种通道产出同一份结构</span>
+            </div>
+            <div style="border-radius:8px;border:1px solid #e4e0d8;overflow:hidden">
+              <sc-for list="{{ en.schema }}" as="f" hint-placeholder-count="7">
+                <div style="{{ f.style }}">
+                  <span style="font:500 12px/1.5 'JetBrains Mono',monospace;color:#3f4b63;flex:none;width:120px">{{ f.key }}</span>
+                  <span style="font:400 12px/1.5 'Noto Sans SC',sans-serif;color:#1a1917;flex:none;width:96px">{{ f.label }}</span>
+                  <span style="font:400 12px/1.5 'Noto Sans SC',sans-serif;color:#79736a;flex:1;min-width:0">{{ f.rule }}</span>
+                  <span style="flex:none;white-space:nowrap">
+                    <x-import component-from-global-scope="AiCourseUI.Badge" variant="{{ f.reqVariant }}" hint-size="auto,20px">{{ f.req }}</x-import>
+                  </span>
+                </div>
+              </sc-for>
+            </div>
+            <p style="margin:0;font:400 12px/1.6 'Noto Sans SC',sans-serif;color:#a09a90">邮箱按学员库匹配；匹配不到的记录进入待处理队列，不会自动建学员。同一 (邮箱 + 课程 + 期次) 视为同一条报课，重复导入只更新状态。</p>
+          </div>
+        </div>
+
+        <div style="flex:none;padding:12px 18px;border-top:1px solid #e4e0d8;background:#fbfaf8;display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <span style="font:400 12px/1.5 'Noto Sans SC',sans-serif;color:#a09a90">手工补录的记录不会被平台导入覆盖</span>
+          <div style="display:flex;align-items:center;gap:8px">
+            <x-import component-from-global-scope="AiCourseUI.Button" variant="secondary" size="sm" onClick="{{ en.onCloseIntake }}" hint-size="auto,32px">取消</x-import>
+            <x-import component-from-global-scope="AiCourseUI.Button" variant="primary" size="sm" disabled="{{ en.intake.goDisabled }}" hint-size="auto,32px">{{ en.intake.goLabel }}</x-import>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ en.showManual }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;inset:0;z-index:61;background:rgba(26,25,23,.40);display:flex;align-items:flex-start;justify-content:center;padding:56px 24px 24px">
+      <div style="width:560px;max-width:100%;max-height:calc(100vh - 80px);background:#fff;border:1px solid #e4e0d8;border-radius:8px;box-shadow:0 18px 48px rgba(26,25,23,.22);display:flex;flex-direction:column;overflow:hidden">
+        <div style="flex:none;padding:15px 18px 13px;border-bottom:1px solid #e4e0d8;display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+          <div style="display:flex;flex-direction:column;gap:3px">
+            <h3 style="margin:0;font:600 15px/1.3 'Noto Sans SC',sans-serif">{{ en.mTitle }}</h3>
+            <p style="margin:0;font:400 12.5px/1.5 'Noto Sans SC',sans-serif;color:#79736a">{{ en.mDesc }}</p>
+          </div>
+          <button type="button" onClick="{{ en.onCloseManual }}" style="flex:none;width:26px;height:26px;border-radius:8px;border:1px solid #e4e0d8;background:#f2efe9;color:#79736a;font:400 14px/1 'Noto Sans SC',sans-serif;cursor:pointer">×</button>
+        </div>
+        <div style="flex:1;min-height:0;overflow-y:auto;padding:16px 18px;display:flex;flex-direction:column;gap:15px">
+          <sc-if value="{{ en.isEdit }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;gap:6px;padding:11px 12px;border-radius:8px;border:1px solid #e4e0d8;background:#f2efe9">
+              <div style="display:flex;align-items:center;gap:7px">
+                <span style="font:500 11px/1 'JetBrains Mono',monospace;letter-spacing:.09em;color:#a09a90">身份键</span>
+                <x-import component-from-global-scope="AiCourseUI.Badge" variant="muted" hint-size="auto,20px">不可改</x-import>
+              </div>
+              <span style="font:400 12.5px/1.6 'JetBrains Mono',monospace;color:#3c3a35;word-break:break-all">{{ en.mf.identity }}</span>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ en.isCreate }}" hint-placeholder-val="{{ true }}">
+          <label style="display:flex;flex-direction:column;gap:5px">
+            <span style="font:500 11.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">学员邮箱 <span style="color:#b3261e">*</span> <span style="font-weight:400;color:#a09a90">须已在学员库</span></span>
+            <div style="{{ en.mf.emailWrapStyle }}">
+              <x-import component-from-global-scope="AiCourseUI.Input" type="text" placeholder="name@example.com" value="{{ en.mf.email }}" onChange="{{ en.mf.onEmail }}" hint-size="100%,40px"></x-import>
+            </div>
+            <span style="{{ en.mf.hintStyle }}">{{ en.mf.hint }}</span>
+          </label>
+          <div style="display:flex;flex-direction:column;gap:7px">
+            <span style="font:500 11.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">课程 <span style="color:#b3261e">*</span></span>
+            <div style="display:flex;flex-wrap:wrap;gap:6px">
+              <sc-for list="{{ en.mf.courses }}" as="c" hint-placeholder-count="3">
+                <button type="button" onClick="{{ c.onClick }}" style="{{ c.style }}">{{ c.label }}</button>
+              </sc-for>
+            </div>
+          </div>
+          </sc-if>
+
+          <div style="display:flex;flex-direction:column;gap:7px">
+            <span style="font:500 11.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">上哪一场</span>
+            <div style="display:flex;flex-wrap:wrap;gap:6px">
+              <sc-for list="{{ en.mf.sessions }}" as="ss" hint-placeholder-count="2">
+                <button type="button" onClick="{{ ss.onClick }}" style="{{ ss.style }}">{{ ss.label }}</button>
+              </sc-for>
+            </div>
+            <sc-if value="{{ en.mf.showSessionHint }}" hint-placeholder-val="{{ false }}">
+              <span style="font:400 11.5px/1.5 'Noto Sans SC',sans-serif;color:#a09a90">{{ en.mf.sessionHint }}</span>
+            </sc-if>
+          </div>
+
+          <div style="{{ en.dateRowStyle }}">
+            <label style="display:flex;flex-direction:column;gap:5px">
+              <span style="font:500 11.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">报课日期</span>
+              <x-import component-from-global-scope="AiCourseUI.Input" type="date" value="{{ en.mf.date }}" onChange="{{ en.mf.onDate }}" hint-size="100%,40px"></x-import>
+            </label>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:7px">
+            <span style="font:500 11.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">状态</span>
+            <div style="display:flex;flex-wrap:wrap;gap:6px">
+              <sc-for list="{{ en.mf.statuses }}" as="s2" hint-placeholder-count="3">
+                <button type="button" onClick="{{ s2.onClick }}" style="{{ s2.style }}">{{ s2.label }}</button>
+              </sc-for>
+            </div>
+            <sc-if value="{{ en.mf.showStatusHint }}" hint-placeholder-val="{{ false }}">
+              <span style="font:400 11.5px/1.5 'Noto Sans SC',sans-serif;color:#a09a90">{{ en.mf.statusHint }}</span>
+            </sc-if>
+          </div>
+          <label style="display:flex;flex-direction:column;gap:5px">
+            <span style="font:500 11.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">补录原因 / 备注</span>
+            <textarea rows="3" placeholder="如：平台漏记、线下转账、跨期补报…" value="{{ en.mf.note }}" onChange="{{ en.mf.onNote }}" class="rounded-token border border-border bg-surface text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40" style="width:100%;padding:9px 12px;font:400 13px/1.6 'Noto Sans SC',sans-serif;resize:vertical"></textarea>
+          </label>
+        </div>
+        <div style="flex:none;padding:12px 18px;border-top:1px solid #e4e0d8;background:#fbfaf8;display:flex;align-items:center;justify-content:space-between;gap:8px">
+          <div>
+            <sc-if value="{{ en.isEdit }}" hint-placeholder-val="{{ false }}">
+              <x-import component-from-global-scope="AiCourseUI.Button" variant="ghost" size="sm" onClick="{{ en.mf.onDelete }}" hint-size="auto,32px">删除这条报课</x-import>
+            </sc-if>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <x-import component-from-global-scope="AiCourseUI.Button" variant="secondary" size="sm" onClick="{{ en.onCloseManual }}" hint-size="auto,32px">取消</x-import>
+            <x-import component-from-global-scope="AiCourseUI.Button" variant="primary" size="sm" onClick="{{ en.mf.onSave }}" disabled="{{ en.mf.saveDisabled }}" hint-size="auto,32px">{{ en.mSaveLabel }}</x-import>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ showNew }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;inset:0;z-index:60;background:rgba(26,25,23,.40);display:flex;align-items:flex-start;justify-content:center;padding:56px 24px 24px">
+      <div style="width:640px;max-width:100%;max-height:calc(100vh - 80px);background:#fff;border:1px solid #e4e0d8;border-radius:8px;box-shadow:0 18px 48px rgba(26,25,23,.22);display:flex;flex-direction:column;overflow:hidden">
+
+        <div style="flex:none;padding:15px 18px 13px;border-bottom:1px solid #e4e0d8;display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+          <div style="display:flex;flex-direction:column;gap:3px">
+            <h3 style="margin:0;font:600 15px/1.3 'Noto Sans SC',sans-serif">新增学员</h3>
+            <p style="margin:0;font:400 12.5px/1.5 'Noto Sans SC',sans-serif;color:#79736a">邮箱是唯一标识，保存后不可修改。其余字段都能之后再补。</p>
+          </div>
+          <button type="button" onClick="{{ onCloseNew }}" style="flex:none;width:26px;height:26px;border-radius:8px;border:1px solid #e4e0d8;background:#f2efe9;color:#79736a;font:400 14px/1 'Noto Sans SC',sans-serif;cursor:pointer">×</button>
+        </div>
+
+        <div style="flex:1;min-height:0;overflow-y:auto;padding:16px 18px;display:flex;flex-direction:column;gap:15px">
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <label style="display:flex;flex-direction:column;gap:5px">
+              <span style="font:500 11.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">姓名 <span style="color:#b3261e">*</span></span>
+              <input type="text" placeholder="如 陈嘉禾" value="{{ form.name }}" onChange="{{ form.onName }}" style="height:36px;width:100%;border-radius:8px;border:1px solid #e4e0d8;background:#fff;padding:0 12px;font:400 13px/1 'Noto Sans SC',sans-serif;color:#1a1917;outline:none">
+            </label>
+            <label style="display:flex;flex-direction:column;gap:5px">
+              <span style="font:500 11.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">邮箱 <span style="color:#b3261e">*</span> <span style="font-weight:400;color:#a09a90">唯一标识</span></span>
+              <input type="text" placeholder="name@example.com" value="{{ form.email }}" onChange="{{ form.onEmail }}" style="{{ form.emailStyle }}">
+            </label>
+          </div>
+
+          <sc-if value="{{ form.dup }}" hint-placeholder-val="{{ false }}">
+            <div style="border-radius:8px;border:1px solid #f0cfc9;background:#fbf0ee;padding:11px 12px;display:flex;align-items:center;justify-content:space-between;gap:10px">
+              <span style="font:400 12.5px/1.5 'Noto Sans SC',sans-serif;color:#8a4136">该邮箱已存在：{{ form.dupName }}。请直接编辑已有学员，不要重复创建。</span>
+              <button type="button" onClick="{{ form.onOpenDup }}" style="flex:none;display:inline-flex;align-items:center;height:28px;padding:0 10px;border-radius:8px;border:0;background:#b3261e;color:#fff;font:500 12.5px/1 'Noto Sans SC',sans-serif;cursor:pointer">打开该学员</button>
+            </div>
+          </sc-if>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+            <label style="display:flex;flex-direction:column;gap:5px">
+              <span style="font:500 11.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">微信号</span>
+              <input type="text" placeholder="可留空" value="{{ form.wechat }}" onChange="{{ form.onWechat }}" style="height:36px;width:100%;border-radius:8px;border:1px solid #e4e0d8;background:#fff;padding:0 12px;font:400 13px/1 'JetBrains Mono',monospace;color:#1a1917;outline:none">
+            </label>
+            <label style="display:flex;flex-direction:column;gap:5px">
+              <span style="font:500 11.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">微信名</span>
+              <input type="text" placeholder="用于比对" value="{{ form.wxName }}" onChange="{{ form.onWxName }}" style="height:36px;width:100%;border-radius:8px;border:1px solid #e4e0d8;background:#fff;padding:0 12px;font:400 13px/1 'Noto Sans SC',sans-serif;color:#1a1917;outline:none">
+            </label>
+            <label style="display:flex;flex-direction:column;gap:5px">
+              <span style="font:500 11.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">微信昵称</span>
+              <input type="text" placeholder="群里显示" value="{{ form.nick }}" onChange="{{ form.onNick }}" style="height:36px;width:100%;border-radius:8px;border:1px solid #e4e0d8;background:#fff;padding:0 12px;font:400 13px/1 'Noto Sans SC',sans-serif;color:#1a1917;outline:none">
+            </label>
+          </div>
+
+          <sc-if value="{{ form.noWechat }}" hint-placeholder-val="{{ true }}">
+            <div style="border-radius:8px;border:1px dashed #ddd8cd;background:#faf8f5;padding:10px 12px;display:flex;align-items:center;gap:8px">
+              <span style="display:inline-flex;align-items:center;border-radius:8px;padding:2px 8px;font:500 11.5px/1.45 'Noto Sans SC',sans-serif;background:#f2efe9;color:#79736a;border:1px solid #e4e0d8;flex:none">未对齐微信</span>
+              <span style="font:400 12.5px/1.5 'Noto Sans SC',sans-serif;color:#79736a">留空可以保存，该学员会在名单里标红，只能走邮件催作业。</span>
+            </div>
+          </sc-if>
+
+          <div style="display:flex;flex-direction:column;gap:7px">
+            <span style="font:500 11.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">区域 · 时区</span>
+            <div style="display:flex;flex-wrap:wrap;gap:6px">
+              <sc-for list="{{ form.regions }}" as="r" hint-placeholder-count="8">
+                <button type="button" onClick="{{ r.onClick }}" style="{{ r.style }}">{{ r.label }}</button>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+            <div style="display:flex;flex-direction:column;gap:7px">
+              <span style="font:500 11.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">基础</span>
+              <div style="display:flex;flex-wrap:wrap;gap:6px">
+                <sc-for list="{{ form.levels }}" as="l" hint-placeholder-count="5">
+                  <button type="button" onClick="{{ l.onClick }}" style="{{ l.style }}">{{ l.label }}</button>
+                </sc-for>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:7px">
+              <span style="font:500 11.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">来源 <span style="font-weight:400;color:#a09a90">合作伙伴</span></span>
+              <div style="display:flex;flex-wrap:wrap;gap:6px">
+                <sc-for list="{{ form.sources }}" as="src" hint-placeholder-count="6">
+                  <button type="button" onClick="{{ src.onClick }}" style="{{ src.style }}">{{ src.label }}</button>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:7px">
+            <span style="font:500 11.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">标签</span>
+            <div style="display:flex;flex-wrap:wrap;gap:6px">
+              <sc-for list="{{ form.tags }}" as="t" hint-placeholder-count="6">
+                <button type="button" onClick="{{ t.onClick }}" style="{{ t.style }}">{{ t.label }}</button>
+              </sc-for>
+            </div>
+          </div>
+
+          <label style="display:flex;flex-direction:column;gap:5px">
+            <span style="font:500 11.5px/1 'Noto Sans SC',sans-serif;color:#3c3a35">备注</span>
+            <textarea rows="3" placeholder="报课渠道细节、时区限制、跟进要点…" value="{{ form.note }}" onChange="{{ form.onNote }}" style="width:100%;border-radius:8px;border:1px solid #e4e0d8;background:#fff;padding:9px 12px;font:400 13px/1.6 'Noto Sans SC',sans-serif;color:#1a1917;outline:none;resize:vertical"></textarea>
+          </label>
+        </div>
+
+        <div style="flex:none;padding:12px 18px;border-top:1px solid #e4e0d8;background:#fbfaf8;display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <span style="font:400 12px/1.5 'Noto Sans SC',sans-serif;color:#a09a90">批量导入请用 <a href="#" onClick="{{ onCloseNew }}">CSV 导入</a></span>
+          <div style="display:flex;align-items:center;gap:8px">
+            <button type="button" onClick="{{ onCloseNew }}" style="display:inline-flex;align-items:center;justify-content:center;height:32px;padding:0 12px;border-radius:8px;border:1px solid #e4e0d8;background:#f2efe9;color:#1a1917;font:500 13px/1 'Noto Sans SC',sans-serif;cursor:pointer">取消</button>
+            <button type="button" onClick="{{ form.onSaveNext }}" style="{{ form.saveNextStyle }}">保存并继续新增</button>
+            <button type="button" onClick="{{ form.onSave }}" style="{{ form.saveStyle }}">保存</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;emptyDatabase&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;演示状态&quot;},&quot;unalignedFirst&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;列表行为&quot;},&quot;unalignedTreatment&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;badge&quot;,&quot;badge+tint&quot;],&quot;default&quot;:&quot;badge+tint&quot;,&quot;tsType&quot;:&quot;\&quot;badge\&quot; | \&quot;badge+tint\&quot;&quot;,&quot;section&quot;:&quot;列表行为&quot;},&quot;density&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;compact&quot;,&quot;roomy&quot;],&quot;default&quot;:&quot;compact&quot;,&quot;tsType&quot;:&quot;\&quot;compact\&quot; | \&quot;roomy\&quot;&quot;,&quot;section&quot;:&quot;列表行为&quot;}}">
+const TAGS = ["新报名", "活跃", "小组长", "作业优秀", "时区冲突"];
+const TAGC = {
+  "新报名": ["#f3f0ea", "#79736a", "#e4e0d8"],
+  "活跃": ["#e9f2ec", "#2f6b4f", "#d6e6dc"],
+  "小组长": ["#eceff5", "#3f4b63", "#dde2ec"],
+  "作业优秀": ["#f6ecdf", "#8a5a10", "#ecdcc6"],
+  "时区冲突": ["#fbf0ee", "#a33a2b", "#f0cfc9"]
+};
+
+const DATA = [
+  { name: "陈嘉禾", email: "chen.jiahe@example.com", gender: "女", age: "30-35", industry: "互联网 · 运营", wechat: "wx_chenjh", nick: "嘉禾 🌱", wxName: "Jiahe Chen", source: "讲武堂", region: "美西", tz: "UTC-8", level: "有基础", tags: ["活跃"], note: "第 2 期老学员，主动帮同学答疑。" },
+  { name: "林敏", email: "lin.min@example.com", gender: "女", age: "25-30", industry: "留学 · 在读", wechat: "", nick: "敏敏", wxName: "Min Lin", source: "理财群", region: "美西", tz: "UTC-8", level: "小白", tags: ["新报名"], note: "报课表里手机号填的是美国号，微信待人工确认。" },
+  { name: "赵子谦", email: "zhao.ziqian@example.com", gender: "男", age: "30-35", industry: "互联网 · 后端", wechat: "zzq_dev", nick: "子谦", wxName: "谦", source: "股票群", region: "美东", tz: "UTC-5", level: "工程师", tags: ["小组长", "活跃"], note: "后端 6 年，作业提交很快，可考虑当助教。" },
+  { name: "吴静", email: "wu.jing@example.com", gender: "女", age: "35-40", industry: "金融 · 数据", wechat: "wujing_2024", nick: "静静", wxName: "Jing", source: "讲武堂", region: "美东", tz: "UTC-5", level: "有基础", tags: ["作业优秀"], note: "" },
+  { name: "何伟", email: "he.wei@example.com", gender: "男", age: "40-45", industry: "制造 · 管理", wechat: "", nick: "阿伟", wxName: "伟", source: "加拿大", region: "其他地区", tz: "—", level: "会电脑", tags: ["时区冲突"], note: "两次作业未交，群里也没找到人，先补微信。" },
+  { name: "苏晚", email: "su.wan@example.com", gender: "女", age: "28-32", industry: "互联网 · 产品", wechat: "suwan_ing", nick: "晚安", wxName: "晚晚", source: "理财群", region: "美西", tz: "UTC-8", level: "会电脑", tags: ["活跃"], note: "产品经理，问题都问在点子上。" },
+  { name: "郑凯", email: "zheng.kai@example.com", gender: "男", age: "30-35", industry: "云服务 · 平台", wechat: "zk_88", nick: "K", wxName: "Kai Z", source: "Andrew纽约", region: "美东", tz: "UTC-5", level: "工程师", tags: [], note: "" },
+  { name: "黄丽", email: "huang.li@example.com", gender: "女", age: "25-30", industry: "跨境电商 · 运营", wechat: "", nick: "Lily", wxName: "Lily H", source: "其他", region: "其他地区", tz: "—", level: "小白", tags: ["新报名", "时区冲突"], note: "只能参加晚场直播，需要单独发回放。" },
+  { name: "孙博", email: "sun.bo@example.com", gender: "男", age: "32-38", industry: "医疗 · 研发", wechat: "sunbo_ai", nick: "博", wxName: "sunbo", source: "股票群", region: "加拿大", tz: "UTC-5", level: "有基础", tags: ["小组长", "作业优秀"], note: "作业质量稳定，可作为案例展示（已口头同意）。" },
+  { name: "马若", email: "ma.ruo@example.com", gender: "女", age: "26-30", industry: "品牌设计 · 自由职业", wechat: "maruo0", nick: "若", wxName: "若若", source: "加拿大", region: "美东", tz: "UTC-5", level: "会电脑", tags: ["新报名"], note: "设计背景，代码部分需要多带一下。" }
+];
+
+const NAV = [
+  { key: "students", label: "学员", icon: "M6 7.2a2.4 2.4 0 100-4.8 2.4 2.4 0 000 4.8zM1.8 13.6c0-2.3 1.9-3.6 4.2-3.6s4.2 1.3 4.2 3.6M11 3.2a2 2 0 010 4M12.4 10.4c1.2.4 1.9 1.4 1.9 3.2", count: "10" },
+  { key: "courses", label: "课程", icon: "M2.6 3.4h4.2c.7 0 1.2.5 1.2 1.2v8.4c0-.7-.5-1.2-1.2-1.2H2.6zM13.4 3.4H9.2c-.7 0-1.2.5-1.2 1.2v8.4c0-.7.5-1.2 1.2-1.2h4.2z", count: "3" },
+  { key: "enroll", label: "报课", icon: "M5.5 2.6h5v1.8h-5zM4 3.4H3.2v10.2h9.6V3.4H12M8 7.4v4M6 9.4h4", count: "3" },
+  { key: "homework", label: "作业", icon: "M4 2h5l3 3v9H4zM9 2v3h3M6 9h4M6 11.5h4", count: "—" },
+  { key: "nudge", label: "催作业", icon: "M8 2.4a3.4 3.4 0 00-3.4 3.4c0 3-1.2 4.2-1.2 4.2h9.2s-1.2-1.2-1.2-4.2A3.4 3.4 0 008 2.4zM6.6 12.4a1.6 1.6 0 002.8 0", count: "3" },
+  { key: "interactions", label: "互动记录", icon: "M13.4 9.2c0 .9-.7 1.6-1.6 1.6H6.2L3 13.4v-2.6h-.4c-.9 0-1.6-.7-1.6-1.6V4.2c0-.9.7-1.6 1.6-1.6h9.2c.9 0 1.6.7 1.6 1.6z", count: "—" }
+];
+
+const PAGES = {
+  enroll: { title: "报课", desc: "把报课表里的报名记录对齐到学员库，邮箱重复即视为同一人。", cardTitle: "这一页还没设计", cardDesc: "先把学员名单做完，报课页会复用同一套表格 + 筛选骨架。", bullets: ["导入一批报课记录，按邮箱匹配已有学员", "未匹配的记录进入待处理队列", "报课记录挂在学员详情的「报课」区块下"] },
+  homework: { title: "作业", desc: "按期次和作业轮次查看提交情况。", cardTitle: "这一页还没设计", cardDesc: "预计是「作业轮次 × 学员」的矩阵视图，未提交格子高亮。", bullets: ["按轮次切换，默认看最近一次", "未提交可直接勾选生成催作业名单", "点格子进入单份作业的批改视图"] },
+  nudge: { title: "催作业", desc: "对未提交作业的学员按微信逐个跟进。", cardTitle: "这一页还没设计", cardDesc: "依赖学员的微信号字段，未对齐微信的学员会被单独列出。", bullets: ["从作业页生成待催名单", "未对齐微信的学员无法进入催办流程", "催办后写一条互动记录，避免重复打扰"] },
+  interactions: { title: "互动记录", desc: "每位学员的沟通与跟进历史，时间倒序。", cardTitle: "这一页还没设计", cardDesc: "一条流水式时间线，来源包括催作业、答疑、人工备注。", bullets: ["记录来源：催作业 / 答疑 / 手动", "支持按学员和时间范围过滤", "在学员详情里内嵌最近 5 条"] }
+};
+
+const TZ = { "美西": "UTC-8", "美东": "UTC-5", "加拿大": "UTC-5", "其他地区": "—" };
+const LEVELS = ["小白", "会电脑", "有基础", "工程师"];
+const SOURCES = ["讲武堂", "理财群", "股票群", "加拿大", "Andrew纽约", "其他"];
+const BLANK = { name: "", email: "", wechat: "", wxName: "", nick: "", region: "美西", level: "小白", source: "讲武堂", tags: [], note: "" };
+
+const FIELDS = [
+  { key: "wechat", label: "微信号", type: "text", mono: true, ph: "未对齐" },
+  { key: "wxName", label: "微信名", type: "text" },
+  { key: "nick", label: "微信昵称", type: "text" },
+  { key: "region", label: "区域", type: "enum" },
+  { key: "level", label: "基础", type: "enum" },
+  { key: "source", label: "来源", type: "enum" },
+  { key: "industry", label: "行业", type: "text" },
+  { key: "gender", label: "性别", type: "enum" },
+  { key: "age", label: "年龄", type: "text" },
+  { key: "sid", label: "学员 ID", type: "ro", mono: true }
+];
+
+const COURSES = ["Claude 实战入门", "Claude 进阶工作流", "Agent 项目实战"];
+const ESTATUS = ["已报名", "已完成", "退课"];
+const ENROLL = [
+  { email: "chen.jiahe@example.com", course: "Claude 进阶工作流", session: "2026-07-19", date: "2026-06-18", status: "已完成", origin: "平台同步", note: "" },
+  { email: "chen.jiahe@example.com", course: "Claude 实战入门", session: "2026-06-20", date: "2026-05-04", status: "已完成", origin: "平台同步", note: "" },
+  { email: "lin.min@example.com", course: "Claude 实战入门", session: "2026-06-21", date: "2026-06-10", status: "已完成", origin: "平台同步", note: "" },
+  { email: "zhao.ziqian@example.com", course: "Agent 项目实战", session: "2026-08-22", date: "2026-07-02", status: "已报名", origin: "平台同步", note: "" },
+  { email: "zhao.ziqian@example.com", course: "Claude 进阶工作流", session: "2026-07-19", date: "2026-06-11", status: "已完成", origin: "平台同步", note: "" },
+  { email: "wu.jing@example.com", course: "Claude 进阶工作流", session: "2026-07-19", date: "2026-06-20", status: "已完成", origin: "平台同步", note: "" },
+  { email: "he.wei@example.com", course: "Claude 实战入门", session: "2026-06-21", date: "2026-06-08", status: "退课", origin: "手工补录", note: "线下转账，平台漏记；开课前一周申请退课。", conflict: true },
+  { email: "su.wan@example.com", course: "Claude 实战入门", session: "2026-06-20", date: "2026-05-26", status: "已完成", origin: "平台同步", note: "" },
+  { email: "su.wan@example.com", course: "Agent 项目实战", session: "2026-08-22", date: "2026-07-02", status: "已报名", origin: "平台同步", note: "" },
+  { email: "zheng.kai@example.com", course: "Claude 进阶工作流", session: "2026-07-19", date: "2026-06-19", status: "已完成", origin: "平台同步", note: "" },
+  { email: "huang.li@example.com", course: "Agent 项目实战", session: "2026-08-23", date: "2026-07-23", status: "已报名", origin: "手工补录", note: "时区只能上早场；合作方名单里手抄补的。" },
+  { email: "sun.bo@example.com", course: "Agent 项目实战", session: "", date: "2026-07-05", status: "已报名", origin: "平台同步", note: "平台没给场次，需要确认上哪一场。" },
+  { email: "ma.ruo@example.com", course: "Claude 实战入门", session: "2026-06-20", date: "2026-04-28", status: "退课", origin: "平台同步", note: "开课前退课，已退款。" }
+];
+const BASE_TEACHERS = ["Yan", "Andrew"];
+const CATALOG = [
+  {
+    id: "intro", name: "Claude 实战入门", short: "入门",
+    desc: "面向零基础和只会用电脑的学员，一次课讲清 Claude 的基本用法与工作习惯。",
+    intro: "三小时内把 Claude 从「听说过」变成「每天能用」。先讲清它擅长什么、不擅长什么，再手把手做三个真实任务：整理一份杂乱的资料、写一封难写的邮件、把一段重复劳动交给它。课后作业要求学员选一件自己工作里真实存在的事做一遍，讲师逐个点评。不需要任何编程基础，自带电脑即可。",
+    aliases: ["Claude 实战入门", "Claude AI 实战入门", "AI-Intro-Live"],
+    offset: -8, hours: 3,
+    sessions: [
+      { date: "2026-06-20", hour: 9, min: 0, teacher: "Yan", note: "常规场" },
+      { date: "2026-06-21", hour: 19, min: 0, teacher: "Andrew", note: "为亚洲时区学员加的晚场" }
+    ],
+    hwTitle: "用 Claude 完成一件自己的真实工作", hwDue: "2026-06-27"
+  },
+  {
+    id: "advanced", name: "Claude 进阶工作流", short: "进阶",
+    desc: "已经会用的学员进一步搭工作流：提示复用、文件处理、和团队协作。",
+    intro: "给已经用了一段时间、但还停留在「一问一答」的学员。重点是把零散的用法固化成可复用的工作流：怎么写能反复用的提示、怎么让它稳定处理成批文件、怎么把结果交给同事而不是只留在自己电脑里。课上会拆解讲师自己在用的几套流程，学员照着改成自己的版本。",
+    aliases: ["Claude 进阶工作流", "Claude 工作流进阶班"],
+    offset: -8, hours: 3,
+    sessions: [{ date: "2026-07-19", hour: 10, min: 0, teacher: "Andrew" }],
+    hwTitle: "把一个重复性任务做成可复用的工作流", hwDue: "2026-07-26"
+  },
+  {
+    id: "agent", name: "Agent 项目实战", short: "实战",
+    desc: "带一个真实项目走完从需求到交付，课后交一份可运行的成果。",
+    intro: "最重的一门。每个学员带一个自己想做的小项目进来，课上一起把需求拆成能落地的步骤，讲师现场演示怎么让 Claude 参与实现、怎么在跑不通的时候定位问题。课后交一份能实际运行的成果，讲师按项目本身的完成度点评，而不是按代码量。建议先上过进阶工作流。",
+    aliases: ["Agent 项目实战", "Agent 实战营"],
+    offset: -8, hours: 3,
+    sessions: [
+      { date: "2026-08-22", hour: 19, min: 0, teacher: "Yan", note: "" },
+      { date: "2026-08-23", hour: 9, min: 0, teacher: "待定", note: "第一场报满后加的第二场，讲师待定" }
+    ],
+    hwTitle: "交付一个能跑起来的小项目", hwDue: "2026-09-05"
+  }
+];
+const ZONES = [["美西", -8], ["美东", -5], ["加拿大 (多伦多)", -5], ["其他 · UTC", 0]];
+
+const SCHEMA = [
+  { key: "student_email", label: "学员邮箱", rule: "唯一标识，用于匹配学员库", req: "必填" },
+  { key: "course_name", label: "课程", rule: "平台课程名原样保留，本系统做别名映射", req: "必填" },
+  { key: "session_date", label: "场次", rule: "同一门课多场时指明上哪一场；缺失进待处理", req: "可空" },
+  { key: "enrolled_at", label: "报课时间", rule: "ISO 日期；平台只给月份时补 01", req: "必填" },
+  { key: "status", label: "状态", rule: "在读 / 已完成 / 退课，其它值一律进待处理", req: "必填" },
+  { key: "source_channel", label: "通道", rule: "csv / paste / api，由接入层自动写入", req: "自动" },
+  { key: "raw_payload", label: "原始行", rule: "整行原文留档，便于回溯平台口径变化", req: "自动" }
+];
+const CHANNELS = [
+  { key: "csv", label: "CSV 导出", state: "可用", tone: "ok", title: "上传平台导出的 CSV", desc: "在 EliteCoach101 后台导出报课列表后上传。列名不用改，映射规则在下面的字段契约里维护。", dropTitle: "拖入 CSV 文件", dropHint: "或点击选择 · 支持 UTF-8 / GBK", go: "解析并预览" },
+  { key: "paste", label: "手工粘贴", state: "可用", tone: "ok", title: "从后台直接粘贴表格", desc: "平台不给导出时的兜底：整块选中表格复制粘贴，按 Tab 分列解析，与 CSV 走同一条入库路径。", go: "解析并预览" },
+  { key: "api", label: "API 拉取", state: "待确认", tone: "warn", title: "API 定时拉取", desc: "确认平台是否提供接口后接入；接入后每天自动拉取一次，前面两条通道保留作为人工兜底。", blockedText: "尚未确认 EliteCoach101 是否开放 API。接入层已按中间格式定义好，届时只需补一个适配器，页面与入库逻辑不变。", go: "等待接口确认" }
+];
+
+const RUBRICS = {
+  intro: { src: "session1", items: [
+    ["A1", "任务真实性", 10], ["A2", "任务价值", 10], ["B1", "提示清晰度", 10], ["B2", "迭代过程", 10], ["B3", "上下文提供", 10],
+    ["C1", "结果可用性", 10], ["C2", "结果验证", 10], ["C3", "交付完整度", 10], ["D1", "复盘深度", 10], ["D2", "后续计划", 10]
+  ] },
+  advanced: { src: "session2", items: [
+    ["E1", "流程拆解", 10], ["E2", "复用设计", 10], ["E3", "提示模板质量", 10], ["F1", "批量处理正确性", 10], ["F2", "异常处理", 10],
+    ["F3", "稳定性验证", 10], ["G1", "团队可交接性", 10], ["G2", "文档与说明", 10], ["G3", "效率提升量化", 10]
+  ] },
+  agent: { src: "session4", items: [
+    ["K1", "需求定义", 10], ["K2", "范围控制", 10], ["K3", "技术选型", 10], ["L1", "实现完成度", 10],
+    ["L2", "可运行性", 10], ["L3", "问题定位", 10], ["M1", "交付说明", 10], ["M2", "迭代计划", 10]
+  ] }
+};
+const HW = [
+  { email: "chen.jiahe@example.com", cid: "intro", at: "2026-06-26 21:40", late: false, row: 2,
+    scores: { A1: 10, A2: 9, B1: 10, B2: 9, B3: 9, C1: 10, C2: 8, C3: 9, D1: 9, D2: 9 },
+    highlight: "拿自己团队每周的运营周报开刀，把三段真实数据丢进去让 Claude 归纳，最后交的是能直接发出去的版本，不是练习稿。迭代记录完整，能看出她在第三轮才把口径讲清楚。",
+    improve: "结果验证只做了一遍抽查。下次把关键数字单独回读一次，尤其是它自己算出来的同比。", reply: "已回复" },
+  { email: "lin.min@example.com", cid: "intro", at: "2026-06-27 23:58", late: false, row: 5,
+    scores: { A1: 8, A2: 7, B1: 8, B2: 6, B3: 7, C1: 8, C2: 6, C3: 8, D1: 8, D2: 8 },
+    highlight: "选题是自己写课程论文的文献整理，任务真实。复盘写得诚恳，明确说了哪一步自己偷懒了。",
+    improve: "只迭代了一轮就收工，提示里没给背景。把「这是给谁看的、要多长」写进去，结果会稳很多。", reply: "已回复" },
+  { email: "chen.jiahe@example.com", cid: "advanced", at: "2026-07-25 20:12", late: false, row: 3,
+    scores: { E1: 10, E2: 9, E3: 10, F1: 9, F2: 8, F3: 8, G1: 9, G2: 8, G3: 9 },
+    highlight: "把周报流程拆成了取数、归纳、成稿三段，每段一个可复用提示，同事照着跑通了。效率提升写了具体分钟数。",
+    improve: "异常分支只写了「结果不对就重跑」。补一条判断条件，说明什么情况下不该重跑而该改输入。", reply: "未回复", resubmit: true,
+    hist: [{ at: "2026-07-22 18:03", total: 71, synced: "2026-07-23 09:12", reply: "已回复" }] },
+  { email: "zhao.ziqian@example.com", cid: "advanced", at: "2026-07-26 09:31", late: false, row: 6,
+    scores: { E1: 8, E2: 8, E3: 7, F1: 8, F2: 6, F3: 7, G1: 7, G2: 6, G3: 8 },
+    highlight: "批量处理三十个日志文件跑通了，脚本和提示都留了档，能重复执行。",
+    improve: "文档只有自己看得懂的缩写，交接性差。给同事写三行说明：输入放哪、怎么跑、失败了看什么。", reply: "已回复" },
+  { email: "zheng.kai@example.com", cid: "advanced", at: "2026-07-27 11:02", late: true, row: 9,
+    scores: { E1: 7, E2: 6, E3: 6, F1: 7, F2: 5, F3: 5, G1: 6, G2: 5, G3: 6 },
+    highlight: "选的场景是每月对账，痛点找得准，流程图画得清楚。",
+    improve: "整份作业停在设计阶段，没有真的跑一遍。稳定性和异常都没验证，先跑通三次再说复用。", reply: "未回复" }
+];
+const REPLY_STATES = ["未回复", "草稿待发", "已回复"];
+
+const TD_BASE = "padding:0 14px;border-bottom:1px solid #f0ece4;vertical-align:middle;overflow:hidden";
+
+class Component extends DCLogic {
+  state = { view: "homework", query: "", align: "all", tag: [], selected: "chen.jiahe@example.com", source: null, archived: ["ma.ruo@example.com"], scope: "active", askArchive: false, added: [], showNew: false, form: { ...BLANK }, over: {}, editKey: null, editVal: "", tagEdit: false,
+    eq: "", eStatus: "全部", eCourse: null, showIntake: false, intakeTab: "csv", showManual: false,
+    manual: { email: "", course: COURSES[0], session: "", date: "", status: "已报名", note: "" }, extraEnroll: [],
+    mMode: "create", eOver: {},
+    hwCourse: "intro", hwState: "全部", hwQuery: "", hwSel: null, hwReply: {},
+    cSel: null, cOver: {}, extraCourses: [], showCourse: false, cMode: "create", sessAdd: { open: false, date: "", time: "19:30", teacher: BASE_TEACHERS[0], note: "" }, editSess: null, sessMap: {},
+    extraTeachers: [], tDraft: { open: false, name: "" },
+    cForm: { name: "", short: "", desc: "", offset: -8, hours: 3, hwTitle: "", hwDue: "", aliases: [], aliasDraft: "", offline: false } };
+
+  eKey(r) { return r.email + "|" + r.course; }
+
+  courses() {
+    const WD = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+    const TODAY = "2026-07-30";
+    const base = CATALOG.map(c => ({ ...c, ...(this.state.cOver[c.id] || {}) }));
+    return base.concat(this.state.extraCourses).map(c => {
+      const sess = (c.sessions || []).map((s, i) => ({ ...s, key: s.key || (c.id + "-s" + i) })).sort((a, b) => a.date < b.date ? -1 : 1).map(s => {
+        const d = new Date(s.date + "T00:00:00");
+        const day = isNaN(d) ? "—" : WD[d.getDay()];
+        const upcoming = s.date > TODAY;
+        return { ...s, day, upcoming, state: s.stateOverride || (upcoming ? "待上" : "已上"), label: s.date + " " + day + " " + String(s.hour).padStart(2, "0") + ":" + String(s.min || 0).padStart(2, "0") };
+      });
+      const next = sess.find(s => s.upcoming) || sess[sess.length - 1] || { date: "", day: "—", hour: 0, min: 0, label: "未排课" };
+      const anyUpcoming = sess.some(s => s.upcoming);
+      const teachers = sess.map(s => s.teacher || "待定").filter((t, i, a) => a.indexOf(t) === i);
+      return {
+        ...c, sessions: sess, next, teachers,
+        date: next.date, day: next.day, hour: next.hour, min: next.min,
+        upcoming: anyUpcoming,
+        offline: c.status === "已下线",
+        status: c.status === "已下线" ? "已下线" : "上架"
+      };
+    });
+  }
+
+  setCForm(p) { this.setState(st => ({ cForm: { ...st.cForm, ...p } })); }
+
+  teacherList() { return BASE_TEACHERS.concat(this.state.extraTeachers).concat(["待定"]); }
+
+  setSessions(id, sessions) {
+    this.setState(st => {
+      if (st.extraCourses.some(c => c.id === id)) {
+        return { extraCourses: st.extraCourses.map(c => c.id === id ? { ...c, sessions } : c) };
+      }
+      return { cOver: { ...st.cOver, [id]: { ...(st.cOver[id] || {}), sessions } } };
+    });
+  }
+
+  setManual(p) { this.setState(st => ({ manual: { ...st.manual, ...p } })); }
+
+  patch(email, p) { this.setState(st => ({ over: { ...st.over, [email]: { ...(st.over[email] || {}), ...p } } })); }
+
+  startEdit(key, val) { this.setState({ editKey: key, editVal: val == null ? "" : String(val) }); }
+
+  commit() {
+    const key = this.state.editKey, email = this.state.selected;
+    if (!key || !email) return;
+    const v = this.state.editVal.trim();
+    this.patch(email, { [key]: v });
+    this.setState({ editKey: null, editVal: "" });
+  }
+
+  setForm(patch) { this.setState(st => ({ form: { ...st.form, ...patch } })); }
+
+  chipPick(label, on, onClick) {
+    return { label, onClick, style: `display:inline-flex;align-items:center;height:26px;padding:0 10px;border-radius:8px;border:1px solid ${on ? "#9c3417" : "#e4e0d8"};background:${on ? "#9c3417" : "#fff"};color:${on ? "#fff" : "#3c3a35"};font:${on ? "500" : "400"} 12px/1 'Noto Sans SC',sans-serif;cursor:pointer;white-space:nowrap` };
+  }
+
+  saveStudent(keepOpen) {
+    const f = this.state.form;
+    const rec = { name: f.name.trim(), email: f.email.trim(), wechat: f.wechat.trim(), nick: f.nick.trim() || "—", wxName: f.wxName.trim() || "—", region: f.region, tz: TZ[f.region] || "UTC+8", level: f.level, source: f.source, tags: f.tags.slice(), note: f.note.trim(), gender: "—", age: "—", industry: "—" };
+    this.setState(st => ({ added: st.added.concat(rec), form: { ...BLANK }, showNew: keepOpen, selected: keepOpen ? st.selected : rec.email, scope: "active" }));
+  }
+
+  tagChip(label, small) {
+    const c = TAGC[label] || ["#f3f0ea", "#79736a", "#e4e0d8"];
+    return {
+      label,
+      style: `display:inline-flex;align-items:center;border-radius:8px;padding:${small ? "1px 7px" : "2px 8px"};font:500 ${small ? "11" : "11.5"}px/1.45 'Noto Sans SC',sans-serif;background:${c[0]};color:${c[1]};border:1px solid ${c[2]};white-space:nowrap`
+    };
+  }
+
+  renderVals() {
+    const emptyDb = this.props.emptyDatabase === true;
+    const density = this.props.density || "compact";
+    const tint = (this.props.unalignedTreatment || "badge+tint") === "badge+tint";
+    const rowH = density === "roomy" ? 50 : 40;
+    const arch = this.state.archived;
+    const over = this.state.over;
+    const all = (emptyDb ? [] : DATA.concat(this.state.added)).map(s => {
+      const p = over[s.email];
+      if (!p) return s;
+      const m = { ...s, ...p };
+      if (p.region) m.tz = TZ[p.region] || "—";
+      return m;
+    });
+    const inScope = this.state.scope === "archived";
+    const data = all.filter(s => arch.includes(s.email) === inScope);
+    const q = this.state.query.trim().toLowerCase();
+
+    let list = data.filter(s => {
+      if (q && !(s.name.toLowerCase().includes(q) || s.email.toLowerCase().includes(q))) return false;
+      if (this.state.align === "aligned" && !s.wechat) return false;
+      if (this.state.align === "unaligned" && s.wechat) return false;
+      if (this.state.tag.length && !this.state.tag.every(t => s.tags.includes(t))) return false;
+      if (this.state.source && s.source !== this.state.source) return false;
+      return true;
+    });
+    if (this.props.unalignedFirst !== false) {
+      list = list.slice().sort((a, b) => (a.wechat ? 1 : 0) - (b.wechat ? 1 : 0));
+    }
+
+    const unaligned = data.filter(s => !s.wechat).length;
+    const isFiltered = !!q || this.state.align !== "all" || this.state.tag.length > 0 || !!this.state.source;
+
+    const removedKeys = this.state.eRemoved || [];
+    const eAll = (emptyDb ? [] : ENROLL.concat(this.state.extraEnroll)).filter(r => !removedKeys.includes(this.eKey(r))).map(r => {
+      const p = this.state.eOver[this.eKey(r)];
+      const m = p ? { ...r, ...p, edited: true } : r;
+      let sv = m.session, n = 0;
+      while (sv && this.state.sessMap[m.course + "|" + sv] && n++ < 10) sv = this.state.sessMap[m.course + "|" + sv];
+      return sv === m.session ? m : { ...m, session: sv };
+    });
+    const enrollCount = eAll.length;
+    const CATA = this.courses();
+    const HTODAY = "2026-07-30";
+    const hwCourses = CATA.map(c => {
+      const opened = (c.sessions || []).some(s => s.date <= HTODAY);
+      const roster = eAll.filter(r => r.course === c.name && r.status !== "退课" && !arch.includes(r.email));
+      const missing = opened ? roster.filter(r => !HW.some(g => g.email === r.email && g.cid === c.id)).length : 0;
+      return { c, opened, roster, missing };
+    });
+    const hwMissTotal = emptyDb ? 0 : hwCourses.reduce((n, x) => n + x.missing, 0);
+
+    const nav = NAV.map(n => {
+      const on = this.state.view === n.key;
+      return {
+        label: n.label, icon: n.icon,
+        count: n.key === "students" ? String(all.filter(s => !arch.includes(s.email)).length) : n.key === "enroll" ? String(enrollCount) : n.key === "homework" || n.key === "nudge" ? String(hwMissTotal) : n.count,
+        onClick: () => this.setState({ view: n.key }),
+        style: `display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;height:34px;padding:0 10px 0 ${on ? "8" : "10"}px;border:0;border-left:${on ? "2px solid #c9502f" : "0"};background:${on ? "#2c2a25" : "transparent"};color:${on ? "#f6f2ea" : "#b8b2a6"};font:${on ? "500" : "400"} 13px/1 'Noto Sans SC',sans-serif;border-radius:8px;cursor:pointer;text-align:left`,
+        countStyle: `font:400 10.5px/1 'JetBrains Mono',monospace;color:${on ? "#c9a99a" : "#5f5a51"};flex:none`
+      };
+    });
+
+    const segStyle = on => `display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 11px;border:0;border-radius:6px;background:${on ? "#fff" : "transparent"};box-shadow:${on ? "0 1px 2px rgba(26,25,23,.10)" : "none"};color:${on ? "#1a1917" : "#79736a"};font:500 12.5px/1 'Noto Sans SC',sans-serif;cursor:pointer`;
+    const numStyle = on => `font:400 11px/1 'JetBrains Mono',monospace;color:${on ? "#9c3417" : "#a09a90"}`;
+    const hwSelC = hwCourses.find(x => x.c.id === this.state.hwCourse) || hwCourses[0];
+    let hw = { rows: [], d: {}, courseTabs: [], stateFilters: [], head: [] };
+    if (hwSelC) {
+      const hc = hwSelC.c;
+      const rubric = RUBRICS[hc.id] || { src: hc.id, items: [] };
+      const maxTotal = rubric.items.reduce((n, it) => n + it[2], 0);
+      const recs = emptyDb ? [] : HW.filter(g => g.cid === hc.id);
+      const sumOf = g => rubric.items.reduce((n, it) => n + (g.scores[it[0]] || 0), 0);
+      const ranked = recs.map(g => sumOf(g)).sort((a, b) => b - a);
+      const tone = r => r >= .85 ? "#4c8a63" : r >= .6 ? "#c58a1a" : "#cf5b4a";
+      const replyVar = v => v === "已回复" ? "success" : v === "草稿待发" ? "muted" : "danger";
+      const replyOf = g => this.state.hwReply[g.email + "|" + hc.id] || g.reply;
+
+      const base = hwSelC.roster.map(r => {
+        const stu = all.find(s => s.email === r.email) || { name: r.email, wechat: "" };
+        const g = recs.find(x => x.email === r.email);
+        const st = g ? "已交" : hwSelC.opened ? "未交" : "未开放";
+        const total = g ? sumOf(g) : 0;
+        return { r, stu, g, st, total, reply: g ? replyOf(g) : "—" };
+      });
+      const submitted = base.filter(b => b.g).length;
+      const missing = base.filter(b => b.st === "未交").length;
+      const pending = base.filter(b => b.g && b.reply !== "已回复").length;
+
+      const q = this.state.hwQuery.trim().toLowerCase();
+      const stf = this.state.hwState;
+      const filtered = base.filter(b => {
+        if (q && !(b.stu.name.toLowerCase().includes(q) || b.r.email.toLowerCase().includes(q))) return false;
+        if (stf === "已交") return !!b.g;
+        if (stf === "未交") return b.st === "未交";
+        if (stf === "待回复") return b.g && b.reply !== "已回复";
+        return true;
+      });
+
+      const selEmail = filtered.some(b => b.r.email === this.state.hwSel) ? this.state.hwSel : (filtered[0] ? filtered[0].r.email : null);
+      const sel = filtered.find(b => b.r.email === selEmail);
+
+      hw.rows = filtered.map(b => {
+        const on = b.r.email === selEmail;
+        const ratio = maxTotal ? b.total / maxTotal : 0;
+        return {
+          name: b.stu.name, email: b.r.email,
+          onClick: () => this.setState({ hwSel: b.r.email }),
+          trStyle: `cursor:pointer;background:${on ? "#f6f1ea" : b.st === "未交" ? "#fdf9f8" : "#fff"};box-shadow:${on ? "inset 2px 0 0 #9c3417" : "none"}`,
+          td: `${TD_BASE};height:${rowH + 8}px`,
+          dotStyle: `width:6px;height:6px;flex:none;border-radius:50%;background:${b.st === "已交" ? "#4c8a63" : b.st === "未交" ? "#b3261e" : "#c9c3b6"}`,
+          submitted: b.g ? b.g.at.slice(5) : b.st,
+          subStyle: `font:400 12.5px/1.3 '${b.g ? "JetBrains Mono" : "Noto Sans SC"}',monospace;color:${b.g ? "#3c3a35" : b.st === "未交" ? "#b3261e" : "#a09a90"}`,
+          subNote: b.g ? ((b.g.hist ? "第 " + (b.g.hist.length + 1) + " 次 · " : "") + (b.g.late ? "截止后交" : "按时交")) : b.st === "未交" ? "有报课无提交" : "作业未开放",
+          total: b.g ? b.total + " / " + maxTotal : "—",
+          totalStyle: `font:${b.g ? "500" : "400"} 13px/1 'JetBrains Mono',monospace;color:${b.g ? tone(ratio) : "#c9c3b6"}`,
+          bars: b.g ? rubric.items.map(([code, label, max]) => {
+            const v = b.g.scores[code] || 0, rr = v / max;
+            return { title: code + " " + label + " " + v + "/" + max, style: `width:8px;flex:none;border-radius:2px;background:${tone(rr)};height:${Math.max(4, Math.round(rr * 24))}px` };
+          }) : [],
+          reply: b.reply, replyVariant: b.g ? replyVar(b.reply) : "muted"
+        };
+      });
+
+      hw.head = [["学员", 0], ["提交时间", 0], ["总分", 0], ["分项 " + rubric.items.length + " 项", 0], ["回复", 0]].map(([label]) => ({
+        label, style: "position:sticky;top:0;z-index:1;text-align:left;padding:0 14px;height:34px;background:#fbfaf8;border-bottom:1px solid #e4e0d8;font:500 11px/1 'JetBrains Mono',monospace;letter-spacing:.06em;color:#a09a90;white-space:nowrap"
+      }));
+
+      hw.courseTabs = hwCourses.map(x => {
+        const on = x.c.id === hc.id;
+        return {
+          label: x.c.short || x.c.name, count: x.opened ? String(x.missing) : "—",
+          onClick: () => this.setState({ hwCourse: x.c.id, hwSel: null }),
+          style: `display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border-radius:8px;border:1px solid ${on ? "#9c3417" : "#e4e0d8"};background:${on ? "#fdf6f3" : "#fff"};color:${on ? "#9c3417" : "#79736a"};font:${on ? "500" : "400"} 12.5px/1 'Noto Sans SC',sans-serif;cursor:pointer;white-space:nowrap`,
+          numStyle: `font:400 11px/1 'JetBrains Mono',monospace;color:${x.missing && x.opened ? "#b3261e" : "#a09a90"}`
+        };
+      });
+
+      hw.stateFilters = [["全部", base.length], ["已交", submitted], ["未交", missing], ["待回复", pending]].map(([label, count]) => ({
+        label, count, onClick: () => this.setState({ hwState: label, hwSel: null }),
+        style: segStyle(stf === label), numStyle: numStyle(stf === label)
+      }));
+
+      hw.totalLabel = hwSelC.opened
+        ? "应交 " + base.length + " · 已交 " + submitted + " · 未交 " + missing
+        : "应交 " + base.length + " · 作业未开放";
+      hw.srcPath = "ai-course/tools/homework-grader/" + rubric.src + "/grades.csv";
+      hw.srcMeta = "上次同步 2026-07-28 09:12 · " + recs.length + " 行 · " + rubric.items.length + " 个分项列";
+      hw.query = this.state.hwQuery;
+      hw.onQuery = e => this.setState({ hwQuery: e.target.value });
+      hw.onNudgeAll = () => this.setState({ view: "nudge" });
+      hw.notOpen = !hwSelC.opened;
+      hw.notOpenText = "「" + hc.name + "」" + ((hc.sessions && hc.sessions[0]) ? "第一场 " + hc.sessions[0].date + " 才上" : "还没排课") + "，截止 " + (hc.hwDue || "未定") + "。在那之前没有提交是正常的，不进未交统计、不进催作业。";
+
+      if (sel) {
+        const g = sel.g;
+        const rank = g ? ranked.indexOf(sel.total) + 1 : 0;
+        hw.d = {
+          name: sel.stu.name, email: sel.r.email,
+          courseLine: hc.name + " · " + (sel.r.session ? sel.r.session + " 场" : "场次未定") + " · 作业「" + (hc.hwTitle || "未设置") + "」参考截止 " + (hc.hwDue || "未定"),
+          missing: !g && hwSelC.opened, graded: !!g, waiting: !g && !hwSelC.opened,
+          missText: "课已上完，还没交",
+          waitText: ((hc.sessions && hc.sessions[0]) ? "第一场 " + hc.sessions[0].date + " 才上" : "还没排课") + "，截止 " + (hc.hwDue || "未定") + "，现在没有提交是正常的。",
+          wechatHint: sel.stu.wechat ? "微信 " + sel.stu.wechat + " 已对齐，可以直接私聊催。" : "这位学员的微信还没对齐，只能走邮件催。",
+          score: g ? String(sel.total) : "—", outOf: "/ " + maxTotal,
+          submitted: g ? g.at : "",
+          lateLabel: g ? (g.late ? "截止后提交" : "按时提交") : "",
+          lateVariant: "muted",
+          rankText: g ? "本课第 " + rank + " / " + recs.length : "",
+          hasHist: !!(g && g.hist && g.hist.length),
+          verLabel: g && g.hist ? "第 " + (g.hist.length + 1) + " 次提交 · 当前分数" : "",
+          deltaLabel: g && g.hist ? (sel.total - g.hist[g.hist.length - 1].total > 0 ? "+" : "") + (sel.total - g.hist[g.hist.length - 1].total) : "",
+          deltaStyle: `display:inline-flex;align-items:center;border-radius:8px;padding:2px 7px;font:500 11px/1.45 'JetBrains Mono',monospace;background:#e9f2ec;color:#2f6b4f;border:1px solid #d6e6dc`,
+          histNote: "grades.csv 每次同步整行覆盖，本系统在覆盖前留一版。统计和回复只看最新一版。",
+          histItems: g && g.hist ? g.hist.slice().reverse().map((h, i) => ({
+            at: h.at, total: h.total + " / " + maxTotal, synced: "同步于 " + h.synced + " · 当时" + h.reply,
+            rowStyle: `display:flex;align-items:baseline;gap:10px;padding:7px 11px;background:${i % 2 ? "#fbfaf8" : "#fff"}`
+          })) : [],
+          resubmit: !!(g && g.resubmit),
+          rubricNote: rubric.items.length + " 项 · " + rubric.src + " 专用",
+          items: g ? rubric.items.map(([code, label, max], i) => {
+            const v = g.scores[code] || 0, rr = v / max;
+            return {
+              code, label, score: v + "/" + max,
+              rowStyle: `display:flex;align-items:center;gap:10px;padding:7px 11px;background:${i % 2 ? "#fbfaf8" : "#fff"}`,
+              fillStyle: `display:block;height:100%;width:${Math.round(rr * 100)}%;background:${tone(rr)};border-radius:3px`,
+              scoreStyle: `font:500 12px/1 'JetBrains Mono',monospace;color:${rr < .6 ? "#b3261e" : "#3c3a35"};width:36px;text-align:right;flex:none`
+            };
+          }) : [],
+          highlight: g ? g.highlight : "", improve: g ? g.improve : "",
+          replyOpts: g ? REPLY_STATES.map(v => ({
+            label: v, onClick: () => this.setState({ hwReply: { ...this.state.hwReply, [sel.r.email + "|" + hc.id]: v } }),
+            style: segStyle(sel.reply === v)
+          })) : [],
+          srcLine: g ? rubric.src + "/grades.csv · 第 " + g.row + " 行" : ""
+        };
+      }
+    }
+
+    const seg = [["all", "全部", data.length], ["aligned", "已对齐", data.length - unaligned], ["unaligned", "未对齐微信", unaligned]];
+    const alignFilters = seg.map(([key, label, count]) => ({
+      label, count,
+      onClick: () => this.setState({ align: key }),
+      style: segStyle(this.state.align === key),
+      numStyle: numStyle(this.state.align === key)
+    }));
+
+    const scopeFilters = [["active", "在读", all.filter(s => !arch.includes(s.email)).length], ["archived", "已归档", all.filter(s => arch.includes(s.email)).length]].map(([key, label, count]) => ({
+      label, count,
+      onClick: () => this.setState({ scope: key, selected: null, askArchive: false }),
+      style: segStyle(this.state.scope === key),
+      numStyle: numStyle(this.state.scope === key)
+    }));
+
+    const allSources = SOURCES;
+    const sourceFilters = allSources.map(src => {
+      const on = this.state.source === src;
+      return {
+        label: src,
+        onClick: () => this.setState({ source: on ? null : src }),
+        style: `display:inline-flex;align-items:center;height:24px;padding:0 9px;border-radius:8px;border:1px solid ${on ? "#3f4b63" : "#e4e0d8"};background:${on ? "#3f4b63" : "#fff"};color:${on ? "#fff" : "#3c3a35"};font:${on ? "500" : "400"} 11.5px/1 'Noto Sans SC',sans-serif;cursor:pointer;white-space:nowrap`
+      };
+    });
+
+    const allTags = TAGS;
+    const tagFilters = allTags.map(t => {
+      const on = this.state.tag.includes(t);
+      return {
+        label: t,
+        onClick: () => this.setState(st => ({ tag: on ? st.tag.filter(x => x !== t) : st.tag.concat(t) })),
+        style: `display:inline-flex;align-items:center;height:24px;padding:0 9px;border-radius:8px;border:1px solid ${on ? "#9c3417" : "#e4e0d8"};background:${on ? "#9c3417" : "#fff"};color:${on ? "#fff" : "#3c3a35"};font:${on ? "500" : "400"} 11.5px/1 'Noto Sans SC',sans-serif;cursor:pointer`
+      };
+    });
+
+    const rows = list.map(s => {
+      const sel = this.state.selected === s.email;
+      const bad = !s.wechat;
+      const isArch = arch.includes(s.email);
+      const bg = sel ? "#faf6f3" : isArch ? "#faf8f5" : bad && tint ? "#fdf7f6" : "#fff";
+      return {
+        name: s.name, email: s.email, wechat: s.wechat, region: s.region, tz: s.tz, level: s.level, source: s.source,
+        note: s.note || "—",
+        hasWechat: !!s.wechat, noWechat: bad,
+        tags: s.tags.map(t => this.tagChip(t, true)),
+        isArchived: isArch,
+        nameStyle: `font:500 13.5px/1.3 'Noto Sans SC',sans-serif;color:${isArch ? "#a09a90" : "#1a1917"};overflow:hidden;text-overflow:ellipsis;white-space:nowrap`,
+        onSelect: () => this.setState({ selected: sel ? null : s.email, askArchive: false, editKey: null, tagEdit: false }),
+        trStyle: `height:${rowH}px;background:${bg};cursor:pointer;box-shadow:${sel ? "inset 2px 0 0 #9c3417" : "none"}`,
+        td: TD_BASE,
+        tdName: TD_BASE + (sel ? "" : ""),
+        dotStyle: `width:6px;height:6px;border-radius:50%;flex:none;background:${bad ? "#b3261e" : "#cfc9bc"}`
+      };
+    });
+
+    const s = data.find(x => x.email === this.state.selected);
+    const isArchSel = !!s && arch.includes(s.email);
+    const detail = s ? {
+      name: s.name, email: s.email, note: s.note || "（无备注）", noWechat: !s.wechat && !isArchSel,
+      isArchived: isArchSel,
+      canArchive: !isArchSel,
+      askArchive: !isArchSel && this.state.askArchive,
+      showArchiveBtn: !isArchSel && !this.state.askArchive,
+      archiveImpact: "他的 2 条报课、4 份作业和互动记录",
+      onFillWechat: () => this.startEdit("wechat", ""),
+      onAskArchive: () => this.setState({ askArchive: true }),
+      onCancelArchive: () => this.setState({ askArchive: false }),
+      onArchive: () => this.setState(st => ({ archived: st.archived.concat(s.email), askArchive: false, selected: null })),
+      onRestore: () => this.setState(st => ({ archived: st.archived.filter(e => e !== s.email), selected: null })),
+      tags: this.state.tagEdit
+        ? TAGS.map(t => this.chipPick(t, s.tags.includes(t), () => this.patch(s.email, { tags: s.tags.includes(t) ? s.tags.filter(x => x !== t) : s.tags.concat(t) })))
+        : s.tags.map(t => ({ ...this.tagChip(t), onClick: () => this.setState({ tagEdit: true }) })),
+      fields: FIELDS.map((fd, i) => {
+        const editing = this.state.editKey === fd.key;
+        const opts = fd.key === "region" ? Object.keys(TZ) : fd.key === "level" ? LEVELS : fd.key === "source" ? SOURCES : ["男", "女", "未填"];
+        const raw = fd.key === "sid" ? "stu_" + s.email.split("@")[0].replace(/\./g, "_") : s[fd.key];
+        const empty = !raw || raw === "—";
+        const warn = fd.key === "wechat" && empty;
+        const shown = fd.key === "region" ? s.region + " · " + s.tz : empty ? (fd.ph || "未填") : raw;
+        return {
+          label: fd.label,
+          value: shown,
+          view: !editing,
+          editText: editing && fd.type === "text",
+          editEnum: editing && fd.type === "enum",
+          onEdit: () => { if (fd.type !== "ro") this.startEdit(fd.key, raw === "—" ? "" : raw); },
+          options: opts.map(o => this.chipPick(o, s[fd.key] === o, () => { this.patch(s.email, { [fd.key]: o }); this.setState({ editKey: null }); })),
+          style: `display:flex;gap:10px;align-items:flex-start;padding:7px 12px;background:${i % 2 ? "#fbfaf8" : "#fff"};border-bottom:${i === FIELDS.length - 1 ? "0" : "1px solid #f0ece4"}`,
+          valStyle: `display:block;width:100%;text-align:left;border:0;background:transparent;padding:2px 0;font:${warn ? "500" : "400"} 12.5px/1.5 ${fd.mono ? "'JetBrains Mono',monospace" : "'Noto Sans SC',sans-serif"};color:${warn ? "#b3261e" : empty ? "#c0bab0" : "#1a1917"};min-width:0;word-break:break-all;cursor:${fd.type === "ro" ? "default" : "text"}`,
+          inputStyle: `height:28px;width:100%;border-radius:6px;border:1px solid #9c3417;background:#fff;padding:0 8px;font:400 12.5px/1 ${fd.mono ? "'JetBrains Mono',monospace" : "'Noto Sans SC',sans-serif"};color:#1a1917;outline:none`
+        };
+      }),
+      noTags: s.tags.length === 0 && !this.state.tagEdit,
+      tagEditLabel: this.state.tagEdit ? "完成" : "编辑",
+      onToggleTagEdit: () => this.setState(st => ({ tagEdit: !st.tagEdit })),
+      noteView: this.state.editKey !== "note",
+      noteEditing: this.state.editKey === "note",
+      onEditNote: () => this.startEdit("note", s.note || ""),
+      noteStyle: `display:block;width:100%;text-align:left;border-radius:8px;border:1px solid #e4e0d8;background:#f2efe9;padding:10px 12px;font:400 12.5px/1.7 'Noto Sans SC',sans-serif;color:${s.note ? "#3c3a35" : "#a09a90"};min-height:60px;cursor:text`,
+      enrollCountLabel: (() => { const n = eAll.filter(x => x.email === s.email).length; return n ? n + " 条" : "无"; })(),
+      enrollments: eAll.filter(x => x.email === s.email).map(x => {
+        const c = CATA.find(y => y.name === x.course);
+        return {
+          course: x.course,
+          when: c ? c.date + " " + c.day + " " + String(c.hour).padStart(2, "0") + ":" + String(c.min || 0).padStart(2, "0") + " 美西" : "课程已下线",
+          status: x.status,
+          statusVariant: x.status === "已报名" ? "success" : "muted",
+          manual: x.origin === "手工补录",
+          style: `display:flex;flex-direction:column;gap:5px;padding:10px 12px;border-radius:8px;border:1px solid #e4e0d8;background:${x.origin === "手工补录" ? "#fbfaf8" : "#fff"}`
+        };
+      }),
+      noEnrollments: eAll.filter(x => x.email === s.email).length === 0,
+      onAddEnroll: () => this.setState({ view: "enroll", showManual: true, mMode: "create", manual: { email: s.email, course: COURSES[0], session: "", date: "", status: "已报名", note: "" } }),
+      sketch: [
+        { title: "作业提交", meta: "1 次作业 · 待提交" },
+        { title: "互动记录", meta: "最近 7 天 1 条" }
+      ]
+    } : null;
+
+    const DAYS = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
+    const shiftTime = (day, hour, min, from, to) => {
+      let h = hour + (to - from), d = DAYS.indexOf(day), suffix = "";
+      if (h >= 24) { h -= 24; d = (d + 1) % 7; suffix = " 次日"; }
+      else if (h < 0) { h += 24; d = (d + 6) % 7; suffix = " 前一日"; }
+      return DAYS[d] + " " + String(h).padStart(2, "0") + ":" + String(min || 0).padStart(2, "0") + suffix;
+    };
+    const cSelId = this.state.cSel || CATA[0].id;
+    const course = CATA.find(c => c.id === cSelId) || CATA[0];
+    const enrolledIn = cname => eAll.filter(r => r.course === cname && r.status !== "退课").length;
+    const hhmm = (h, m) => String(h).padStart(2, "0") + ":" + String(m || 0).padStart(2, "0");
+
+    const co = {
+      list: CATA.map(c => {
+        const on = c.id === course.id;
+        return {
+          name: c.name, offline: c.offline,
+          meta: (c.sessions.length ? c.sessions.length + " 场 · " + c.teachers.join(" / ") : "未排课") + " · " + enrolledIn(c.name) + " 人报名",
+          onClick: () => this.setState({ cSel: c.id }),
+          style: `display:flex;flex-direction:column;gap:5px;align-items:flex-start;width:100%;padding:11px 12px;border:1px solid ${on ? "#9c3417" : "#e4e0d8"};border-radius:8px;background:${on ? "#faf6f3" : "#fff"};cursor:pointer;text-align:left`
+        };
+      }),
+      name: course.name, short: course.short, desc: course.desc,
+      intro: course.intro || "还没写课程介绍。",
+      hasIntro: !!course.intro,
+      teacherLabel: course.sessions.length ? course.teachers.join(" / ") : "未排课",
+      offline: course.offline,
+      aliases: course.aliases,
+      facts: [
+        ["下一场", course.sessions.length ? course.next.label + " · " + (course.next.teacher || "待定") : "未排课", false],
+        ["上课场次", (course.sessions.length ? course.sessions.length + " 场（各场学员独立）" : "未排课") + " · 每场 " + course.hours + " 小时", false],
+        ["报名人数", enrolledIn(course.name) + " 人", false],
+        ["作业", "一次 · 各场截止另定", false]
+      ].map(([label, value, mono], i) => ({
+        label, value,
+        style: `display:flex;flex-direction:column;gap:4px;padding:11px 13px;border-radius:8px;border:1px solid #e4e0d8;background:#fff;min-width:0`,
+        valStyle: `font:500 13.5px/1.35 ${mono ? "'JetBrains Mono',monospace" : "'Noto Sans SC',sans-serif"};color:#1a1917`
+      })),
+      hwTitle: course.hwTitle,
+      hwDue: course.hwDue,
+      timeLabel: course.next.label + " " + (course.offset === -8 ? "美西" : course.offset === -5 ? "美东" : "UTC"),
+      sessionRows: course.sessions.map((s, i) => (keep => ({
+        idx: "第 " + (i + 1) + " 场",
+        label: s.label,
+        teacher: s.teacher || "待定",
+        date: s.date,
+        note: s.note || "",
+        onNote: e => { const v = e.target.value; this.setSessions(course.id, keep(i, { note: v })); },
+        onDate: e => {
+          const v = e.target.value, old = s.date;
+          this.setSessions(course.id, keep(i, { date: v }));
+          if (/^\d{4}-\d{2}-\d{2}$/.test(v.trim()) && v.trim() !== old) {
+            this.setState(st2 => ({ sessMap: { ...st2.sessMap, [course.name + "|" + old]: v.trim() } }));
+          }
+        },
+        onTime: e => {
+          const v = e.target.value, t = /^(\d{1,2}):(\d{2})$/.exec(v.trim());
+          this.setSessions(course.id, keep(i, t ? { hour: +t[1], min: +t[2], timeRaw: v } : { timeRaw: v }));
+        },
+        timeValue: s.timeRaw != null ? s.timeRaw : String(s.hour).padStart(2, "0") + ":" + String(s.min || 0).padStart(2, "0"),
+        teacherPicks: this.teacherList().map(t => this.chipPick(t, (s.teacher || "待定") === t, () => this.setSessions(course.id, keep(i, { teacher: t })))),
+        statePicks: ["待上", "已上", "已取消"].map(st => this.chipPick(st, s.state === st, () => this.setSessions(course.id, keep(i, { stateOverride: st })))),
+        stateAuto: !s.stateOverride,
+        stateManual: !!s.stateOverride,
+        onResetState: () => this.setSessions(course.id, keep(i, { stateOverride: undefined })),
+        editing: this.state.editSess === course.id + "|" + s.key,
+        notEditing: this.state.editSess !== course.id + "|" + s.key,
+        onToggleEdit: () => this.setState(st2 => ({ editSess: st2.editSess === course.id + "|" + s.key ? null : course.id + "|" + s.key })),
+        editLabel: s.upcoming ? "改这一场" : "修正",
+        pastWarn: !s.upcoming,
+        zone: (course.offset === -8 ? "美西" : course.offset === -5 ? "美东" : "UTC") + " · " + course.hours + " 小时",
+        zoneLine: ZONES.map(([zl, off]) => zl.replace(" (多伦多)", "").replace("其他 · ", "") + " " + shiftTime(s.day, s.hour, s.min, course.offset, off).replace(/^周./, "").trim()).join(" · "),
+        state: s.state,
+        stateVariant: s.state === "待上" ? "success" : s.state === "已取消" ? "danger" : "muted",
+        enrolled: eAll.filter(x => x.course === course.name && x.session === s.date && x.status !== "退课").length + " 人",
+        onRemove: () => { this.setState({ editSess: null }); this.setSessions(course.id, course.sessions.filter((x, j) => j !== i).map(x => ({ key: x.key, date: x.date, hour: x.hour, min: x.min, teacher: x.teacher, note: x.note, stateOverride: x.stateOverride }))); },
+        style: `display:flex;align-items:center;gap:11px;padding:10px 13px;border-radius:8px;border:1px solid ${s.date === course.next.date ? "#e0cfc7" : "#e4e0d8"};background:${s.date === course.next.date ? "#fbf7f5" : "#fff"}`
+      }))((idx, patch) => course.sessions.map((x, j) => {
+        const base = { key: x.key, date: x.date, hour: x.hour, min: x.min, teacher: x.teacher, note: x.note, stateOverride: x.stateOverride, timeRaw: x.timeRaw };
+        return j === idx ? { ...base, ...patch } : base;
+      }))),
+      noSessions: course.sessions.length === 0,
+      hasSessions: course.sessions.length > 0,
+      addOpen: this.state.sessAdd.open,
+      addClosed: !this.state.sessAdd.open,
+      addDate: this.state.sessAdd.date,
+      addTime: this.state.sessAdd.time,
+      onAddDate: e => { const v = e.target.value; this.setState(st => ({ sessAdd: { ...st.sessAdd, date: v } })); },
+      onAddTime: e => { const v = e.target.value; this.setState(st => ({ sessAdd: { ...st.sessAdd, time: v } })); },
+      onOpenAdd: () => this.setState({ sessAdd: { open: true, date: "", time: "19:30", teacher: BASE_TEACHERS[0], note: "" } }),
+      onCancelAdd: () => this.setState({ sessAdd: { open: false, date: "", time: "19:30", teacher: BASE_TEACHERS[0], note: "" } }),
+      addNote: this.state.sessAdd.note || "",
+      onAddNote: e => { const v = e.target.value; this.setState(st => ({ sessAdd: { ...st.sessAdd, note: v } })); },
+      addTeachers: this.teacherList().map(t => this.chipPick(t, (this.state.sessAdd.teacher || BASE_TEACHERS[0]) === t, () => this.setState(st => ({ sessAdd: { ...st.sessAdd, teacher: t } })))),
+      tAddClosed: !this.state.tDraft.open,
+      tAddOpen: this.state.tDraft.open,
+      tAddName: this.state.tDraft.name,
+      onTAddOpen: () => this.setState({ tDraft: { open: true, name: "" } }),
+      onTAddCancel: () => this.setState({ tDraft: { open: false, name: "" } }),
+      onTAddName: e => { const v = e.target.value; this.setState(st => ({ tDraft: { ...st.tDraft, name: v } })); },
+      tAddDisabled: !this.state.tDraft.name.trim(),
+      onTAddSave: () => {
+        const n = this.state.tDraft.name.trim();
+        if (!n || this.teacherList().includes(n)) { this.setState({ tDraft: { open: false, name: "" } }); return; }
+        this.setState(st => ({ extraTeachers: st.extraTeachers.concat(n), tDraft: { open: false, name: "" }, sessAdd: { ...st.sessAdd, teacher: n } }));
+      },
+      addHint: (() => {
+        const a = this.state.sessAdd;
+        const dOk = /^\d{4}-\d{2}-\d{2}$/.test(a.date.trim());
+        const tOk = /^(\d{1,2}):(\d{2})$/.test(a.time.trim());
+        if (!a.date.trim()) return "日期 2026-08-22 · 时间 19:30（24 小时制）";
+        if (!dOk) return "日期格式应为 2026-08-22";
+        if (!tOk) return "时间格式应为 19:30";
+        const d = new Date(a.date + "T00:00:00");
+        const t = /^(\d{1,2}):(\d{2})$/.exec(a.time.trim());
+        const et = String((+t[1] + 3) % 24).padStart(2, "0") + ":" + t[2];
+        return ["周日", "周一", "周二", "周三", "周四", "周五", "周六"][d.getDay()] + " · 美东 " + et + (a.date > "2026-07-30" ? " · 待上" : " · 已上");
+      })(),
+      addHintStyle: (() => {
+        const a = this.state.sessAdd;
+        const bad = (a.date.trim() && !/^\d{4}-\d{2}-\d{2}$/.test(a.date.trim())) || (a.time.trim() && !/^(\d{1,2}):(\d{2})$/.test(a.time.trim()));
+        return `font:400 11px/1.5 'Noto Sans SC',sans-serif;color:${bad ? "#b3261e" : "#a09a90"}`;
+      })(),
+      addDisabled: (() => {
+        const a = this.state.sessAdd;
+        return !(/^\d{4}-\d{2}-\d{2}$/.test(a.date.trim()) && /^(\d{1,2}):(\d{2})$/.test(a.time.trim()));
+      })(),
+      onConfirmAdd: () => {
+        const a = this.state.sessAdd;
+        const t = /^(\d{1,2}):(\d{2})$/.exec(a.time.trim());
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(a.date.trim()) || !t) return;
+        const list = course.sessions.map(x => ({ key: x.key, date: x.date, hour: x.hour, min: x.min, teacher: x.teacher, note: x.note, stateOverride: x.stateOverride })).concat({ key: course.id + "-s" + Date.now(), date: a.date.trim(), hour: +t[1], min: +t[2], teacher: a.teacher || BASE_TEACHERS[0], note: (a.note || "").trim() });
+        this.setSessions(course.id, list);
+        this.setState({ sessAdd: { open: false, date: "", time: "19:30", teacher: BASE_TEACHERS[0], note: "" } });
+      },
+      zones: ZONES.map(([label, off]) => ({
+        label,
+        time: shiftTime(course.day, course.hour, course.min, course.offset, off),
+        style: `display:flex;flex-direction:column;gap:3px;padding:10px 12px;border-radius:8px;border:1px solid #e4e0d8;background:#fff;min-width:0`
+      })),
+      countLabel: CATA.length + " 门课",
+      onNew: () => this.setState({
+        showCourse: true, cMode: "create",
+        cForm: { name: "", short: "", desc: "", offset: -8, hours: 3, hwTitle: "", hwDue: "", aliases: [], aliasDraft: "", offline: false }
+      }),
+      onEdit: () => this.setState({
+        showCourse: true, cMode: "edit",
+        cForm: { name: course.name, short: course.short, desc: course.desc, intro: course.intro || "", offset: course.offset, hours: course.hours, hwTitle: course.hwTitle, hwDue: course.hwDue, aliases: course.aliases.slice(), aliasDraft: "", offline: course.status === "已下线" }
+      })
+    };
+
+    const cf = this.state.cForm;
+    const WD2 = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+
+    const cOk = !!cf.name.trim();
+    const cform = {
+      isEdit: this.state.cMode === "edit",
+      title: this.state.cMode === "edit" ? "编辑课程" : "新建课程",
+      desc: this.state.cMode === "edit"
+        ? "课程名改了要同步平台别名，否则下次导入会匹配不上。"
+        : "先把课建出来：名称、定位、作业。场次和讲师创建后在课程页排，同一门课可以多场、不同讲师。",
+      name: cf.name, short: cf.short, descText: cf.desc, introText: cf.intro || "", hwTitle: cf.hwTitle, hwDue: cf.hwDue,
+      onIntro: e => this.setCForm({ intro: e.target.value }),
+      onName: e => this.setCForm({ name: e.target.value }),
+      onShort: e => this.setCForm({ short: e.target.value }),
+      onDesc: e => this.setCForm({ desc: e.target.value }),
+      onHwTitle: e => this.setCForm({ hwTitle: e.target.value }),
+      onHwDue: e => this.setCForm({ hwDue: e.target.value }),
+      hours: [1, 2, 3, 4].map(h => this.chipPick(h + " 小时", cf.hours === h, () => this.setCForm({ hours: h }))),
+      sessionNote: this.state.cMode === "edit"
+        ? "讲师是按场次定的：在课程页「上课时间」里点某一场的「改这一场 / 修正」改讲师。这里只管全课默认时区和时长。"
+        : "先建课程，创建后在课程页添加场次；每一场单独选讲师。",
+      aliases: cf.aliases.map(a => ({
+        label: a,
+        onRemove: () => this.setCForm({ aliases: cf.aliases.filter(x => x !== a) }),
+        style: "display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 6px 0 9px;border-radius:8px;border:1px solid #e4e0d8;background:#f2efe9;color:#3c3a35;font:400 11.5px/1 'JetBrains Mono',monospace;white-space:nowrap"
+      })),
+      aliasDraft: cf.aliasDraft,
+      onAliasDraft: e => this.setCForm({ aliasDraft: e.target.value }),
+      onAddAlias: () => {
+        const v = cf.aliasDraft.trim();
+        if (!v || cf.aliases.includes(v)) return;
+        this.setCForm({ aliases: cf.aliases.concat(v), aliasDraft: "" });
+      },
+      offlineChips: [["上架", false], ["已下线", true]].map(([label, val]) => this.chipPick(label, cf.offline === val, () => this.setCForm({ offline: val }))),
+
+      enrolled: enrolledIn(course.name),
+      saveLabel: this.state.cMode === "edit" ? "保存课程" : "创建课程",
+      saveDisabled: !cOk,
+      onClose: () => this.setState({ showCourse: false }),
+      onSave: () => {
+        if (!cOk) return;
+        const patch = { name: cf.name.trim(), short: cf.short.trim() || "—", desc: cf.desc.trim(), intro: (cf.intro || "").trim(), offset: cf.offset, hours: cf.hours, hwTitle: cf.hwTitle.trim() || "（待填）", hwDue: cf.hwDue.trim() || "", aliases: cf.aliases.length ? cf.aliases : [cf.name.trim()], status: cf.offline ? "已下线" : "上架" };
+        if (this.state.cMode === "edit") {
+          this.setState(st => ({ cOver: { ...st.cOver, [course.id]: { ...(st.cOver[course.id] || {}), ...patch } }, showCourse: false }));
+        } else {
+          const id = "c" + Date.now();
+          this.setState(st => ({ extraCourses: st.extraCourses.concat({ id, sessions: [], ...patch }), showCourse: false, cSel: id, sessAdd: { open: true, date: "", time: "19:30" } }));
+        }
+      }
+    };
+
+    const fm = this.state.form;
+    const dupRec = all.find(x => x.email.toLowerCase() === fm.email.trim().toLowerCase());
+    const emailBad = !!dupRec;
+    const canSave = !!fm.name.trim() && /.+@.+\..+/.test(fm.email.trim()) && !emailBad;
+    const btn = (on, primary) => `display:inline-flex;align-items:center;justify-content:center;height:32px;padding:0 12px;border-radius:8px;border:${primary ? "0" : "1px solid #e4e0d8"};background:${primary ? (on ? "#9c3417" : "#d9c6bf") : "#f2efe9"};color:${primary ? "#fff" : on ? "#1a1917" : "#b6b0a5"};font:500 13px/1 'Noto Sans SC',sans-serif;cursor:${on ? "pointer" : "not-allowed"};opacity:${on ? "1" : ".7"}`;
+    const form = {
+      name: fm.name, email: fm.email, wechat: fm.wechat, wxName: fm.wxName, nick: fm.nick, note: fm.note,
+      onName: e => this.setForm({ name: e.target.value }),
+      onEmail: e => this.setForm({ email: e.target.value }),
+      onWechat: e => this.setForm({ wechat: e.target.value }),
+      onWxName: e => this.setForm({ wxName: e.target.value }),
+      onNick: e => this.setForm({ nick: e.target.value }),
+      onNote: e => this.setForm({ note: e.target.value }),
+      emailStyle: `height:36px;width:100%;border-radius:8px;border:1px solid ${emailBad ? "#b3261e" : "#e4e0d8"};background:#fff;padding:0 12px;font:400 13px/1 'JetBrains Mono',monospace;color:#1a1917;outline:none`,
+      dup: emailBad,
+      dupName: dupRec ? dupRec.name : "",
+      onOpenDup: () => this.setState({ showNew: false, selected: dupRec ? dupRec.email : null, scope: "active" }),
+      noWechat: !fm.wechat.trim(),
+      regions: Object.keys(TZ).map(r => this.chipPick(r, fm.region === r, () => this.setForm({ region: r }))),
+      levels: LEVELS.map(l => this.chipPick(l, fm.level === l, () => this.setForm({ level: l }))),
+      sources: allSources.map(sc => this.chipPick(sc, fm.source === sc, () => this.setForm({ source: sc }))),
+      tags: allTags.map(t => this.chipPick(t, fm.tags.includes(t), () => this.setForm({ tags: fm.tags.includes(t) ? fm.tags.filter(x => x !== t) : fm.tags.concat(t) }))),
+      onSave: () => { if (canSave) this.saveStudent(false); },
+      onSaveNext: () => { if (canSave) this.saveStudent(true); },
+      saveStyle: btn(canSave, true),
+      saveNextStyle: btn(canSave, false)
+    };
+
+    const nameOf = em => { const r = all.find(x => x.email === em); return r ? r.name : "未匹配学员"; };
+    const eq = this.state.eq.trim().toLowerCase();
+    const eRows = eAll.filter(r => {
+      if (eq && !(nameOf(r.email).toLowerCase().includes(eq) || r.email.toLowerCase().includes(eq))) return false;
+      if (this.state.eStatus !== "全部" && r.status !== this.state.eStatus) return false;
+      if (this.state.eCourse && r.course !== this.state.eCourse) return false;
+      return true;
+    });
+    const eFiltered = !!eq || this.state.eStatus !== "全部" || !!this.state.eCourse;
+    const tab = CHANNELS.find(c => c.key === this.state.intakeTab) || CHANNELS[0];
+    const mf = this.state.manual;
+    const mStu = all.find(x => x.email.toLowerCase() === mf.email.trim().toLowerCase());
+    const mOk = !!mStu && !!mf.course;
+
+    const en = {
+      totalLabel: eAll.length + " 条报课 · " + eAll.filter(r => r.status === "已报名").length + " 人待上课",
+      query: this.state.eq,
+      onQuery: e => this.setState({ eq: e.target.value }),
+      onReset: () => this.setState({ eq: "", eStatus: "全部", eCourse: null }),
+      isFiltered: eFiltered,
+      resultLabel: eRows.length + " / " + eAll.length,
+      channels: CHANNELS.map(c => ({
+        label: c.label, state: c.state,
+        style: `display:inline-flex;align-items:center;gap:6px;border-radius:8px;padding:2px 9px;font:400 11.5px/1.5 'Noto Sans SC',sans-serif;background:#fff;color:#3c3a35;border:1px solid #e4e0d8;white-space:nowrap`,
+        dotStyle: `display:inline-block;width:5px;height:5px;border-radius:50%;margin-right:6px;vertical-align:middle;background:${c.tone === "ok" ? "#4c8a63" : "#c58a1a"}`
+      })),
+      statusFilters: ["全部"].concat(ESTATUS).map(s2 => {
+        const on = this.state.eStatus === s2;
+        return { label: s2, count: s2 === "全部" ? eAll.length : eAll.filter(r => r.status === s2).length, onClick: () => this.setState({ eStatus: s2 }), style: segStyle(on), numStyle: numStyle(on) };
+      }),
+      courseFilters: COURSES.map(c => {
+        const on = this.state.eCourse === c;
+        return { label: c, onClick: () => this.setState({ eCourse: on ? null : c }), style: `display:inline-flex;align-items:center;height:24px;padding:0 9px;border-radius:8px;border:1px solid ${on ? "#9c3417" : "#e4e0d8"};background:${on ? "#9c3417" : "#fff"};color:${on ? "#fff" : "#3c3a35"};font:${on ? "500" : "400"} 11.5px/1 'Noto Sans SC',sans-serif;cursor:pointer;white-space:nowrap` };
+      }),
+      head: ["学员", "课程", "报课时间", "状态", "数据来源", "备注"].map(label => ({ label, style: `position:sticky;top:0;z-index:2;text-align:left;padding:0 14px;height:34px;background:#f2efe9;border-bottom:1px solid #e4e0d8;font:500 11px/1 'JetBrains Mono',monospace;letter-spacing:.09em;color:#79736a` })),
+      rows: eRows.map(r => {
+        const manualRow = r.origin === "手工补录";
+        const sv = r.status === "已报名" ? "success" : "muted";
+        return {
+          name: nameOf(r.email), email: r.email, course: r.course, date: r.date, status: r.status,
+          session: (() => {
+            const c = CATA.find(x => x.name === r.course);
+            if (!c) return "课程已下线";
+            const s = c.sessions.find(x => x.date === r.session) || c.next;
+            if (!r.session && c.sessions.length > 1) return "场次未选 · 待确认";
+            return s.label + " · " + (s.teacher || "待定");
+          })(),
+          origin: r.origin, conflict: !!r.conflict, note: r.note || "—", statusVariant: sv, sessionDate: r.session || "",
+          edited: !!r.edited && r.origin === "平台同步",
+          onEdit: () => this.setState({
+            showManual: true, mMode: "edit",
+            manual: { email: r.email, course: r.course, session: r.sessionDate || "", date: r.date, status: r.status, note: r.note || "" }
+          }),
+          trStyle: `height:44px;background:${manualRow ? "#fbfaf8" : "#fff"};cursor:pointer`,
+          td: TD_BASE + ";white-space:nowrap"
+        };
+      }),
+      showTable: eRows.length > 0,
+      showEmpty: eRows.length === 0,
+      emptyDesc: eFiltered ? "当前筛选组合下没有报课记录。" : "还没有导入任何报课数据。先从 EliteCoach101 导出或粘贴一批，缺的再手工补录。",
+      showIntake: this.state.showIntake,
+      onOpenIntake: () => this.setState({ showIntake: true }),
+      onCloseIntake: () => this.setState({ showIntake: false }),
+      intakeTabs: CHANNELS.map(c => {
+        const on = this.state.intakeTab === c.key;
+        return {
+          label: c.label, state: c.state,
+          onClick: () => this.setState({ intakeTab: c.key }),
+          style: `flex:1;display:flex;align-items:center;padding:9px 12px;border-radius:8px;border:1px solid ${on ? "#9c3417" : "#e4e0d8"};background:${on ? "#faf6f3" : "#fff"};color:#1a1917;cursor:pointer;text-align:left`,
+          stateStyle: `font:400 11px/1 'JetBrains Mono',monospace;color:${c.tone === "ok" ? "#4c8a63" : "#c58a1a"}`
+        };
+      }),
+      intake: {
+        title: tab.title, desc: tab.desc,
+        blocked: tab.key === "api", blockedText: tab.blockedText || "",
+        showDrop: tab.key === "csv", showPaste: tab.key === "paste",
+        dropTitle: tab.dropTitle || "", dropHint: tab.dropHint || "",
+        goLabel: tab.go,
+        goDisabled: tab.key === "api"
+      },
+      schema: SCHEMA.map((f, i) => ({
+        key: f.key, label: f.label, rule: f.rule, req: f.req,
+        style: `display:flex;gap:10px;align-items:center;padding:8px 12px;background:${i % 2 ? "#fbfaf8" : "#fff"};border-bottom:${i === SCHEMA.length - 1 ? "0" : "1px solid #f0ece4"}`,
+        reqVariant: f.req === "必填" ? "danger" : "muted"
+      })),
+      showManual: this.state.showManual,
+      onOpenManual: () => this.setState({ showManual: true, mMode: "create", manual: { email: "", course: COURSES[0], session: "", date: "", status: "已报名", note: "" } }),
+      onCloseManual: () => this.setState({ showManual: false }),
+      isEdit: this.state.mMode === "edit",
+      isCreate: this.state.mMode !== "edit",
+      mTitle: this.state.mMode === "edit" ? "修改报课" : "手工补录报课",
+      mDesc: this.state.mMode === "edit"
+        ? "学员 + 课程 是这条报课的身份，不可改；要改这两项请删除后重新补录。"
+        : "平台缺数据时用。补录记录会标为「手工补录」，导入时不被覆盖。",
+      mSaveLabel: this.state.mMode === "edit" ? "保存修改" : "保存补录",
+      dateRowStyle: "display:block",
+      mf: {
+        email: mf.email, date: mf.date, note: mf.note,
+        onEmail: e => this.setManual({ email: e.target.value }),
+        onDate: e => this.setManual({ date: e.target.value }),
+        onNote: e => this.setManual({ note: e.target.value }),
+        emailWrapStyle: mf.email.trim() && !mStu
+          ? "border-radius:10px;padding:2px;background:#b3261e"
+          : "border-radius:10px;padding:2px;background:transparent",
+        hint: !mf.email.trim() ? "按邮箱匹配学员库，匹配不到不能补录。" : mStu ? "已匹配：" + mStu.name : "学员库里没有这个邮箱，请先在学员页新增。",
+        hintStyle: `font:400 11.5px/1.5 'Noto Sans SC',sans-serif;color:${!mf.email.trim() ? "#a09a90" : mStu ? "#2f6b4f" : "#b3261e"}`,
+        courses: CATA.filter(c => c.status !== "已下线").map(c => this.chipPick(c.name, mf.course === c.name, () => this.setManual({ course: c.name, session: "" }))),
+        sessions: (() => {
+          const mc = CATA.find(c => c.name === mf.course);
+          if (!mc) return [];
+          return mc.sessions.map(s => this.chipPick(s.label + " · " + (s.teacher || "待定"), mf.session === s.date, () => this.setManual({ session: s.date })));
+        })(),
+        sessionHint: (() => {
+          const mc = CATA.find(c => c.name === mf.course);
+          if (!mc || mc.sessions.length === 0) return "这门课还没排上课时间，先去课程页添加。";
+          return mf.session ? "" : "多场课要指明学员上哪一场，未选会进待处理。";
+        })(),
+        showSessionHint: (() => {
+          const mc = CATA.find(c => c.name === mf.course);
+          return !mc || mc.sessions.length === 0 || !mf.session;
+        })(),
+        statuses: ESTATUS.map(s2 => {
+          const mc = CATA.find(c => c.name === mf.course);
+          const ms = mc && mc.sessions.find(x => x.date === mf.session);
+          const locked = !!(ms && ms.upcoming) && s2 !== "已报名" && s2 !== "退课";
+          if (!locked) return this.chipPick(s2, mf.status === s2, () => this.setManual({ status: s2 }));
+          return { label: s2, onClick: () => {}, style: "display:inline-flex;align-items:center;height:26px;padding:0 10px;border-radius:8px;border:1px dashed #e4e0d8;background:#fbfaf8;color:#c0bab0;font:400 12px/1 'Noto Sans SC',sans-serif;cursor:not-allowed" };
+        }),
+        statusHint: (() => {
+          const mc = CATA.find(c => c.name === mf.course);
+          const ms = mc && mc.sessions.find(x => x.date === mf.session);
+          return ms && ms.upcoming ? "这一场还没上（" + ms.label + "），只能是已报名或退课。" : "";
+        })(),
+        showStatusHint: (() => {
+          const mc = CATA.find(c => c.name === mf.course);
+          const ms = mc && mc.sessions.find(x => x.date === mf.session);
+          return !!(ms && ms.upcoming);
+        })(),
+        onSave: () => {
+          if (this.state.mMode === "edit") {
+            const k = mf.email + "|" + mf.course;
+            this.setState(st => ({
+              eOver: { ...st.eOver, [k]: { date: mf.date.trim(), status: mf.status, note: mf.note.trim(), session: mf.session } },
+              showManual: false
+            }));
+            return;
+          }
+          if (!mOk) return;
+          const rec = { email: mStu.email, course: mf.course, session: mf.session, date: mf.date.trim() || "2026-07-30", status: mf.status, origin: "手工补录", note: mf.note.trim() };
+          this.setState(st => ({ extraEnroll: st.extraEnroll.concat(rec), showManual: false, manual: { email: "", course: COURSES[0], session: "", date: "", status: "已报名", note: "" } }));
+        },
+        identity: mf.email + " · " + mf.course,
+        onDelete: () => {
+          const k = mf.email + "|" + mf.course;
+          this.setState(st => ({ eRemoved: (st.eRemoved || []).concat(k), showManual: false }));
+        },
+        saveDisabled: this.state.mMode === "edit" ? false : !mOk
+      }
+    };
+
+    return {
+      nav, alignFilters, tagFilters, scopeFilters, sourceFilters, rows, detail, form, en, co, cform,
+      showCourse: this.state.showCourse,
+      isEnroll: this.state.view === "enroll",
+      isCourses: this.state.view === "courses",
+      showNew: this.state.showNew,
+      editVal: this.state.editVal,
+      onEditVal: e => this.setState({ editVal: e.target.value }),
+      onCommit: () => this.commit(),
+      onEditKey: e => { if (e.key === "Enter") this.commit(); else if (e.key === "Escape") this.setState({ editKey: null, editVal: "" }); },
+      onOpenNew: () => this.setState({ showNew: true }),
+      onCloseNew: () => this.setState({ showNew: false }),
+      isStudents: this.state.view === "students",
+      isHomework: this.state.view === "homework",
+      hw,
+      isPlaceholder: !["students", "enroll", "courses", "homework"].includes(this.state.view),
+      page: PAGES[this.state.view] ? { ...PAGES[this.state.view], bullets: PAGES[this.state.view].bullets.map(text => ({ text })) } : { bullets: [] },
+      onBackToStudents: () => this.setState({ view: "students" }),
+      query: this.state.query,
+      onQuery: e => this.setState({ query: e.target.value }),
+      onReset: () => this.setState({ query: "", align: "all", tag: [], source: null }),
+      onClose: () => this.setState({ selected: null, askArchive: false, editKey: null, tagEdit: false }),
+      isFiltered,
+      hasSelection: !!detail,
+      showTable: rows.length > 0,
+      showEmpty: data.length === 0 && !inScope,
+      showNoResults: rows.length === 0 && (inScope || data.length > 0),
+      totalLabel: emptyDb ? "0 人" : inScope ? data.length + " 人已归档" : data.length + " 人在读 · " + unaligned + " 人未对齐微信",
+      resultLabel: rows.length + " / " + data.length
+    };
+  }
+}
+
+</script>
+</body>
+</html>
