@@ -46,3 +46,19 @@
     - "Filtering correct: archived students and withdrawn enrollments excluded from roster (but submission records remain in DB for archival-reversibility scenario)"
     - "Ranking deterministic: two-field sort key (total desc, email asc) breaks ties; tests verify same ranking order across multiple requests"
     - "Response model uses str for state field (not Literal), avoiding the 500-on-outlier-value pitfall documented in CLAUDE.md"
+
+- group: 4
+  attempt: 1
+  scores: {spec: 100, runtime: 100, code: 100}
+  total: 100
+  status: PASS
+  findings:
+    - "spec: All 7 SHALL requirements implemented and verified — course organization, four filters with counts, awaiting-reply definition, detail panel with rank/scores/metadata, no maxima displayed, read-only constraints, empty state messaging"
+    - "runtime: 185/185 tests pass including 23 homework-specific tests; no console.log noise; vitest run succeeds"
+    - "code: No CRITICAL/HIGH issues. Code review confirmed: flex-none guard present (line 163), no write methods in api.ts, explicit FETCH_TIMEOUT_MS applied, test isolation solid (props-based rendering, no leftover mock state), four states correctly colored/labeled, zero scores displayed as real data, all empty states handled"
+  notes:
+    - "flex-none clipping pitfall explicitly addressed with explanatory comment citing CLAUDE.md; test 表格不能被裁掉 confirms class presence"
+    - "Mock isolation verified: HomeworkClient.test.tsx renders component directly with plain data props, does not mock api.ts, avoids vi.clearAllMocks pitfall entirely"
+    - "Fetch timeout: both getCourses and getHomework use backendRequestInit() with AbortSignal.timeout(15s), consistent with platform constraints"
+    - "Read-only contract satisfied: only getHomework added to api.ts, no create/update/delete homework methods; comment explains why (grades.csv lives in separate repo)"
+    - "UI correctness: four states have distinct visual treatment (danger/primary/muted tones) for their semantic meaning; color serves as only differentiator for the three 'not submitted' states"

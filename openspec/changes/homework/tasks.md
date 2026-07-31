@@ -139,13 +139,13 @@
 - [x] 4.14 RED — 空态：一门课没有任何提交记录时出现说明文字而非空表格
 - [x] 4.15 GREEN — 实现只读约束与空态
 - [x] 4.16 GREEN — 侧边导航「作业」指向 `/homework` 真实路由；确认外壳的取数仍不阻塞导航（layout 不得变成 async）
-- [ ] 4.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-4.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 70 → PASS; < 70 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
+- [x] 4.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-4.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 70 → PASS; < 70 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 5. 验证与上线
 
-- [ ] 5.1 Run backend test suite — `cd backend && pytest`，确认无回归（注意：跨过某个测试数阈值才出现的失败先怀疑资源泄漏，engine 应模块级共用）
-- [ ] 5.2 Run frontend test suite — `cd frontend && npm run test`，确认无回归；单独跑与全量跑结果需一致（`vi.clearAllMocks` 不清实现）
-- [ ] 5.3 Run superpowers:verification-before-completion — 跑 `project.test_commands` 与 `project.custom_verification_checks`（`console.log` 审计 + 前端不得出现后端密钥名）
+- [x] 5.1 Run backend test suite — `cd backend && pytest`，确认无回归（注意：跨过某个测试数阈值才出现的失败先怀疑资源泄漏，engine 应模块级共用）
+- [x] 5.2 Run frontend test suite — `cd frontend && npm run test`，确认无回归；单独跑与全量跑结果需一致（`vi.clearAllMocks` 不清实现）
+- [x] 5.3 Run superpowers:verification-before-completion — 跑 `project.test_commands` 与 `project.custom_verification_checks`（`console.log` 审计 + 前端不得出现后端密钥名）
 - [ ] 5.4 上线：先跑 migration，再部署后端，最后部署前端。顺序不能反 —— migration 没跑而后端先上会每个请求 500
 - [ ] 5.5 生产同步 dry-run — 对 S1/S2/S3 三份 csv 各跑一次 `--dry-run`，**在真实终端里跑**（本地测试捕获的是内存流，编码问题只在真终端暴露）。核对两份清单的人数
 - [ ] 5.6 按第二份清单（无报课记录）补齐报课记录 —— 生产上报课是 S1 = 14 / S2 = 8，而成绩是 17 人 / 9 人。**这一步之前页面只显示 14 / 8 是正确行为，不是缺陷**

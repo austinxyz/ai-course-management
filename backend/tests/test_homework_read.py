@@ -3,6 +3,12 @@
 这一页要回答的是「这门课谁没交」。所以名单的驱动表是**报课记录**，
 作业是外连接上去的——反过来以作业为驱动表会漏掉所有没交的人，
 也就是恰好漏掉这一页存在的理由。
+
+夹具里的邮箱一律带 `hw-` 前缀。清表 fixture 有意不清 `students`（当时的理由是
+"测试用 @example.com，撞不上"），但那个理由不成立：本地为截图、验收造的演示数据
+按隐私规则**也只能用** @example.com，于是撞是迟早的事——本次就撞了
+（演示数据里的 `missing@example.com`），症状是**四个不相干的测试红在 setup 阶段**。
+前缀让本文件的夹具只与自己撞。
 """
 
 from datetime import date, datetime, timedelta, time
@@ -108,34 +114,34 @@ class TestFourStates:
         done = _session(db_session, course, PAST)
         upcoming = _session(db_session, course, FUTURE)
 
-        _student(db_session, "submitted@example.com", "已交甲")
-        _enroll(db_session, "submitted@example.com", course, done)
-        _submit(db_session, "submitted@example.com", course)
+        _student(db_session, "hw-submitted@example.com", "已交甲")
+        _enroll(db_session, "hw-submitted@example.com", course, done)
+        _submit(db_session, "hw-submitted@example.com", course)
 
-        _student(db_session, "missing@example.com", "未交乙")
-        _enroll(db_session, "missing@example.com", course, done)
+        _student(db_session, "hw-missing@example.com", "未交乙")
+        _enroll(db_session, "hw-missing@example.com", course, done)
 
-        _student(db_session, "waiting@example.com", "未开放丙")
-        _enroll(db_session, "waiting@example.com", course, upcoming)
+        _student(db_session, "hw-waiting@example.com", "未开放丙")
+        _enroll(db_session, "hw-waiting@example.com", course, upcoming)
 
-        _student(db_session, "nosession@example.com", "未定场次丁")
-        _enroll(db_session, "nosession@example.com", course, None)
+        _student(db_session, "hw-nosession@example.com", "未定场次丁")
+        _enroll(db_session, "hw-nosession@example.com", course, None)
         return course
 
     def test_each_person_gets_exactly_one_state(self, client, scene):
         rows = _by_email(_fetch(client, scene))
 
-        assert rows["submitted@example.com"]["state"] == "submitted"
-        assert rows["missing@example.com"]["state"] == "missing"
-        assert rows["waiting@example.com"]["state"] == "not_open"
-        assert rows["nosession@example.com"]["state"] == "no_session"
+        assert rows["hw-submitted@example.com"]["state"] == "submitted"
+        assert rows["hw-missing@example.com"]["state"] == "missing"
+        assert rows["hw-waiting@example.com"]["state"] == "not_open"
+        assert rows["hw-nosession@example.com"]["state"] == "no_session"
 
     def test_unscheduled_is_not_folded_into_missing(self, client, scene):
         """未定场次不进未交。没有场次就没有截止时间，催他是冤的。"""
         rows = _by_email(_fetch(client, scene))
 
         missing = [r for r in rows.values() if r["state"] == "missing"]
-        assert [r["student_email"] for r in missing] == ["missing@example.com"]
+        assert [r["student_email"] for r in missing] == ["hw-missing@example.com"]
 
 
 class TestSessionStateIsNotRecomputed:
@@ -149,22 +155,22 @@ class TestSessionStateIsNotRecomputed:
         course = _course(db_session)
         # 日期已过，但人工标记为已取消——课没上成
         cancelled = _session(db_session, course, PAST, override="cancelled")
-        _student(db_session, "alpha@example.com", "学员甲")
-        _enroll(db_session, "alpha@example.com", course, cancelled)
+        _student(db_session, "hw-alpha@example.com", "学员甲")
+        _enroll(db_session, "hw-alpha@example.com", course, cancelled)
 
         rows = _by_email(_fetch(client, course))
 
-        assert rows["alpha@example.com"]["state"] != "missing"
+        assert rows["hw-alpha@example.com"]["state"] != "missing"
 
     def test_a_past_session_manually_marked_pending_is_not_missing(self, client, db_session):
         course = _course(db_session)
         overridden = _session(db_session, course, PAST, override="pending")
-        _student(db_session, "alpha@example.com", "学员甲")
-        _enroll(db_session, "alpha@example.com", course, overridden)
+        _student(db_session, "hw-alpha@example.com", "学员甲")
+        _enroll(db_session, "hw-alpha@example.com", course, overridden)
 
         rows = _by_email(_fetch(client, course))
 
-        assert rows["alpha@example.com"]["state"] == "not_open"
+        assert rows["hw-alpha@example.com"]["state"] == "not_open"
 
 
 class TestDeduplication:
@@ -177,9 +183,9 @@ class TestDeduplication:
         course = _course(db_session)
         first = _session(db_session, course, PAST)
         second = _session(db_session, course, PAST - timedelta(days=7))
-        _student(db_session, "alpha@example.com", "学员甲")
-        _enroll(db_session, "alpha@example.com", course, first)
-        _enroll(db_session, "alpha@example.com", course, second)
+        _student(db_session, "hw-alpha@example.com", "学员甲")
+        _enroll(db_session, "hw-alpha@example.com", course, first)
+        _enroll(db_session, "hw-alpha@example.com", course, second)
 
         rows = _fetch(client, course)
 
@@ -193,9 +199,9 @@ class TestDeduplication:
         而错的方向是会**误催**的那一边。
         """
         course = _course(db_session)
-        _student(db_session, "alpha@example.com", "学员甲")
-        _enroll(db_session, "alpha@example.com", course, _session(db_session, course, PAST))
-        _enroll(db_session, "alpha@example.com", course, _session(db_session, course, FUTURE))
+        _student(db_session, "hw-alpha@example.com", "学员甲")
+        _enroll(db_session, "hw-alpha@example.com", course, _session(db_session, course, PAST))
+        _enroll(db_session, "hw-alpha@example.com", course, _session(db_session, course, FUTURE))
 
         rows = _fetch(client, course)
 
@@ -204,10 +210,10 @@ class TestDeduplication:
 
     def test_a_submission_wins_over_everything(self, client, db_session):
         course = _course(db_session)
-        _student(db_session, "alpha@example.com", "学员甲")
-        _enroll(db_session, "alpha@example.com", course, _session(db_session, course, PAST))
-        _enroll(db_session, "alpha@example.com", course, None)
-        _submit(db_session, "alpha@example.com", course)
+        _student(db_session, "hw-alpha@example.com", "学员甲")
+        _enroll(db_session, "hw-alpha@example.com", course, _session(db_session, course, PAST))
+        _enroll(db_session, "hw-alpha@example.com", course, None)
+        _submit(db_session, "hw-alpha@example.com", course)
 
         rows = _fetch(client, course)
 
@@ -224,31 +230,31 @@ class TestExcludedFromTheRoster:
 
     def test_archived_students_are_absent(self, client, db_session):
         course = _course(db_session)
-        _student(db_session, "alpha@example.com", "在读甲")
-        _enroll(db_session, "alpha@example.com", course, None)
-        _student(db_session, "gone@example.com", "已归档乙", archived=datetime(2026, 7, 1))
-        _enroll(db_session, "gone@example.com", course, None)
+        _student(db_session, "hw-alpha@example.com", "在读甲")
+        _enroll(db_session, "hw-alpha@example.com", course, None)
+        _student(db_session, "hw-gone@example.com", "已归档乙", archived=datetime(2026, 7, 1))
+        _enroll(db_session, "hw-gone@example.com", course, None)
 
         rows = _fetch(client, course)
 
-        assert [r["student_email"] for r in rows] == ["alpha@example.com"]
+        assert [r["student_email"] for r in rows] == ["hw-alpha@example.com"]
 
     def test_archived_students_keep_their_submission_in_the_database(self, client, db_session):
         """成绩本身还在库里——归档是可撤销的，恢复之后不该要求重跑同步。"""
         from sqlmodel import select
 
         course = _course(db_session)
-        _student(db_session, "gone@example.com", "已归档乙", archived=datetime(2026, 7, 1))
-        _enroll(db_session, "gone@example.com", course, None)
-        _submit(db_session, "gone@example.com", course)
+        _student(db_session, "hw-gone@example.com", "已归档乙", archived=datetime(2026, 7, 1))
+        _enroll(db_session, "hw-gone@example.com", course, None)
+        _submit(db_session, "hw-gone@example.com", course)
 
         assert _fetch(client, course) == []
         assert len(db_session.exec(select(HomeworkSubmission)).all()) == 1
 
     def test_withdrawn_enrollments_are_absent(self, client, db_session):
         course = _course(db_session)
-        _student(db_session, "quit@example.com", "退课丙")
-        _enroll(db_session, "quit@example.com", course, None, status="withdrawn")
+        _student(db_session, "hw-quit@example.com", "退课丙")
+        _enroll(db_session, "hw-quit@example.com", course, None, status="withdrawn")
 
         assert _fetch(client, course) == []
 
@@ -257,9 +263,9 @@ class TestExcludedFromTheRoster:
     ):
         """退课的是那条记录，不是那个人。"""
         course = _course(db_session)
-        _student(db_session, "alpha@example.com", "学员甲")
-        _enroll(db_session, "alpha@example.com", course, None, status="withdrawn")
-        _enroll(db_session, "alpha@example.com", course, _session(db_session, course, PAST))
+        _student(db_session, "hw-alpha@example.com", "学员甲")
+        _enroll(db_session, "hw-alpha@example.com", course, None, status="withdrawn")
+        _enroll(db_session, "hw-alpha@example.com", course, _session(db_session, course, PAST))
 
         rows = _fetch(client, course)
 
@@ -270,17 +276,17 @@ class TestExcludedFromTheRoster:
 class TestRanking:
     def test_rank_is_by_total_within_the_course(self, client, db_session):
         course = _course(db_session)
-        for email, total in [("a@example.com", 90), ("b@example.com", 80), ("c@example.com", 70)]:
+        for email, total in [("hw-a@example.com", 90), ("hw-b@example.com", 80), ("hw-c@example.com", 70)]:
             _student(db_session, email, email[0])
             _enroll(db_session, email, course, None)
             _submit(db_session, email, course, total=total)
 
         rows = _by_email(_fetch(client, course))
 
-        assert rows["a@example.com"]["rank"] == 1
-        assert rows["b@example.com"]["rank"] == 2
-        assert rows["c@example.com"]["rank"] == 3
-        assert rows["a@example.com"]["rank_of"] == 3
+        assert rows["hw-a@example.com"]["rank"] == 1
+        assert rows["hw-b@example.com"]["rank"] == 2
+        assert rows["hw-c@example.com"]["rank"] == 3
+        assert rows["hw-a@example.com"]["rank_of"] == 3
 
     def test_ties_are_broken_deterministically(self, client, db_session):
         """同分的名次与相对顺序在两次请求之间必须一致。
@@ -289,7 +295,7 @@ class TestRanking:
         而堆顺序会因为任何一次写入而变。
         """
         course = _course(db_session)
-        for email, total in [("a@example.com", 90), ("b@example.com", 90), ("c@example.com", 80)]:
+        for email, total in [("hw-a@example.com", 90), ("hw-b@example.com", 90), ("hw-c@example.com", 80)]:
             _student(db_session, email, email[0])
             _enroll(db_session, email, course, None)
             _submit(db_session, email, course, total=total)
@@ -302,8 +308,8 @@ class TestRanking:
 
     def test_people_without_a_submission_have_no_rank(self, client, db_session):
         course = _course(db_session)
-        _student(db_session, "alpha@example.com", "学员甲")
-        _enroll(db_session, "alpha@example.com", course, None)
+        _student(db_session, "hw-alpha@example.com", "学员甲")
+        _enroll(db_session, "hw-alpha@example.com", course, None)
 
         assert _fetch(client, course)[0]["rank"] is None
 
@@ -313,11 +319,11 @@ class TestPayload:
         self, client, db_session
     ):
         course = _course(db_session)
-        _student(db_session, "alpha@example.com", "学员甲")
-        _enroll(db_session, "alpha@example.com", course, None)
+        _student(db_session, "hw-alpha@example.com", "学员甲")
+        _enroll(db_session, "hw-alpha@example.com", course, None)
         _submit(
             db_session,
-            "alpha@example.com",
+            "hw-alpha@example.com",
             course,
             total=77,
             reply_status="草稿已创建",
@@ -339,8 +345,8 @@ class TestPayload:
     def test_a_row_without_a_submission_is_empty_not_zero(self, client, db_session):
         """没交的人总分是 null，不是 0 —— 0 是一个真实的分数。"""
         course = _course(db_session)
-        _student(db_session, "alpha@example.com", "学员甲")
-        _enroll(db_session, "alpha@example.com", course, None)
+        _student(db_session, "hw-alpha@example.com", "学员甲")
+        _enroll(db_session, "hw-alpha@example.com", course, None)
 
         row = _fetch(client, course)[0]
 
@@ -351,7 +357,7 @@ class TestPayload:
     def test_rows_are_ordered_deterministically(self, client, db_session):
         """名单本身也要有确定顺序——没有 ORDER BY 的话，编辑过的记录会跑到最后。"""
         course = _course(db_session)
-        for email in ["c@example.com", "a@example.com", "b@example.com"]:
+        for email in ["hw-c@example.com", "hw-a@example.com", "hw-b@example.com"]:
             _student(db_session, email, f"学员{email[0]}")
             _enroll(db_session, email, course, None)
 
@@ -364,9 +370,9 @@ class TestPayload:
 def test_another_course_is_not_included(client, db_session):
     course = _course(db_session)
     other = _course(db_session, name="课程乙", short="S2")
-    _student(db_session, "alpha@example.com", "学员甲")
-    _enroll(db_session, "alpha@example.com", course, None)
-    _enroll(db_session, "alpha@example.com", other, None)
+    _student(db_session, "hw-alpha@example.com", "学员甲")
+    _enroll(db_session, "hw-alpha@example.com", course, None)
+    _enroll(db_session, "hw-alpha@example.com", other, None)
 
     assert len(_fetch(client, course)) == 1
 
