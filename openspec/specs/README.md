@@ -12,6 +12,7 @@
 - docs/superpowers/specs/2026-07-29-student-write-requirements.md（写入持久化）
 - docs/superpowers/specs/2026-07-29-roster-editing-requirements.md（姓名可编辑与检索范围）
 - docs/superpowers/specs/2026-07-30-roster-order-spec-requirements.md（名单排序，补写既有行为的依据）
+- docs/superpowers/specs/2026-07-30-enrollment-backfill-requirements.md（学员详情的报课记录可逐条编辑）
 
 **后台**: FastAPI `GET /api/students`（列表，默认只返回在读，`?archived=true` 取已归档）、`GET /api/students/{email}`（按邮箱查单条，大小写不敏感）、`POST /api/students`（新增，邮箱冲突返回 409 并区分在读/已归档两种情形）、`PATCH /api/students/{email}`（部分更新，`exclude_unset` 区分"未提供"与"显式设为空"）、`POST /api/students/{email}/archive` 与 `/restore`（软删除，`archived_at` 由服务端盖时间）；Supabase Postgres `students` 表，邮箱为主键并有 `lower(email)` 唯一索引，写入时统一转小写；姓名走共享的 `StudentName` 校验（先 trim，空则 422），**新增与更新两条路径共用同一份规则**——只拦一边等于留着从另一边造出空姓名；列表 `ORDER BY name, email`（无排序时 UPDATE 会把该行写到堆尾，编辑过的学员因此跑到名单最后）
 **前台**: `frontend/app/students/` —— Server Component 同时拉在读与已归档两份数据，`StudentsClient` 只渲染 props（无本地副本），写操作走 `actions.ts` 的 Server Actions；每个字段独立的保存中/失败态，失败保留用户已输入的内容；`error.tsx` / `loading.tsx` 承接后端不可达（fetch 15s 超时，避免被平台函数上限掐死）；姓名与其余字段同构地排在详情面板字段表首位；检索匹配姓名/邮箱/微信昵称/微信名/微信号五个字段（任一命中、大小写不敏感，**不匹配**标签与备注），placeholder `搜索姓名 / 邮箱 / 微信` 是这件事唯一的可发现处；词表在 `app/students/vocab.ts`（原名 `mock-data.ts`，里面从来没有 mock 数据）
@@ -74,14 +75,16 @@
 
 ### `enrollment` ✅ 已实现 · 🌐 已上线
 **用户故事**: 作为讲师，我想知道**这门课这一场有谁** —— 现在系统里查不到，只能翻平台后台；有人平台漏记或线下转账我要能直接补录；有人这次没上想补后面那一场，改一下就行，别让我删了重建把报名时间丢掉；还有人想再听一遍加深印象，系统要记下她占了两场的位子，但**别催她交两次作业**
-**覆盖需求**: docs/superpowers/specs/2026-07-30-enrollment-core-requirements.md（数据主干；批量导入见下方「未做」）
+**覆盖需求**:
+- docs/superpowers/specs/2026-07-30-enrollment-core-requirements.md（数据主干）
+- docs/superpowers/specs/2026-07-30-enrollment-backfill-requirements.md（来源三值、报课总表、逐条编辑、从作业倒推）
 **设计基准**: docs/superpowers/specs/mocks/2026-07-29-course-enrollment-design.dc.html（学员详情的报课区块、`showManual` 补录弹窗、场次卡片的已报人数）
 
-**后台**: `enrollments` 表 —— `students.email` × `courses.id` × **可空**的 `course_sessions.id`，带 `enrolled_at` / `status` / `source` / `note`；**两条 partial unique index**（`session_id is not null` 一条、`is null` 一条）；`session_id` 外键**故意不写** `on delete cascade / set null`；`GET/POST/PATCH/DELETE /api/enrollments`；`GET /api/courses` 同一次请求内聚合三个计数（每场人数、未定场次人数、去重人数）；场次删除守卫返回 409 并带条数
-**前台**: 学员详情的「报课记录」区块（`EnrollmentRows`）+ 补录弹窗（`EnrollmentModal`，四个字段全部送出）；课程页场次行的「已报 N 人」与课程层的「另有 N 人未定场次」，**两者为 0 时都不显示**；删除被拒的信息渲染在**那一行**（弹窗关着时也可见）
-**关键性质**: 状态**只存 `enrolled` / `withdrawn`**，「已完成」不入库、读取时由所属场次派生（场次取消 → 仍是报名，课没上成）；**不设状态覆盖** —— 补课与重听靠**改场次/清空场次**表达，否则"这个人属于哪一场"会有两个矛盾答案；重听同一门课 = 两条记录，但**作业按人计一份**；**归档学员不影响计数**（排除会让历史数字随今天的操作被改写）；退课与删除是两件事——退课=发生过（仍挡住场次删除），删除=这条记录本身录错了
-**验收标准**: 生产上给真实学员补录一条并**填上可选字段**，`session_id` 与 `note` 确实落库、派生状态为 `completed`（该场已过而库里仍是 `enrolled`）；删除该场次返回 409 且提示「有 1 条报课记录」；删掉该报课后人数回到 0
+**后台**: `enrollments` 表 —— `students.email` × `courses.id` × **可空**的 `course_sessions.id`，带 `enrolled_at` / `status` / `source`（**三值**：`manual` 人特意录的 / `platform` 平台同步 / `derived` 从别处倒推的占位，取值在 API 边界受限）/ `note`；**两条 partial unique index**（`session_id is not null` 一条、`is null` 一条）；`session_id` 外键**故意不写** `on delete cascade / set null`；`GET/POST/PATCH/DELETE /api/enrollments`；`GET /api/courses` 同一次请求内聚合三个计数（每场人数、未定场次人数、去重人数）；场次删除守卫返回 409 并带条数
+**前台**: 学员详情的「报课记录」区块（`EnrollmentRows`，每条可**改场次/清空/删除**，错误按报课 id 就近显示）+ 补录弹窗（`EnrollmentModal`，四个字段全部送出）；`/enroll` **只读**报课总表（六列 + 课程筛选，无任何编辑入口——写入只在学员详情一处）；课程页场次行的「已报 N 人」与课程层的「另有 N 人未定场次」，**两者为 0 时都不显示**；删除被拒的信息渲染在**那一行**（弹窗关着时也可见）
+**关键性质**: **来源三值的区别对将来的平台导入有约束力** —— 平台导入不得覆盖 `manual`、可以覆盖 `derived`；二者塞进同一个值就分不出哪些能覆盖，而那时错的方向不可逆。状态**只存 `enrolled` / `withdrawn`**，「已完成」不入库、读取时由所属场次派生（场次取消 → 仍是报名，课没上成）；**不设状态覆盖** —— 补课与重听靠**改场次/清空场次**表达，否则"这个人属于哪一场"会有两个矛盾答案；重听同一门课 = 两条记录，但**作业按人计一份**；**归档学员不影响计数**（排除会让历史数字随今天的操作被改写）；退课与删除是两件事——退课=发生过（仍挡住场次删除），删除=这条记录本身录错了
+**验收标准**: 生产上 22 条由作业成绩倒推而来（S1 14 / S2 8，全部未定场次、来源 `derived`，报名日期取各自课程最早一场），**重跑新建 0 条、已存在 22 条**；指派一条到某场后「未定场次」14 → 13、该场已报 0 → 1，改回完全复原；另：生产上给真实学员补录一条并**填上可选字段**，`session_id` 与 `note` 确实落库、派生状态为 `completed`（该场已过而库里仍是 `enrolled`）；删除该场次返回 409 且提示「有 1 条报课记录」；删掉该报课后人数回到 0
 
-> **本能力不提供**（归 `enrollment-import`）：报课总表页、CSV / 手工粘贴 / API 三通道导入、待处理队列、`raw_payload` 原始行留档、批量指派场次。`/enroll` 目前仍是占位页，**补录入口在学员详情**。
+> **本能力不提供**（归 `enrollment-import`，阻塞于 EliteCoach101 导出方式未知）：CSV / 手工粘贴 / API 三通道导入、待处理队列、`raw_payload` 原始行留档、**批量**指派场次（逐条指派已有）。
 >
 > 也不提供：出勤记录（来没来）、退款与收费、名额上限。
