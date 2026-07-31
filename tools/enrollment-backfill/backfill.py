@@ -33,6 +33,14 @@ class Outcome:
     failed: list[str] = field(default_factory=list)
 
 
+def _detail(resp) -> str:
+    """取后端给的 detail 原文；拿不到就空串（据此判断的分支会走失败那条，是安全方向）。"""
+    try:
+        return str(resp.json().get("detail", ""))
+    except Exception:
+        return ""
+
+
 def push(
     client,
     base: str,
@@ -64,11 +72,14 @@ def push(
         )
         if resp.status_code == 201:
             outcome.created += 1
-        elif resp.status_code == 409:
+        elif resp.status_code == 409 and "已经存在" in _detail(resp):
+            # 后端对"已经存在"和"这门课已下线"都返回 409。一律当成"已存在"会让
+            # "全都因为课下线而没写进去"看起来和"重跑，本来就都在"一模一样——
+            # 而这两件事一个要处理、一个不用。
             outcome.already_there += 1
         else:
             outcome.failed.append(
-                f"{row.student_email} / {row.course_name}: HTTP {resp.status_code}"
+                f"{row.student_email} / {row.course_name}: HTTP {resp.status_code} {_detail(resp)}"
             )
     return outcome
 

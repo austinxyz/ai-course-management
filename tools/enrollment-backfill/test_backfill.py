@@ -80,3 +80,39 @@ def test_other_errors_are_collected_not_swallowed():
     assert result.already_there == 0
     assert len(result.failed) == 1
     assert "a@example.com" in result.failed[0]
+
+
+class DetailClient(FakeClient):
+    """409 时带上后端给的 detail 原文。"""
+
+    def __init__(self, pairs: list[tuple[int, str]]):
+        super().__init__([c for c, _ in pairs])
+        self.details = [d for _, d in pairs]
+
+    def post(self, url, json, **kw):  # noqa: A002
+        detail = self.details.pop(0)
+        resp = super().post(url, json, **kw)
+
+        class Resp:
+            status_code = resp.status_code
+
+            @staticmethod
+            def json():
+                return {"detail": detail}
+
+        return Resp()
+
+
+def test_an_offline_course_is_not_miscounted_as_already_there():
+    """后端对"已经存在"和"这门课已下线"都返回 409。
+
+    一律当成"已存在"会让"22 条全都因为课下线而没写进去"看起来和
+    "重跑，22 条本来就在"一模一样——而这两件事一个要处理、一个不用。
+    """
+    client = DetailClient([(409, "这门课已下线，不能新建报课")])
+
+    result = push(client, "http://backend", {}, [row("a@example.com")])
+
+    assert result.already_there == 0
+    assert len(result.failed) == 1
+    assert "已下线" in result.failed[0]
