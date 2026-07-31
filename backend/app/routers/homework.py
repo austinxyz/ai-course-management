@@ -5,14 +5,60 @@
 有资格当准。
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+import uuid
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session, select
 
 from app.db import get_session
-from app.models import Course, CourseAlias, Enrollment, HomeworkSubmission, Student
-from app.schemas import HomeworkUpsert, HomeworkUpsertResult, normalize_alias
+from app.models import Course, CourseAlias, CourseSession, Enrollment, HomeworkSubmission, Student
+from app.routers.courses import derive_session_state
+from app.schemas import (
+    HomeworkPersonRead,
+    HomeworkUpsert,
+    HomeworkUpsertResult,
+    normalize_alias,
+)
 
 router = APIRouter(prefix="/api/homework", tags=["homework"])
+
+# 四态。三态（稿子那版）不够：倒推进来的报课全是未定场次，而没有场次就没有
+# 截止时间——把这些人算作「未交」等于制造一批催不了的催促目标。
+SUBMITTED = "submitted"
+NOT_OPEN = "not_open"
+NO_SESSION = "no_session"
+MISSING = "missing"
+
+# 一人多条报课时，合并取**最宽容**的那个状态。
+#
+# 顺序就是这条规则本身：报了两场、其中一场还没上的人，不该因为另一场已经过了
+# 就落进未交名单。写成"取第一条"的话，读接口没有 ORDER BY，"第一条"每次可能是
+# 不同的行——同一个人时而未交、时而未开放，而错的那一边会**误催**。
+_LENIENCY = [SUBMITTED, NOT_OPEN, NO_SESSION, MISSING]
+
+
+def merge_states(states: list[str]) -> str:
+    """同一个人的多条报课合成一个状态：取最宽容的那个。
+
+    单独具名而不是内联进循环，是为了能单独测到——这条规则错了不会报错，
+    只会让某个人被催或不被催，而那件事只有收件人看得见。
+    """
+    for candidate in _LENIENCY:
+        if candidate in states:
+            return candidate
+    return MISSING  # pragma: no cover - states 非空时到不了
+
+
+def state_of(session_row: CourseSession | None) -> str:
+    """一条**没有提交**的报课记录对应的状态。
+
+    「场次是否已结束」复用 `derive_session_state`——它处理了人工覆盖
+    （比如把一场标成已取消）。另写一套日期比较必然在某个边界上分叉。
+    """
+    if session_row is None:
+        return NO_SESSION
+    state, _ = derive_session_state(session_row)
+    return MISSING if state == "done" else NOT_OPEN
 
 
 def _resolve_course(alias_raw: str, session: Session) -> Course:
@@ -29,6 +75,87 @@ def _resolve_course(alias_raw: str, session: Session) -> Course:
     if course is None:  # pragma: no cover - 外键保证
         raise HTTPException(status_code=404, detail=f"别名 {alias_raw!r} 指向的课程不存在")
     return course
+
+
+@router.get("", response_model=list[HomeworkPersonRead])
+def list_homework(
+    course: uuid.UUID = Query(),
+    session: Session = Depends(get_session),
+) -> list[HomeworkPersonRead]:
+    """一门课的作业名单。
+
+    **一条 JOIN 取全。** 每次数据库往返实测 ≈ 61ms（Render → Supabase），
+    而往返次数就是用户感知的延迟。这里能安全 JOIN 是因为每条报课至多对应
+    一名学员、一场、一份作业，不会产生笛卡尔积。
+
+    驱动表是**报课记录**，作业外连接上去——反过来以作业为驱动表会漏掉所有
+    没交的人，也就是恰好漏掉这一页存在的理由。
+
+    已归档学员与已退课的报课不进名单。这里的计数直接导向"催谁"，
+    催一个已归档或已退课的人是错的。**与报课页有意不同**：那边的已报人数
+    是历史事实的统计，不排除已归档学员。
+    """
+    rows = session.exec(
+        select(Enrollment, Student, CourseSession, HomeworkSubmission)
+        .join(Student, Student.email == Enrollment.student_email)
+        .outerjoin(CourseSession, CourseSession.id == Enrollment.session_id)
+        .outerjoin(
+            HomeworkSubmission,
+            (HomeworkSubmission.student_email == Enrollment.student_email)
+            & (HomeworkSubmission.course_id == Enrollment.course_id),
+        )
+        .where(
+            Enrollment.course_id == course,
+            Enrollment.status != "withdrawn",
+            Student.archived_at.is_(None),
+        )
+    ).all()
+
+    # 按人去重（`enrollment` spec 的「作业按人计，不按报课记录计」）：
+    # 重复来听是加深印象，不是重修——再催她交一遍作业是打扰。
+    people: dict[str, dict] = {}
+    for enrollment, student, session_row, submission in rows:
+        found = people.setdefault(
+            student.email,
+            {"student": student, "submission": submission, "states": []},
+        )
+        if submission is not None:
+            found["submission"] = submission
+        found["states"].append(SUBMITTED if submission is not None else state_of(session_row))
+
+    # 名次：按总分降序，并列时用邮箱打破——排序键打不破并列的话，两个同分的人
+    # 谁在前会随堆顺序抖动，而堆顺序会因为任何一次写入而变。
+    scored = sorted(
+        ((p["submission"].total, email) for email, p in people.items() if p["submission"]),
+        key=lambda pair: (-pair[0], pair[1]),
+    )
+    rank_by_email = {email: i + 1 for i, (_, email) in enumerate(scored)}
+
+    result = []
+    for email, found in people.items():
+        student = found["student"]
+        submission = found["submission"]
+        result.append(
+            HomeworkPersonRead(
+                student_email=email,
+                name=student.name,
+                wechat=student.wechat,
+                state=merge_states(found["states"]),
+                submitted_at=submission.submitted_at if submission else None,
+                total=submission.total if submission else None,
+                scores=submission.scores if submission else [],
+                highlight=submission.highlight if submission else "",
+                improve=submission.improve if submission else "",
+                reply_status=submission.reply_status if submission else "",
+                source_ref=submission.source_ref if submission else "",
+                rank=rank_by_email.get(email),
+                rank_of=len(scored),
+            )
+        )
+    # 名单本身也要有确定顺序：没有排序的话，编辑过的记录会跑到最后——
+    # 位置记的是最后一次写入时间，而不是数据本身的任何属性。
+    result.sort(key=lambda person: (person.name, person.student_email))
+    return result
 
 
 @router.put("", response_model=HomeworkUpsertResult)

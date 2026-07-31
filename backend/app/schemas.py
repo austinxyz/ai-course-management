@@ -490,3 +490,32 @@ class HomeworkUpsertResult(BaseModel):
     # 学员在册但这门课没有报课记录：成绩**已经写入**，但因为名单来自报课记录，
     # 这个人在页面上一行都不会出现。所以必须列出来让人去补报课。
     skipped_no_enrollment: list[str]
+
+
+class HomeworkPersonRead(BaseModel):
+    """名单里的一个人。
+
+    有提交的部分全是可空的：没交的人**没有**总分，而不是 0 分——0 是一个真实的
+    分数（S1 里就有人 A3 得 0），把两者混成同一个值会让"他没交"读成"他考了 0"。
+
+    `state` 是 `str` 而不是 `Literal`：这是只读响应，而枚举值将来会变。
+    列表接口上一个落在集合外的值会让**整个响应**校验失败（500），
+    不是那一行出错——`student-management` 踩过一次。
+    """
+
+    student_email: str
+    name: str
+    wechat: str
+    # submitted | missing | not_open | no_session
+    state: str
+
+    submitted_at: date | None = None
+    total: int | None = None
+    scores: list[ScoreItem] = []
+    highlight: str = ""
+    improve: str = ""
+    reply_status: str = ""
+    source_ref: str = ""
+    # 本课名次与总人数。没交的人没有名次。
+    rank: int | None = None
+    rank_of: int = 0

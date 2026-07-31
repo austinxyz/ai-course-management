@@ -82,6 +82,24 @@ def test_courses_read_stays_within_two_round_trips(client, db_session, count_que
     )
 
 
+def test_homework_read_is_a_single_round_trip(client, db_session, count_queries):
+    course = _seed(db_session)
+    # 先把 id 取出来。commit 之后 ORM 对象是过期的，在计数归零之后再访问
+    # `course.id` 会触发一次 refresh 查询——那是**测试**发的，不是接口发的，
+    # 混进来会让这条断言测的东西完全不是它自称在测的。
+    course_id = str(course.id)
+    count_queries["n"] = 0
+
+    resp = client.get(f"/api/homework?course={course_id}")
+
+    assert resp.status_code == 200
+    assert count_queries["n"] == 1, (
+        f"GET /api/homework 发了 {count_queries['n']} 条查询。"
+        "报课、学员、场次、作业能在一条 JOIN 里取全——每条报课至多对应一名学员、"
+        "一场、一份作业，不会产生笛卡尔积。"
+    )
+
+
 def test_enrollments_read_is_a_single_round_trip(client, db_session, count_queries):
     _seed(db_session)
     count_queries["n"] = 0

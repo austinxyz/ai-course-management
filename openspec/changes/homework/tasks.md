@@ -65,7 +65,7 @@
 - [x] 2.10 RED — 后端不可达 / 超时：`PUT` 超时时报出可读错误并以非零退出码结束，不静默当成成功（配置 rule：涉及外部 API 的任务必须有超时与异常路径的 RED 测试）
 - [x] 2.11 GREEN — 给 HTTP 调用设显式超时并处理异常路径；`raise_for_status`，因为 httpx 不会因 4xx/404 抛异常（CLAUDE.md：`course-list-order` 的清理脚本曾"成功地什么都没做"）
 - [x] 2.12 GREEN — 写 `tools/homework-sync/README.md`：怎么跑、`--course` 从哪查、两份清单各自怎么处置
-- [ ] 2.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-2.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
+- [x] 2.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-2.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 3. 读接口：名单、四态、去重与过滤
 
@@ -86,20 +86,20 @@
   - 只读响应字段用 `str` 不用 `Literal` —— DB 层没有 CHECK 约束时 `Literal` 会让整个列表接口 500（CLAUDE.md）
 - **Threshold**: 80
 
-- [ ] 3.0 CONTRACT — write openspec/changes/homework/contracts/group-3.md with the ### Contract block above
-- [ ] 3.1 RED — 四态：构造四名学员（有提交 / 报了已结束场次无提交 / 报了未来场次无提交 / 无场次无提交），断言各自的状态
-- [ ] 3.2 GREEN — 实现 `GET /api/homework` 与状态派生；「场次已结束」调 `derive_session_state`
-- [ ] 3.3 RED — 场次被人工覆盖为已取消时，该学员的状态**不是**按日期算出的「未交」（构造：日期已过 + `state_override` 为已取消）
-- [ ] 3.4 GREEN — 让 3.3 通过（走 `derive_session_state` 而非裸日期比较即可）
-- [ ] 3.5 RED — 按人去重：同一学员两条报课（两个场次），名单中只出现 1 次
-- [ ] 3.6 RED — 合并规则：同一学员两条报课，一条指向已结束场次、一条指向未来场次，且**没有提交** → 状态为「未开放」而非「未交」。这条针对"取第一条"的写法
-- [ ] 3.7 GREEN — 实现具名的合并函数（不要内联进查询循环）
-- [ ] 3.8 RED — 已归档学员不进名单也不进任何计数；已退课的报课同理。两者各一个用例
-- [ ] 3.9 GREEN — 在读接口加过滤
-- [ ] 3.10 RED — 排名：三名学员总分 90 / 90 / 80，断言两次请求得到的名次与相对顺序**完全相同**（排序键须能打破并列）
-- [ ] 3.11 GREEN — 实现排名，排序键加入邮箱等可打破并列的字段
-- [ ] 3.12 RED — 往返次数：在 `tests/test_query_roundtrips.py` 加一条，断言 `GET /api/homework` 的查询数 == 1。先写断言、确认它对朴素实现是红的
-- [ ] 3.13 GREEN — 合并成单条 JOIN 查询
+- [x] 3.0 CONTRACT — write openspec/changes/homework/contracts/group-3.md with the ### Contract block above
+- [x] 3.1 RED — 四态：构造四名学员（有提交 / 报了已结束场次无提交 / 报了未来场次无提交 / 无场次无提交），断言各自的状态
+- [x] 3.2 GREEN — 实现 `GET /api/homework` 与状态派生；「场次已结束」调 `derive_session_state`
+- [x] 3.3 RED — 场次被人工覆盖为已取消时，该学员的状态**不是**按日期算出的「未交」（构造：日期已过 + `state_override` 为已取消）
+- [x] 3.4 GREEN — 让 3.3 通过（走 `derive_session_state` 而非裸日期比较即可）
+- [x] 3.5 RED — 按人去重：同一学员两条报课（两个场次），名单中只出现 1 次
+- [x] 3.6 RED — 合并规则：同一学员两条报课，一条指向已结束场次、一条指向未来场次，且**没有提交** → 状态为「未开放」而非「未交」。这条针对"取第一条"的写法
+- [x] 3.7 GREEN — 实现具名的合并函数（不要内联进查询循环）
+- [x] 3.8 RED — 已归档学员不进名单也不进任何计数；已退课的报课同理。两者各一个用例
+- [x] 3.9 GREEN — 在读接口加过滤
+- [x] 3.10 RED — 排名：三名学员总分 90 / 90 / 80，断言两次请求得到的名次与相对顺序**完全相同**（排序键须能打破并列）
+- [x] 3.11 GREEN — 实现排名，排序键加入邮箱等可打破并列的字段
+- [x] 3.12 RED — 往返次数：在 `tests/test_query_roundtrips.py` 加一条，断言 `GET /api/homework` 的查询数 == 1。先写断言、确认它对朴素实现是红的
+- [x] 3.13 GREEN — 合并成单条 JOIN 查询
 - [ ] 3.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-3.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 4. 作业页

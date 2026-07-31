@@ -260,7 +260,7 @@ class TestDeduplication:
         assert len(parse(text, source="s.csv").rows) == 2
 
 
-def test_names_are_returned_for_reporting_only(db_session=None):
+def test_names_are_returned_for_reporting_only():
     """姓名带出来只为了报告可读；关联一律用邮箱。
 
     微信昵称与姓名都会变，邮箱不会——CLAUDE.md §5。

@@ -1,0 +1,16 @@
+### Contract
+- **Spec**:
+  - 作业页某门课的名单 SHALL 由该课程的报课记录派生，并 SHALL 按学员邮箱去重 —— 一名学员在同一门课有多条报课记录时，名单中 SHALL 只出现一次。
+  - 已归档学员与已退课的报课记录 SHALL NOT 进入名单，因而不计入任何计数。
+  - 名单中每人 SHALL 有且仅有一个状态：已交 / 未交 / 未开放 / 未定场次。
+  - 「场次是否已结束」SHALL 与课程页显示的场次状态一致（含人工覆盖的场次状态），SHALL NOT 另行按日期判断。
+  - 排名 SHALL 按总分在该课程所有提交中计算，并 SHALL 使用能打破并列的确定性排序。
+  - `GET /api/homework` SHALL 在**一次**数据库往返内取全所需数据。
+- **Runtime**: `cd backend && pytest tests/test_homework_read.py tests/test_query_roundtrips.py` → expected: 全部通过，且往返断言为 1
+- **Code**:
+  - 以 `Enrollment` 为驱动表 outer join 作业 —— 反过来会漏掉所有没交的人，而那正是这一页要回答的问题（design 决策 5）
+  - 按人合并时状态取最宽容者：已交 > 未开放 > 未定场次 > 未交。必须是**具名函数并单独测到**，否则会被写成"取第一条"而看不出错（design 决策 5 + Risks）
+  - 「场次已结束」复用 `routers/courses.py` 的 `derive_session_state`，不得另写日期比较（design 决策 6）
+  - 归档与退课在**读接口**过滤，不在同步时过滤 —— 归档可撤销，恢复后成绩不该要求重跑同步才回来（design 决策 8）
+  - 只读响应字段用 `str` 不用 `Literal` —— DB 层没有 CHECK 约束时 `Literal` 会让整个列表接口 500（CLAUDE.md）
+- **Threshold**: 80
