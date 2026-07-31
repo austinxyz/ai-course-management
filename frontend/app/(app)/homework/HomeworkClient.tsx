@@ -90,8 +90,10 @@ export function HomeworkClient({ courses, courseId, people }: HomeworkClientProp
         <div className="flex min-w-0 flex-col gap-1">
           <div className="flex items-baseline gap-2.5">
             <h1 className="m-0 font-sans text-[19px] font-semibold tracking-tight">作业</h1>
+            {/* 人数，不是课程名——课程名已经在高亮的那个 chip 上了。
+                两处写同一件事只会占掉本可以说点别的的位置。 */}
             <span className="font-mono text-xs text-muted">
-              {course ? course.name : "还没有课程"}
+              {courses.length === 0 ? "还没有课程" : `${people.length} 人`}
             </span>
           </div>
           <p className="m-0 font-sans text-[12.5px] text-muted">
@@ -112,7 +114,10 @@ export function HomeworkClient({ courses, courseId, people }: HomeworkClientProp
                   : "border-border bg-surface text-foreground",
               )}
             >
-              {c.short || c.name}
+              {/* 课程名，不是简称：`S3` / `S4` 只在讲师脑子里对得上课程，
+                  而报课页一直显示的是课程名。同一件东西两页两个叫法，
+                  切页面就要重新认一遍。 */}
+              {c.name}
             </Link>
           ))}
         </div>

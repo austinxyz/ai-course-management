@@ -57,12 +57,34 @@ function view(people: HomeworkPerson[], courseId = "c1") {
 }
 
 describe("按课程组织", () => {
-  it("每门课一个 chip，当前课程高亮", () => {
+  /**
+   * chip 上写课程名，不写简称。
+   *
+   * `S3` / `S4` 这样的简称只在讲师脑子里对得上课程，而报课页一直显示的是
+   * 课程名——同一件东西在两页两个叫法，切页面时要重新认一遍。
+   * 名字长会换行，那是可以接受的代价（报课页已经如此）。
+   */
+  it("chip 上是课程名，不是简称", () => {
     view([person()]);
 
-    const s2 = screen.getByRole("link", { name: /S2/ });
+    const s2 = screen.getByRole("link", { name: "先造枪：建知识库" });
     expect(s2).toHaveAttribute("href", "/homework?course=c2");
-    expect(screen.getByRole("link", { name: /S1/ }).className).toMatch(/bg-primary/);
+    expect(screen.queryByRole("link", { name: "S2" })).toBeNull();
+  });
+
+  it("标题旁显示名单人数，不重复课程名——那已经在高亮的 chip 上了", () => {
+    view([person(), blank({ studentEmail: "b@example.com", name: "乙" })]);
+
+    const header = screen.getByRole("heading", { name: "作业" }).parentElement;
+    expect(header?.textContent).toMatch(/2 人/);
+  });
+
+  it("当前课程高亮", () => {
+    view([person()]);
+
+    expect(
+      screen.getByRole("link", { name: "从零开始用 Claude 和 Cowork" }).className,
+    ).toMatch(/bg-primary/);
   });
 });
 
