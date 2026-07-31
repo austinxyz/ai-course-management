@@ -147,6 +147,10 @@ async function backendWrite(
       .catch(() => res.statusText);
     throw new BackendError(res.status, detail);
   }
+  // 204 没有 body。无条件 `res.json()` 会在解析空 body 时抛异常，于是一次**成功**的
+  // 删除被上层当成失败：界面报"没删掉"、revalidatePath 不执行、那一行留在屏幕上，
+  // 而记录其实已经没了。症状与"真的删不掉"一模一样，只有刷新才看得出区别。
+  if (res.status === 204) return undefined;
   return res.json();
 }
 
