@@ -343,6 +343,14 @@ function CourseDetail({
             <Fact label="每场时长" value={`${course.duration_minutes} 分钟`} />
             <Fact label="场次" value={`${course.sessions.length} 场`} />
             <Fact label="简称" value={course.short || "—"} />
+            {/* 未定场次的人不属于任何一场，不另计的话他们在这一页上完全不可见 ——
+                "总报名 16 人、两场加起来 13 人"的差额就无处可查，而这批人
+                恰恰是需要去指派的那批。为 0 时不显示。 */}
+            {course.undecided_count > 0 && (
+              <span className="font-sans text-[12.5px] text-primary">
+                另有 {course.undecided_count} 人未定场次
+              </span>
+            )}
           </div>
         </div>
 

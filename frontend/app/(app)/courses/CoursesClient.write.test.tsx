@@ -27,6 +27,7 @@ const done: Course["sessions"][number] = {
   starts_at: "2026-01-16T03:30:00+00:00",
   state: "done",
   state_is_override: false,
+  enrolled_count: 0,
 };
 
 const course: Course = {
@@ -41,6 +42,8 @@ const course: Course = {
   offline: false,
   aliases: [{ raw: "S1" }],
   sessions: [done],
+  undecided_count: 0,
+  enrolled_people: 0,
 };
 
 function openEditor() {
@@ -570,3 +573,31 @@ describe("editing a session with a bad format", () => {
     expect(within(sessionRow("s-done")).getByText("日期格式应为 2026-08-22")).toBeInTheDocument();
   });
 })
+
+
+/**
+ * 删除失败的信息必须留在**触发它的那一行**。
+ *
+ * 行内删除时课程弹窗是关着的——把失败塞进弹窗的 state 等于什么都不显示，
+ * 而这正是 course-catalog 那次被 evaluator 连续 BLOCK 两回的形状：
+ * 失败信息与承载它的组件生命周期脱钩。
+ */
+describe("删除场次被拒绝时", () => {
+  it("错误显示在那一行，且此时并没有打开课程弹窗", async () => {
+    actions.deleteSessionAction.mockResolvedValue({
+      ok: false,
+      message: "这一场有 8 条报课记录，删不掉。先把这些人改派到别的场次或清空场次。",
+    });
+    render(<CoursesClient courses={[course]} teachers={[]} />);
+
+    // 弹窗没开：断言它不在，再走行内的删除路径
+    expect(screen.queryByRole("dialog")).toBeNull();
+    const user = userEvent.setup();
+    await user.click(within(sessionRow("s-done")).getByRole("button", { name: "修正" }));
+    await user.click(within(sessionRow("s-done")).getByRole("button", { name: "删除这一场" }));
+
+    const row = within(sessionRow("s-done"));
+    expect(await row.findByText(/8 条报课记录/)).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+});

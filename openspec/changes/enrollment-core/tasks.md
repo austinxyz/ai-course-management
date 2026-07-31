@@ -132,7 +132,7 @@
 - [x] 4.11 GREEN — 归档确认补上条数
 - [x] 4.12 VISUAL DIFF — 起 dev stack 进 `/students`，对着 mocks 比：区块位置、未定场次的呈现、
       补录弹窗字段。**造一条未定场次的记录**再看 —— 只有指明场次的记录看不出这条
-- [ ] 4.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-4.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 70 → PASS; < 70 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
+- [x] 4.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-4.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 70 → PASS; < 70 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 5. 前端：课程页的人数与删除守卫提示
 
@@ -150,15 +150,15 @@
   - 零值不显示：无人报名的场次不出现数字，未定场次为零不出现提示
 - **Threshold**: 70
 
-- [ ] 5.0 CONTRACT — write openspec/changes/enrollment-core/contracts/group-5.md with the ### Contract block above
-- [ ] 5.1 MOCK — 读 mocks 的「课程页：两个数字，都在零时消失」与「删除场次被拒绝时，错误显示在哪」
-- [ ] 5.2 RED — 有人报名的场次显示人数；**无人报名的场次不出现该数字**
-- [ ] 5.3 GREEN — `SessionRows` 显示人数
-- [ ] 5.4 RED — 课程层显示"另有 N 人未定场次"；为零时不显示
-- [ ] 5.5 GREEN — 课程层提示
-- [ ] 5.6 RED — 删除被拒时错误**渲染在该场次行内**，且课程弹窗关闭时仍可见
-- [ ] 5.7 GREEN — 行内错误呈现，按场次 id 分开存
-- [ ] 5.8 VISUAL DIFF — 对着 mocks 比：两个数字的零值行为、错误信息的位置。
+- [x] 5.0 CONTRACT — write openspec/changes/enrollment-core/contracts/group-5.md with the ### Contract block above
+- [x] 5.1 MOCK — 读 mocks 的「课程页：两个数字，都在零时消失」与「删除场次被拒绝时，错误显示在哪」
+- [x] 5.2 RED — 有人报名的场次显示人数；**无人报名的场次不出现该数字**
+- [x] 5.3 GREEN — `SessionRows` 显示人数
+- [x] 5.4 RED — 课程层显示"另有 N 人未定场次"；为零时不显示
+- [x] 5.5 GREEN — 课程层提示
+- [x] 5.6 RED — 删除被拒时错误**渲染在该场次行内**，且课程弹窗关闭时仍可见
+- [x] 5.7 GREEN — 行内错误呈现，按场次 id 分开存
+- [x] 5.8 VISUAL DIFF — 对着 mocks 比：两个数字的零值行为、错误信息的位置。
       **必须在课程弹窗关闭的状态下触发一次删除失败** —— 弹窗开着时看不出这个缺陷
 - [ ] 5.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-5.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 70 → PASS; < 70 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 

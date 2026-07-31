@@ -22,6 +22,7 @@ const october: Course["sessions"][number] = {
   starts_at: "2026-10-16T02:30:00+00:00",
   state: "pending",
   state_is_override: false,
+  enrolled_count: 0,
 };
 
 const december: Course["sessions"][number] = {
@@ -45,6 +46,8 @@ const course: Course = {
   offline: false,
   aliases: [{ raw: "S1" }, { raw: "Session 1" }],
   sessions: [october, december],
+  undecided_count: 0,
+  enrolled_people: 0,
 };
 
 function sessionRow(id: string): HTMLElement {

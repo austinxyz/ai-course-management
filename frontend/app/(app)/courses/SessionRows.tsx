@@ -191,6 +191,13 @@ function SessionRow({
           {timeIn(session.starts_at, base)}
         </span>
         <span className="font-sans text-[12.5px] text-foreground">{session.teacher}</span>
+        {/* 0 时整条不出现：一门课刚排好场次、还没开始招生时，满屏的「已报 0 人」
+            比留空更吵，而它并不传递任何信息。 */}
+        {session.enrolled_count > 0 && (
+          <span className="font-mono text-[11.5px] text-muted-foreground">
+            已报 {session.enrolled_count} 人
+          </span>
+        )}
         <Badge variant={state.variant}>{state.text}</Badge>
         {session.state_is_override ? (
           <button

@@ -14,6 +14,8 @@ export interface CourseSession {
   state: SessionState;
   /** 真表示这是人工覆盖，界面据此显示「恢复跟随日期」而不是「跟随日期」。 */
   state_is_override: boolean;
+  /** 指向这一场、未退课的报课条数。归档的学员照算。为 0 时界面不显示。 */
+  enrolled_count: number;
 }
 
 export interface CourseAlias {
@@ -35,4 +37,8 @@ export interface Course {
   default_tz: string;
   aliases: CourseAlias[];
   sessions: CourseSession[];
+  /** 报了这门课但还没定上哪一场、且未退课的条数。为 0 时不显示。 */
+  undecided_count: number;
+  /** 报课人数（按学员去重）。重复听同一门课的人有多条记录，但只是一个人。 */
+  enrolled_people: number;
 }

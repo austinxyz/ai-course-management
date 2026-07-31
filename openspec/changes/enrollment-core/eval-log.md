@@ -31,3 +31,13 @@
     - "spec: All SHALLs satisfied — session enrolled_count excludes withdrawn but includes archived (contract explicitly requires this); undecided_count for session_id=null; enrolled_people deduped by email; deletion guard returns 409 with count for all enrollments including withdrawn"
     - "runtime: 35/35 tests pass (8 new tests for group-3). Verified: per-session count, archive doesn't affect count, write responses carry counts, undecided count, people dedup, deletion guard behavior (enrolled + withdrawn)"
     - "code: No CRITICAL/HIGH issues. EnrollmentCounts NamedTuple for immutable aggregation; tally_enrollments pure function O(n); aggregation in same request as course fetch (no N+1); error detail includes count message. Only minor optimization noted (batch enrollment fetch could filter by course_ids up-front for very large scales, but acceptable at current scale)"
+
+- group: 4
+  attempt: 1
+  scores: {spec: 100, runtime: 100, code: 100}
+  total: 100
+  status: PASS
+  findings:
+    - "spec: All 4 SHALLs satisfied — enrollment records display (course/session/date/state); session null state explicitly shown as '未定场次'; no-data message when no records; archive confirmation shows actual enrollment count (not hardcoded 2/4/7)"
+    - "runtime: npm run test: 137/137 passed (20 files, 15 new tests in EnrollmentModal/EnrollmentRows/DetailPanel.archive). npm run build: success. npx tsc --noEmit: no errors"
+    - "code: 0 CRITICAL/HIGH/MEDIUM/LOW issues found. Code review verified: all 4 form fields sent on create (not just required ones), frontend does NOT re-derive state from dates, null session visually distinct, failures prevent form close + all exits disabled during write, no hardcoded mock data, archive text dynamic. Matches student-write pitfalls & course-catalog group 6 guardrails perfectly"
