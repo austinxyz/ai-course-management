@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>enrollment-backfill mocks</title>
+  <!-- HAS_UI_SURFACE: yes -->
+  <style>
+    body { font-family: "Noto Sans SC", -apple-system, BlinkMacSystemFont, sans-serif; margin: 0; padding: 24px; max-width: 1040px; color: #1a1917; background: #f6f4f0; }
+    section { margin-bottom: 32px; padding-bottom: 18px; border-bottom: 1px solid #e4e0d8; }
+    h1 { margin-top: 0; font-size: 21px; }
+    h2 { font-size: 16px; margin-bottom: 6px; }
+    p, li { line-height: 1.65; font-size: 13.5px; }
+    code { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12.5px; background: #f2efe9; border: 1px solid #e4e0d8; border-radius: 4px; padding: 1px 5px; }
+    table { border-collapse: collapse; width: 100%; font-size: 12.5px; margin: 8px 0; }
+    th, td { border: 1px solid #e4e0d8; padding: 6px 9px; text-align: left; vertical-align: top; }
+    th { background: #f2efe9; font-weight: 600; }
+    .warn { background: #fbf0ee; border: 1px solid #f0cfc9; border-radius: 8px; padding: 12px 14px; font-size: 13px; line-height: 1.65; }
+    .ok { background: #eef4ee; border: 1px solid #cfe0d0; border-radius: 8px; padding: 12px 14px; font-size: 13px; line-height: 1.65; }
+    .frame { border: 1px solid #e4e0d8; border-radius: 8px; background: #fff; padding: 12px 14px; margin: 10px 0; }
+    .chip { display: inline-block; border: 1px solid #e4e0d8; border-radius: 6px; padding: 3px 9px; font-size: 12px; background: #f2efe9; margin-right: 6px; }
+    .chip.on { background: #262521; color: #fff; border-color: #262521; }
+    .undecided { color: #9c5a3c; }
+    .muted { color: #a09a90; font-family: "JetBrains Mono", monospace; font-size: 11.5px; }
+    .row { border: 1px solid #e4e0d8; border-radius: 7px; padding: 8px 10px; margin-bottom: 6px; font-size: 12.5px; background: #fbfaf8; display: flex; justify-content: space-between; gap: 10px; align-items: center; }
+  </style>
+</head>
+<body>
+
+<h1>enrollment-backfill — 视觉基准导览</h1>
+
+<p>
+  总表的视觉基准是
+  <code>docs/superpowers/specs/mocks/2026-07-29-course-enrollment-design.dc.html</code>
+  的 <code>sc-if isEnroll</code> 分支（第 654 行起）。这份导览讲的是
+  <strong>哪些照做、哪些有意不做</strong>，以及倒推数据进来之后这两页会长什么样。
+</p>
+
+<section>
+  <h2>照做 / 不做</h2>
+  <table>
+    <tr><th>设计稿里的元素</th><th>本片</th><th>为什么</th></tr>
+    <tr><td>课程筛选 chip + 「清除筛选」</td><td>做</td><td>22 条分属两门课，筛选是看清分布的主要手段</td></tr>
+    <tr><td>表格：学员 / 课程·场次 / 报课日期 / 状态 / 来源 / 备注</td><td>做</td><td>—</td></tr>
+    <tr><td>空态卡片</td><td>做</td><td>—</td></tr>
+    <tr><td>「导入平台数据」按钮 + 导入向导</td><td><strong>不做</strong></td><td>EliteCoach101 导出方式未知，整片归 <code>enrollment-import</code></td></tr>
+    <tr><td>徽标「与平台不一致」/「本地已改」</td><td><strong>不做</strong></td><td>要有平台数据才有"不一致"可言；现在挂上去恒为假</td></tr>
+    <tr><td>行内点击进入编辑</td><td><strong>不做</strong></td><td>总表只读。写入只在学员详情一处</td></tr>
+  </table>
+</section>
+
+<section>
+  <h2>总表：倒推数据进来之后的样子</h2>
+  <div class="frame">
+    <div style="margin-bottom:8px">
+      <span class="chip on">全部 22</span>
+      <span class="chip">从零开始用 Claude 和 Cowork 14</span>
+      <span class="chip">先造枪，再打子弹 8</span>
+    </div>
+    <table>
+      <tr><th>学员</th><th>课程 · 场次</th><th>报课日期</th><th>状态</th><th>来源</th><th>备注</th></tr>
+      <tr><td>学员甲<br><span class="muted">a@example.com</span></td><td>从零开始用 Claude 和 Cowork<br><span class="undecided">未定场次</span></td><td class="muted">2026-06-07</td><td>报名</td><td>倒推</td><td class="muted">—</td></tr>
+      <tr><td>学员乙<br><span class="muted">b@example.com</span></td><td>先造枪，再打子弹<br><span class="undecided">未定场次</span></td><td class="muted">2026-06-14</td><td>报名</td><td>倒推</td><td class="muted">—</td></tr>
+    </table>
+  </div>
+  <p>
+    <strong>22 条全是「未定场次」</strong>，这是倒推的必然结果——作业成绩说不出他上的是哪一场。
+    所以未定场次的呈现不是边缘情况，而是<strong>这一页的主要内容</strong>：要能一眼扫到。
+  </p>
+  <p>
+    <strong>「来源」这一列这次才有意义</strong>：三种值同时存在时它才是信息。
+    倒推 = 从作业成绩推出来的占位，日期也是推的；手工补录 = 人特意录的。
+  </p>
+</section>
+
+<section>
+  <h2>学员详情：每条报课多了两个动作</h2>
+  <div class="frame">
+    <div class="row">
+      <span>从零开始用 Claude 和 Cowork · <span class="undecided">未定场次</span> · <span class="muted">报名于 2026-06-07</span></span>
+      <span><span class="chip">改场次</span><span class="chip">删除</span><span class="chip">报名</span></span>
+    </div>
+  </div>
+  <div class="ok">
+    <strong>为什么必须有「改场次」</strong>：想给这个人补一条带场次的记录时，若走「补录」而不是「改」，
+    唯一索引<strong>不会拦</strong>（场次不同即合法），结果同一人同一门课两条 ——
+    一条未定场次、一条有场次。<strong>那不是重听，是重复。</strong>
+  </div>
+</section>
+
+<section>
+  <h2>课程页：不要把这个误读成"导入失败了"</h2>
+  <div class="frame">
+    <div style="font-weight:600;font-size:14px;margin-bottom:4px">从零开始用 Claude 和 Cowork</div>
+    <div class="muted" style="margin-bottom:8px">每场时长 150 分钟　·　场次 3 场　·　<strong class="undecided">另有 14 人未定场次</strong></div>
+    <div class="row"><span>第 1 场　<span class="muted">2026-06-07</span></span><span class="muted">（不显示已报人数）</span></div>
+  </div>
+  <div class="warn">
+    倒推进来的 22 条全部未定场次，因此<strong>每一场的已报人数都是 0，而 0 不显示</strong>——
+    课程页上看不到任何"已报 N 人"。信息全在课程层那句「另有 14 人未定场次」上。
+    <strong>这是设计如此，不是导入没成功。</strong>生产验收要专门确认这一点，
+    否则最可能的误判就是"跑完了但页面没变化"。
+  </div>
+</section>
+
+<section>
+  <h2>移动端</h2>
+  <p>
+    <strong>桌面单一视口，没有移动版</strong> —— 与既有各页一致，这是既定的范围限定
+    （内部工具，讲师在电脑上用）。总表沿用学员名单那套表格骨架，窄屏下的表现与它相同，
+    本片不为此新增断点。
+  </p>
+</section>
+
+<section>
+  <h2>验收时最容易漏的两条</h2>
+  <div class="warn">
+    <p style="margin:0 0 8px">
+      <strong>1. 占位页测试会变红，那是预期的。</strong>
+      <code>app/(app)/placeholder-routes.test.tsx</code> 断言「报课渲染其占位页」——
+      这一片正是要把它换掉。红的时候要认出这是计划内的，别当成缺陷去查。
+    </p>
+    <p style="margin:0">
+      <strong>2. 重跑幂等要真的跑第二遍。</strong>
+      代码里有 <code>try/except</code> ≠ 数据库真的挡住了 ——
+      <code>NULL != NULL</code> 那条坑的教训就是这两件事不是一回事。
+    </p>
+  </div>
+</section>
+
+</body>
+</html>
