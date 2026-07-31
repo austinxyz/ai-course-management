@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>homework mocks</title>
+  <!-- HAS_UI_SURFACE: yes -->
+  <style>
+    body { font-family: "Noto Sans SC", -apple-system, BlinkMacSystemFont, sans-serif; margin: 0; padding: 24px; max-width: 1040px; color: #1a1917; background: #f6f4f0; }
+    section { margin-bottom: 32px; padding-bottom: 18px; border-bottom: 1px solid #e4e0d8; }
+    h1 { margin-top: 0; font-size: 21px; }
+    h2 { font-size: 16px; margin-bottom: 6px; }
+    p, li { line-height: 1.65; font-size: 13.5px; }
+    code { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12.5px; background: #f2efe9; border: 1px solid #e4e0d8; border-radius: 4px; padding: 1px 5px; }
+    table { border-collapse: collapse; width: 100%; font-size: 12.5px; margin: 8px 0; }
+    th, td { border: 1px solid #e4e0d8; padding: 6px 9px; text-align: left; vertical-align: top; }
+    th { background: #f2efe9; font-weight: 600; }
+    .warn { background: #fbf0ee; border: 1px solid #f0cfc9; border-radius: 8px; padding: 12px 14px; font-size: 13px; line-height: 1.65; }
+    .ok { background: #eef4ee; border: 1px solid #cfe0d0; border-radius: 8px; padding: 12px 14px; font-size: 13px; line-height: 1.65; }
+    .frame { border: 1px solid #e4e0d8; border-radius: 8px; background: #fff; padding: 12px 14px; margin: 10px 0; }
+    .chip { display: inline-block; border: 1px solid #e4e0d8; border-radius: 6px; padding: 3px 9px; font-size: 12px; background: #f2efe9; margin-right: 6px; }
+    .chip.on { background: #9c3417; color: #fff; border-color: #9c3417; }
+    .muted { color: #a09a90; font-family: "JetBrains Mono", monospace; font-size: 11.5px; }
+    .row { border: 1px solid #e4e0d8; border-radius: 7px; padding: 8px 10px; margin-bottom: 6px; font-size: 12.5px; background: #fbfaf8; display: flex; justify-content: space-between; gap: 10px; align-items: center; }
+    .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 7px; vertical-align: middle; }
+    .d-done { background: #4c8a63; }
+    .d-miss { background: #b3261e; }
+    .d-wait { background: #c9c3b6; }
+    .d-nosess { background: #9c3417; }
+    pre { background: #fbfaf8; border: 1px solid #e4e0d8; border-radius: 8px; padding: 11px 13px; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12px; line-height: 1.6; overflow-x: auto; }
+  </style>
+</head>
+<body>
+
+<h1>homework — 视觉基准导览</h1>
+
+<p>
+  视觉基准是
+  <code>docs/superpowers/specs/mocks/2026-07-31-course-enrollment-design.dc.html</code>
+  的 <code>sc-if isHomework</code> 分支。这份导览讲的是<strong>哪些照做、哪些有意不做</strong>，
+  以及为什么。稿子是<strong>单向</strong>的（实现的改动不会 sync 回去），所以
+  「不做」的那些条目要一并抄进 <code>.dc.html</code> 的头注释「已知偏离」清单。
+</p>
+
+<section>
+  <h2>照做</h2>
+  <ul>
+    <li>左表右详情，与学员页同一骨架</li>
+    <li>顶部课程 chips，每个带该课的未交数</li>
+    <li>状态用小圆点 + 文字，四种颜色（见下）</li>
+    <li>分段筛选「全部 / 已交 / 未交 / 待回复」，各带计数</li>
+    <li>表格列：学员 · 提交时间 · 总分 · 分项 · 回复</li>
+    <li>未交那一行整行浅红底（<code>#fdf9f8</code>），选中行左侧 2px 主色竖条</li>
+    <li>详情里的分项按 <strong>zebra 斑马纹</strong>逐行列出</li>
+    <li>页脚显示来源：<code>session1/grades.csv · 第 7 行</code></li>
+    <li>色板全部沿用既有 token，不新增</li>
+  </ul>
+</section>
+
+<section>
+  <h2>有意不做（连同理由，抄进 .dc.html 的「已知偏离」）</h2>
+  <table>
+    <tr><th>稿子上的</th><th>不做的理由</th></tr>
+    <tr>
+      <td>「重新同步 grades.csv」按钮</td>
+      <td><code>grades.csv</code> 在另一个仓库，Render 上的后端看不到那些文件。
+          同步只能是本地 CLI。按钮做出来只会是个骗人的死键。</td>
+    </tr>
+    <tr>
+      <td>分项条形图、<code>11 / 15</code>、按比例的颜色分档</td>
+      <td>各项<strong>满分不在 csv 里</strong>，在 <code>rubric.md</code> 里
+          （而那两份还是错位的）。只显示原始分。</td>
+    </tr>
+    <tr>
+      <td>「第 2 次提交 · +6 分」历史版本</td>
+      <td>纯镜像整行覆盖，不留旧版。要留就得多一张表，而重交这件事目前只发生过一次。</td>
+    </tr>
+    <tr>
+      <td>「截止后交 / 按时交」</td>
+      <td>courses 上没有「作业截止日期」这一列。截止日期对 §4.4 催作业更有用
+          （「已过 N 天」），跟着那个 change 一起加。</td>
+    </tr>
+    <tr>
+      <td>页首「催未交的人」按钮</td>
+      <td>§4.4，本次范围外。</td>
+    </tr>
+    <tr>
+      <td>回复状态的三个可点分段（已回复 / 草稿待发 / 未回复）</td>
+      <td><strong>页面全只读</strong>。而且稿子这三个词与 csv 里的实测值
+          （<code>待回复</code>、<code>草稿已创建</code>）根本不是一套。原样显示 csv 的值。</td>
+    </tr>
+    <tr>
+      <td>总分现算（稿子是 <code>sumOf(g)</code>）</td>
+      <td><code>session2</code> 有 1 行「总分 ≠ 分项之和」。现算会与源文件悄悄不一致，
+          而这一页的全部价值就是忠实反映源文件。<strong>存 csv 里那个数。</strong></td>
+    </tr>
+    <tr>
+      <td>三态（已交 / 未交 / 未开放）</td>
+      <td>改成<strong>四态</strong>，多一个「未定场次」。倒推进来的报课全是未定场次，
+          没有场次就没有截止时间，催他是冤的。</td>
+    </tr>
+    <tr>
+      <td>「未开放」按课程整体算（稿子的 <code>opened</code> 布尔）</td>
+      <td>改成<strong>按学员自己那一场</strong>。S1 已开过几场、又排了一场未来的，
+          课程级口径会把报了未来那场的人推进未交名单。</td>
+    </tr>
+  </table>
+</section>
+
+<section>
+  <h2>四种状态的呈现</h2>
+  <div class="frame">
+    <div class="row"><span><span class="dot d-done"></span>学员甲 <span class="muted">alpha@example.com</span></span><span class="muted">06-11 · 77 · 已回复</span></div>
+    <div class="row" style="background:#fdf9f8"><span><span class="dot d-miss"></span>学员乙 <span class="muted">bravo@example.com</span></span><span class="muted" style="color:#b3261e">未交 · 有报课无提交</span></div>
+    <div class="row"><span><span class="dot d-wait"></span>学员丙 <span class="muted">charlie@example.com</span></span><span class="muted">未开放 · 08-14 那场才上</span></div>
+    <div class="row"><span><span class="dot d-nosess"></span>学员丁 <span class="muted">delta@example.com</span></span><span class="muted" style="color:#9c3417">未定场次 · 先指派场次</span></div>
+  </div>
+  <p class="muted">
+    「未定场次」用主色 <code>#9c3417</code>，与报课页那处同一套视觉语言 ——
+    两处指的是同一件待办：得有人给他派一场。
+  </p>
+</section>
+
+<section>
+  <h2>详情面板</h2>
+  <div class="frame">
+    <div style="font-size:14px;font-weight:600">学员甲</div>
+    <div class="muted">S1 从零开始用 Claude 和 Cowork · 06-05 场 · 作业「多 Agent 工作流」</div>
+    <div style="margin:10px 0;display:flex;align-items:baseline;gap:10px">
+      <span style="font-family:'JetBrains Mono',monospace;font-size:26px">77</span>
+      <span class="muted">本课第 3 / 17</span>
+    </div>
+    <div class="muted" style="margin-bottom:5px">分项 10 项 · 原样取自表头</div>
+    <div style="border:1px solid #e4e0d8;border-radius:7px;overflow:hidden">
+      <div style="display:flex;justify-content:space-between;padding:6px 10px;font-size:12px;background:#fff">A1工作流结构<span style="font-family:'JetBrains Mono',monospace">11</span></div>
+      <div style="display:flex;justify-content:space-between;padding:6px 10px;font-size:12px;background:#fbfaf8">A2数据传递<span style="font-family:'JetBrains Mono',monospace">9</span></div>
+      <div style="display:flex;justify-content:space-between;padding:6px 10px;font-size:12px;background:#fff">A3Cowork特性<span style="font-family:'JetBrains Mono',monospace">0</span></div>
+      <div style="display:flex;justify-content:space-between;padding:6px 10px;font-size:12px;background:#fbfaf8">B1提示词三要素<span style="font-family:'JetBrains Mono',monospace">13</span></div>
+    </div>
+    <p class="muted" style="margin-top:9px">
+      只有分数、没有 <code>/15</code>、没有条。<strong>0 分也照显示</strong> ——
+      A3 那个 0 是真实数据（该学员没用 Cowork 特性），不是缺失。
+    </p>
+    <div style="margin-top:10px;font-size:12.5px"><strong>亮点</strong> Agent1 提示词详细，研究流程专业</div>
+    <div style="margin-top:4px;font-size:12.5px"><strong>改进</strong> 补中间输出并接入 Connector</div>
+    <div class="muted" style="margin-top:8px">session1/grades.csv · 第 2 行 · 同步于 2026-07-31</div>
+  </div>
+</section>
+
+<section>
+  <h2>CLI 的输出形状（不是界面，但它是这次的主要人机接口）</h2>
+  <pre>$ homework-sync --course S1 ../ai-course/tools/homework-grader/session1/grades.csv --dry-run
+
+S1 从零开始用 Claude 和 Cowork  ←  session1/grades.csv
+  18 行 / 17 人（1 人重复提交，取较晚的一次）
+  新建 17 · 更新 0 · 跳过 1
+
+  ⚠ 不在学员表里，先建学员：
+      （0 人）
+
+  ⚠ 在学员表里但这门课没有报课记录，成绩已写入、页面上看不到，先补报课：
+      3 人   ec…@gmail.com   li…@gmail.com   yi…@qq.com
+
+  dry-run，什么都没写。去掉 --dry-run 执行。</pre>
+  <div class="warn">
+    两份清单<strong>必须分开列</strong> —— 处置相反：上面那份要先建学员，下面那份要补报课。
+    混在一起就变成一句无从下手的「有 3 个人有问题」。<br>
+    输出全中文，必须走 <code>sys.stdout.buffer.write(...encode("utf-8"))</code>：
+    Windows 控制台默认 cp1252，第一行就会抛 <code>UnicodeEncodeError</code>，
+    而 pytest 捕获的是内存流，本地测试全绿也照样炸。
+  </div>
+</section>
+
+<section>
+  <h2>移动端</h2>
+  <p>
+    <strong>桌面单一视口，没有移动版</strong> —— 与既有各页一致，这是既定的范围限定
+    （内部工具，讲师在电脑上用）。名单沿用学员页那套表格骨架，窄屏表现与它相同，
+    不为本页单独做响应式。
+  </p>
+</section>
+
+<section>
+  <h2>会踩的坑（本页专属）</h2>
+  <div class="warn">
+    <strong>表格外框的 <code>overflow-hidden</code>。</strong>
+    为圆角加的 <code>overflow-hidden</code> 配上会被压缩的 flex 子项，会把超出的行
+    <strong>裁掉</strong>，而外层滚动容器因此看不到任何溢出 —— 哪儿都没有滚动条。
+    S1 有 17 行，够撞上（报课页是 22 条时暴露的，4 条时看着好好的）。
+    外框要 <code>flex-none</code>。<strong>jsdom 没有布局，单测量不出来</strong>，
+    必须在真实浏览器里用 S1 的全量数据验一次。
+  </div>
+</section>
+
+</body>
+</html>
