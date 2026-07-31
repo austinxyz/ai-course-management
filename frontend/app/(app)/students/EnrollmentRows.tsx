@@ -136,7 +136,9 @@ function EnrollmentRow({
     >
       <div className="flex items-center justify-between gap-2.5">
         <span className="flex min-w-0 flex-col gap-0.5">
-          <span className="overflow-hidden text-ellipsis whitespace-nowrap font-sans text-[13px] text-foreground">
+          {/* 两行再省略，不是单行截断：最长的课程名是
+              「AI 炒股分析系统 — 从方法论到可运行 Skill」，两行足够全显示。 */}
+          <span className="line-clamp-2 font-sans text-[13px] text-foreground">
             {row.courseName}
           </span>
           <span className="font-mono text-[11px] text-muted-foreground">

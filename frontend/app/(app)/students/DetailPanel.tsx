@@ -103,7 +103,10 @@ export function DetailPanel(props: DetailPanelProps) {
   const tagFailed = tagStatus?.state === "failed" ? tagStatus : null;
 
   return (
-    <aside className="flex w-[358px] flex-none flex-col overflow-y-auto border-l border-border bg-surface">
+    // 560px 而不是设计稿的 358px，也不是主区的一半：面板里有 10 个字段 + 标签 +
+    // 备注 + 报课记录，两列字段要的是「每列 250px 以上」，560 就够了；再宽并不会
+    // 更好读，而列表每少 50px 都直接增加横向滚动的幅度。
+    <aside className="flex w-[560px] flex-none flex-col overflow-y-auto border-l border-border bg-surface">
       <div className="flex items-start justify-between gap-2.5 border-b border-border px-[18px] pb-3 pt-3.5">
         <div className="flex min-w-0 flex-col gap-1">
           <div className="font-sans text-base font-semibold leading-snug">{student.name}</div>
@@ -165,7 +168,9 @@ export function DetailPanel(props: DetailPanelProps) {
           <span className="font-sans text-[11px] text-muted-foreground">回车保存 · Esc 取消</span>
         </div>
 
-        <div className="-mt-1.5 flex flex-col overflow-hidden rounded-token border border-border">
+        {/* 两列。斑马纹按**行**而不是按序号：两列布局下按序号会让同一行的
+            左右两格颜色不同，看着像错位。 */}
+        <div className="-mt-1.5 grid grid-cols-2 overflow-hidden rounded-token border border-border">
           {FIELDS.map((fd, i) => {
             const editing = editKey === fd.key;
             const raw = student[fd.key] as string;
@@ -183,8 +188,13 @@ export function DetailPanel(props: DetailPanelProps) {
                 aria-busy={saving || undefined}
                 className={cn(
                   "flex items-start gap-2.5 px-3 py-1.5",
-                  i % 2 ? "bg-surface-muted/40" : "bg-surface",
-                  i === FIELDS.length - 1 ? "" : "border-b border-border/60",
+                  // 每两格算一行；同一行的左右两格同色
+                  Math.floor(i / 2) % 2 ? "bg-surface-muted/40" : "bg-surface",
+                  // 最后一行不画下边框；奇数格（右列）不画右边框
+                  Math.floor(i / 2) === Math.floor((FIELDS.length - 1) / 2)
+                    ? ""
+                    : "border-b border-border/60",
+                  i % 2 ? "" : "border-r border-border/60",
                 )}
               >
                 <span className="w-[74px] flex-none pt-px font-sans text-xs text-muted">{fd.label}</span>

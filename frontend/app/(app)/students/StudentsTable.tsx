@@ -38,10 +38,16 @@ export function StudentsTable({ rows, selectedEmail, archived, onSelect }: Stude
       </colgroup>
       <thead>
         <tr>
-          {["姓名", "邮箱 · 唯一标识", "微信号", "区域", "基础", "来源", "标签", "备注"].map((h) => (
+          {["姓名", "邮箱 · 唯一标识", "微信号", "区域", "基础", "来源", "标签", "备注"].map((h, i) => (
             <th
               key={h}
-              className="sticky top-0 z-10 h-[34px] whitespace-nowrap border-b border-border bg-surface-muted px-3.5 text-left font-mono text-[11px] font-medium tracking-wide text-muted"
+              className={cn(
+                "sticky top-0 h-[34px] whitespace-nowrap border-b border-border bg-surface-muted px-3.5 text-left font-mono text-[11px] font-medium tracking-wide text-muted",
+                // 姓名列横向滚动时钉在左边：这个系统最主要的工作流是拿着微信群名单
+                // 人工对齐，滚到右边看「微信号」时若姓名跟着滚走，就不知道这行是谁了。
+                // 表头的左上角要压过普通表头，所以 z 更高一级。
+                i === 0 ? "left-0 z-20 border-r border-border" : "z-10",
+              )}
             >
               {h}
             </th>
@@ -62,7 +68,21 @@ export function StudentsTable({ rows, selectedEmail, archived, onSelect }: Stude
                 selected ? "shadow-[inset_2px_0_0_var(--color-primary)] bg-primary/5" : isArchived ? "bg-surface-muted/60" : noWechat ? "bg-danger-surface/40" : "bg-surface",
               )}
             >
-              <td className={TD_CLASS}>
+              <td
+                className={cn(
+                  TD_CLASS,
+                  // 与表头同一列钉住。**必须自带背景色**，否则滚过去的内容会从
+                  // 这一格底下透出来——sticky 单元格默认是透明的。
+                  "sticky left-0 z-[5] border-r border-border",
+                  selected
+                    ? "bg-[color-mix(in_srgb,var(--color-primary)_5%,var(--color-surface))]"
+                    : isArchived
+                      ? "bg-surface-muted"
+                      : noWechat
+                        ? "bg-danger-surface"
+                        : "bg-surface",
+                )}
+              >
                 <div className="flex min-w-0 items-center gap-2">
                   <span
                     className="h-1.5 w-1.5 flex-none rounded-full"
