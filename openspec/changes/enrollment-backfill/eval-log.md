@@ -34,3 +34,14 @@
     - "runtime: npm run test (151 passed, 0 failed), npm run build (success), npx tsc (no errors)"
     - "code: All 7 contract Code bullets satisfied; no CRITICAL/HIGH issues — per-enrollment error state isolation, all exits disabled while busy, close-only-on-success with draft preservation, never-resolving-promise test pattern, Server Action return-value error handling, no state re-derivation, proper null/empty-string session handling"
   fix_tasks: []
+
+- group: 4
+  attempt: 1
+  scores: {spec: 100, runtime: 100, code: 95}
+  total: 99
+  status: PASS
+  findings:
+    - "spec: All 6 contract SHALLs satisfied — read-only table with 6 columns (student, course·session, enrollment date, status, source, note), course filter chips, '未定场次' shown explicitly when null, empty state message, no edit/delete entry points, placeholder test updated"
+    - "runtime: npm run test (153/153 passed), npm run build (success, all routes compiled)"
+    - "code: 0 CRITICAL, 0 HIGH issues; 2 LOW issues noted (test regex may false-negative on course names containing filter keywords, missing loading.tsx for /students consistency) — both explicitly non-blocking per reviewer. All contract Code points met: page fetches via lib/api.ts Server Component, no direct backend calls, placeholder routes test correctly removes EnrollPage from list and old placeholder assertions, read-only implementation with no edit controls"
+  fix_tasks: []

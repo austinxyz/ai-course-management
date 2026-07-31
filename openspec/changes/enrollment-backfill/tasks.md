@@ -122,14 +122,14 @@
 - [x] 4.10 GREEN — 改 `placeholder-routes.test.tsx`：报课不再是占位页
 - [x] 4.11 VISUAL DIFF — 起 dev stack 进 `/enroll`，对着 mocks 比：六列、筛选 chip、
       未定场次的呈现、空态。**造几条未定场次的记录再看** —— 全是有场次的记录看不出这一页的重点
-- [ ] 4.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-4.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 70 → PASS; < 70 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
+- [x] 4.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-4.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 70 → PASS; < 70 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 5. 验证与上线
 
-- [ ] 5.1 Run backend test suite — `cd backend && uv run pytest`
-- [ ] 5.2 Run frontend test suite — `cd frontend && npm run test`；另跑 `npm run build` 与 `npx tsc --noEmit`
-- [ ] 5.3 e2e — `project.e2e_command` 为空，本 change 不新增 e2e
-- [ ] 5.4 Run superpowers:verification-before-completion — 跑 `project.test_commands` 与
+- [x] 5.1 Run backend test suite — `cd backend && uv run pytest`
+- [x] 5.2 Run frontend test suite — `cd frontend && npm run test`；另跑 `npm run build` 与 `npx tsc --noEmit`
+- [x] 5.3 e2e — `project.e2e_command` 为空，本 change 不新增 e2e
+- [x] 5.4 Run superpowers:verification-before-completion — 跑 `project.test_commands` 与
       `project.custom_verification_checks`（`console.log` 与密钥泄漏两条）
 - [ ] 5.5 上线 —— 无 schema 变更，前后端各自部署，顺序不敏感
 - [ ] 5.6 **脚本 dry-run 打生产**：确认将建 22 条、跳过 5 个邮箱、`session4` 不导且带原因。
