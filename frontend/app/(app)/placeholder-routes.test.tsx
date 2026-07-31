@@ -36,3 +36,25 @@ describe("placeholder routes", () => {
     );
   });
 });
+
+/**
+ * 报课的**数据主干**已经能用了（enrollment-core），只是这一页本身还没做——
+ * 补录入口在学员详情里。占位页若不说这句，站在 /enroll 的人会以为报课整个还没有，
+ * 而他其实已经可以录了。
+ *
+ * 同时"先把学员名单做完"这句已经过时：名单早做完了。占位文案跟着现实走，
+ * 否则它就是一句错话，而错话比空白更糟。
+ */
+describe("报课占位页的文案", () => {
+  it("指出补录已经能用，并说明入口在哪", () => {
+    render(<EnrollPage />);
+
+    expect(screen.getByText(/学员详情/)).toBeInTheDocument();
+  });
+
+  it("不再说「先把学员名单做完」——名单已经做完了", () => {
+    render(<EnrollPage />);
+
+    expect(screen.queryByText(/先把学员名单做完/)).toBeNull();
+  });
+});

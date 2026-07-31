@@ -21,7 +21,9 @@ export const NAV: { key: NavKey; label: string; href: string; icon: string }[] =
 
 // 课程页与学员页都已实现，所以两者都不在占位表里。
 export const PAGES: Record<Exclude<NavKey, "students" | "courses">, { title: string; desc: string; cardTitle: string; cardDesc: string; bullets: string[] }> = {
-  enroll: { title: "报课", desc: "把报课表里的报名记录对齐到学员库，邮箱重复即视为同一人。", cardTitle: "这一页还没设计", cardDesc: "先把学员名单做完，报课页会复用同一套表格 + 筛选骨架。", bullets: ["导入一批报课记录，按邮箱匹配已有学员", "未匹配的记录进入待处理队列", "报课记录挂在学员详情的「报课」区块下"] },
+  // 报课的数据主干已经能用了（enrollment-core），只是这一整页还没做。
+  // 不说这句的话，站在 /enroll 的人会以为报课整个还没有，而他其实已经可以录了。
+  enroll: { title: "报课", desc: "把报课表里的报名记录对齐到学员库，邮箱重复即视为同一人。", cardTitle: "这一页还没设计，但报课已经能记了", cardDesc: "补录入口在学员详情里：打开一名学员，在「报课记录」区块点「补录报课」。这一页要做的是批量导入与总表。", bullets: ["导入一批报课记录，按邮箱匹配已有学员", "未匹配的记录进入待处理队列", "未定场次的人集中在这里指派"] },
   homework: { title: "作业", desc: "按期次和作业轮次查看提交情况。", cardTitle: "这一页还没设计", cardDesc: "预计是「作业轮次 × 学员」的矩阵视图，未提交格子高亮。", bullets: ["按轮次切换，默认看最近一次", "未提交可直接勾选生成催作业名单", "点格子进入单份作业的批改视图"] },
   nudge: { title: "催作业", desc: "对未提交作业的学员按微信逐个跟进。", cardTitle: "这一页还没设计", cardDesc: "依赖学员的微信号字段，未对齐微信的学员会被单独列出。", bullets: ["从作业页生成待催名单", "未对齐微信的学员无法进入催办流程", "催办后写一条互动记录，避免重复打扰"] },
   interactions: { title: "互动记录", desc: "每位学员的沟通与跟进历史，时间倒序。", cardTitle: "这一页还没设计", cardDesc: "一条流水式时间线，来源包括催作业、答疑、人工备注。", bullets: ["记录来源：催作业 / 答疑 / 手动", "支持按学员和时间范围过滤", "在学员详情里内嵌最近 5 条"] },
