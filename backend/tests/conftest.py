@@ -89,8 +89,9 @@ def empty_course_tables(db_session):
     """
     from sqlmodel import delete
 
-    from app.models import Course, CourseAlias, CourseSession, Enrollment
+    from app.models import Course, CourseAlias, CourseSession, Enrollment, HomeworkSubmission
 
+    db_session.exec(delete(HomeworkSubmission))
     db_session.exec(delete(Enrollment))
     db_session.exec(delete(CourseSession))
     db_session.exec(delete(CourseAlias))

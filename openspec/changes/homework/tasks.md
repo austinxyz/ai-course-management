@@ -17,22 +17,22 @@
   - SQLModel 显式 `None` 会发成 SQL NULL 盖掉列默认值 —— 应用不读不写的列不要映射到模型（CLAUDE.md）
 - **Threshold**: 80
 
-- [ ] 1.0 CONTRACT — write openspec/changes/homework/contracts/group-1.md with the ### Contract block above; confirm all three fields (Spec, Runtime, Code) are non-empty before proceeding
-- [ ] 1.1 RED — `tests/test_homework_model.py`：断言 `scores` 存入 `[{"item":"A1工作流结构","score":11},{"item":"A2数据传递","score":9},…]` 再读出时**顺序与写入一致**。断言必须比较有序序列，不得比较集合或 dict —— 集合相等的断言对"用了 jsonb 对象"这个缺陷全盲
-- [ ] 1.2 GREEN — 写 `supabase/migrations/<ts>_create_homework_submissions.sql`（建表 + `unique (student_email, course_id)` + `index (course_id)`）与 `backend/app/models.py` 的 `HomeworkSubmission`；`supabase db reset` 后**重启后端进程**（连接池会全废，按 PID 杀，`pkill -f uvicorn` 在 Windows 上不可靠）
-- [ ] 1.3 RED — 变异验证：把 `scores` 列改成 `jsonb` 对象形态写入（键为 item 名），确认 1.1 的顺序断言**真的变红**；确认后恢复
-- [ ] 1.4 RED — `tests/test_homework_write.py`：`PUT /api/homework` 送同一批行两次，第二次响应 `created == 0`、`updated == N`，库中总行数不变
-- [ ] 1.5 GREEN — `backend/app/routers/homework.py` 的 `PUT`：按 `(student_email, course_id)` upsert；`backend/app/schemas.py` 增 `ScoreItem` / `HomeworkUpsert` / `HomeworkUpsertResult`；`main.py` 注册路由
-- [ ] 1.6 RED — 总分不重算：送一行「总分 73、分项之和 71」，读回来是 **73**
-- [ ] 1.7 GREEN — 让 1.6 通过（`total` 直接取请求体，不做任何求和）
-- [ ] 1.8 RED — 邮箱不在 `students` 表的行：不写入，出现在 `skipped_no_student`，**其余行照常写入**（同一次请求里混着一条好行与一条坏行，断言好行进去了）
-- [ ] 1.9 RED — 学员存在但该课无报课记录的行：**成绩写入**，且出现在 `skipped_no_enrollment`。两个清单是两个字段，不得合并
-- [ ] 1.10 GREEN — 实现两类分类与部分写入
-- [ ] 1.11 RED — 课程别名解析：`course_alias` 查不到时整份请求被拒（4xx）、报出该别名、**一条都不写入**（断言库中行数为 0）
-- [ ] 1.12 GREEN — 复用既有别名解析路径实现 1.11
-- [ ] 1.13 RED — 显式 `null` 的拒绝：请求体把 NOT NULL 列显式送 `null` 时被边界挡下（4xx），不是 500。注意 `scores` 送 `[]` 是合法的（一门课可以只有固定列）
-- [ ] 1.14 GREEN — 在 schema 层加拒绝；按列的可空性分别决定，不要一刀切 `field_validator("*")`（CLAUDE.md：`enrollment-core` 曾因此挡死正常功能）
-- [ ] 1.15 GREEN — 更新 `backend/tests/conftest.py` 的清表 fixture：`HomeworkSubmission` 排在 `Student` / `Course` **之前**删。漏了的症状是一批与作业毫不相干的测试红在 setup 阶段
+- [x] 1.0 CONTRACT — write openspec/changes/homework/contracts/group-1.md with the ### Contract block above; confirm all three fields (Spec, Runtime, Code) are non-empty before proceeding
+- [x] 1.1 RED — `tests/test_homework_model.py`：断言 `scores` 存入 `[{"item":"A1工作流结构","score":11},{"item":"A2数据传递","score":9},…]` 再读出时**顺序与写入一致**。断言必须比较有序序列，不得比较集合或 dict —— 集合相等的断言对"用了 jsonb 对象"这个缺陷全盲
+- [x] 1.2 GREEN — 写 `supabase/migrations/<ts>_create_homework_submissions.sql`（建表 + `unique (student_email, course_id)` + `index (course_id)`）与 `backend/app/models.py` 的 `HomeworkSubmission`；`supabase db reset` 后**重启后端进程**（连接池会全废，按 PID 杀，`pkill -f uvicorn` 在 Windows 上不可靠）
+- [x] 1.3 RED — 变异验证：把 `scores` 列改成 `jsonb` 对象形态写入（键为 item 名），确认 1.1 的顺序断言**真的变红**；确认后恢复
+- [x] 1.4 RED — `tests/test_homework_write.py`：`PUT /api/homework` 送同一批行两次，第二次响应 `created == 0`、`updated == N`，库中总行数不变
+- [x] 1.5 GREEN — `backend/app/routers/homework.py` 的 `PUT`：按 `(student_email, course_id)` upsert；`backend/app/schemas.py` 增 `ScoreItem` / `HomeworkUpsert` / `HomeworkUpsertResult`；`main.py` 注册路由
+- [x] 1.6 RED — 总分不重算：送一行「总分 73、分项之和 71」，读回来是 **73**
+- [x] 1.7 GREEN — 让 1.6 通过（`total` 直接取请求体，不做任何求和）
+- [x] 1.8 RED — 邮箱不在 `students` 表的行：不写入，出现在 `skipped_no_student`，**其余行照常写入**（同一次请求里混着一条好行与一条坏行，断言好行进去了）
+- [x] 1.9 RED — 学员存在但该课无报课记录的行：**成绩写入**，且出现在 `skipped_no_enrollment`。两个清单是两个字段，不得合并
+- [x] 1.10 GREEN — 实现两类分类与部分写入
+- [x] 1.11 RED — 课程别名解析：`course_alias` 查不到时整份请求被拒（4xx）、报出该别名、**一条都不写入**（断言库中行数为 0）
+- [x] 1.12 GREEN — 复用既有别名解析路径实现 1.11
+- [x] 1.13 RED — 显式 `null` 的拒绝：请求体把 NOT NULL 列显式送 `null` 时被边界挡下（4xx），不是 500。注意 `scores` 送 `[]` 是合法的（一门课可以只有固定列）
+- [x] 1.14 GREEN — 在 schema 层加拒绝；按列的可空性分别决定，不要一刀切 `field_validator("*")`（CLAUDE.md：`enrollment-core` 曾因此挡死正常功能）
+- [x] 1.15 GREEN — 更新 `backend/tests/conftest.py` 的清表 fixture：`HomeworkSubmission` 排在 `Student` / `Course` **之前**删。漏了的症状是一批与作业毫不相干的测试红在 setup 阶段
 - [ ] 1.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-1.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 2. 同步 CLI

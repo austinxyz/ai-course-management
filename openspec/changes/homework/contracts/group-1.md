@@ -1,0 +1,16 @@
+### Contract
+- **Spec**:
+  - 系统 SHALL 为每名学员每门课程最多保存一条作业提交记录。同一份 `grades.csv` 重复同步 SHALL NOT 新增记录，只更新既有记录。
+  - 系统 SHALL 把源文件中固定列（姓名、邮件、提交时间、总分、亮点、改进建议、回复状态）之外的所有列，作为该次提交的分项评分整体存下，**保留列名与列的先后顺序**。
+  - 新增一门课程（即一套全新的分项列名）SHALL NOT 要求修改数据库结构。
+  - 系统 SHALL 原样保存源文件中「总分」列的值，SHALL NOT 由各分项之和推导。
+  - 同步接口与同步工具 SHALL 要求调用方显式指定目标课程，并 SHALL 通过既有的课程别名解析。系统 SHALL NOT 从文件路径或目录名推断课程。
+  - 同步 SHALL 逐行处理，遇到无法关联的行时跳过该行并继续，最终 SHALL 报出**两份彼此分开**的清单。
+  - 第二类（无报课记录）的**成绩仍 SHALL 写入**。
+- **Runtime**: `cd backend && pytest tests/test_homework_write.py tests/test_homework_model.py` → expected: 全部通过，无 import 错误；`supabase db reset` 后 migration 干净重放
+- **Code**:
+  - `scores` 必须是 `jsonb` **数组** `[{"item": …, "score": …}]` —— Postgres 的 `jsonb` 不保证对象键顺序，对象结构会静默丢失分组信息（design 决策 1）
+  - 唯一键 `(student_email, course_id)`，**不含** `session_id` —— `enrollment` 已定「作业按人计」（design 决策 2、4）
+  - 写接口是幂等 `PUT`，返回体须区分 `created` / `updated` / 两类 `skipped`；分类只有数据库知道，不能推给 CLI（design 决策 3）
+  - SQLModel 显式 `None` 会发成 SQL NULL 盖掉列默认值 —— 应用不读不写的列不要映射到模型（CLAUDE.md）
+- **Threshold**: 80

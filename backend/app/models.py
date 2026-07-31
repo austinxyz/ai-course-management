@@ -98,3 +98,29 @@ class Enrollment(SQLModel, table=True):
     source: str = Field(default="manual")
     note: str = Field(default="")
     # created_at 同 Course / CourseSession：应用不读不写，不映射。
+
+
+class HomeworkSubmission(SQLModel, table=True):
+    """一次作业提交：`grades.csv` 里的一行。
+
+    键是「学员 + 课程」，**不含场次**——同一个人重复听同一门课会有多条报课，
+    但只欠一份作业。存了场次就要回答"这份作业算哪一场的"，而那个问题无解。
+    """
+
+    __tablename__ = "homework_submissions"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    student_email: str = Field(foreign_key="students.email")
+    course_id: uuid.UUID = Field(foreign_key="courses.id")
+    submitted_at: date
+    # 原样取自源文件，不由分项求和。source 里真有一行「总分 ≠ 分项之和」。
+    total: int
+    # **数组**而非对象：jsonb 不保证对象键顺序，而列序是评分表分组的唯一载体。
+    scores: list[dict] = Field(default_factory=list, sa_column=Column(JSONB, nullable=False))
+    highlight: str = Field(default="")
+    improve: str = Field(default="")
+    # 原样存源文件的值，不归一化。
+    reply_status: str = Field(default="")
+    # "session1/grades.csv:7"
+    source_ref: str = Field(default="")
+    # synced_at / created_at 同 Course：DB 有 now() 默认值，应用不读不写，不映射。

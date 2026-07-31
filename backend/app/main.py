@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from app.auth import require_shared_secret
 from app.routers.courses import router as courses_router
 from app.routers.enrollments import router as enrollments_router
+from app.routers.homework import router as homework_router
 from app.routers.students import router as students_router
 
 # Opt in to the interactive docs, rather than switching them off when the
@@ -25,3 +26,4 @@ app.middleware("http")(require_shared_secret)
 app.include_router(students_router)
 app.include_router(courses_router)
 app.include_router(enrollments_router)
+app.include_router(homework_router)

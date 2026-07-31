@@ -426,3 +426,67 @@ class EnrollmentUpdate(BaseModel):
         if value is None:
             raise ValueError("null is not a valid value; omit the field instead")
         return value
+
+
+class ScoreItem(BaseModel):
+    """一个分项：列名 + 得分。
+
+    成对存而不是 `{列名: 分}`，是因为 Postgres 的 `jsonb` 不保证对象键顺序
+    （按键长度、再按字节序重排），而分项列的先后是评分表分组结构的唯一载体
+    （A 工作流 / B 提示词 / C 输出 / D 心得）。实测 10 个真实列名过一遍 jsonb
+    对象会被打散成 A2 A3 B2 B3 D1 D2 A1 C1 C2 B1——分组彻底毁掉，且毫无征兆。
+    """
+
+    item: str
+    score: int
+
+
+class HomeworkRow(BaseModel):
+    """源文件里的一行，已经过解析层归一化。
+
+    所有字段都对应 NOT NULL 列，因此**没有一个**允许显式 null——
+    这与 `EnrollmentUpdate.session_id` 相反：那一列本来可空，null 是合法输入。
+    "该不该挡 null"要按列的可空性逐个决定，一刀切两个方向都会错。
+    """
+
+    student_email: str
+    submitted_at: date
+    # 原样取自源文件的「总分」列。有意不做 `sum(scores)` 的一致性校验：
+    # session2/grades.csv 里真有一行对不上，而镜像的职责是忠实，不是纠正。
+    total: int
+    scores: list[ScoreItem] = []
+    highlight: str = ""
+    improve: str = ""
+    # 原样存源文件的值（实测有「待回复」「草稿已创建」），不归一化。
+    reply_status: str = ""
+    source_ref: str = ""
+
+
+class HomeworkUpsert(BaseModel):
+    """一次同步：指明哪门课，加上该课的全部行。
+
+    课程用**别名**指定而不是 uuid：调用方是命令行工具，人在命令行里写的是 `S1`。
+    别名解析走既有的 `course_aliases`，与课程导入同一条路径。
+
+    有意不接受"从文件路径推断"——源仓库的目录名已经错了一处
+    （`session3/` 与 `session4/` 的 rubric 是对调的），路径看着像可靠线索，实际不是。
+    """
+
+    course_alias: AliasRaw
+    rows: list[HomeworkRow]
+
+
+class HomeworkUpsertResult(BaseModel):
+    """同步结果。两份跳过清单是**两个字段**，不合并。
+
+    合并成一句"有 N 个人有问题"就无从下手：两类的处置相反，
+    一类要先建学员，另一类要补报课记录。
+    """
+
+    created: int
+    updated: int
+    # 邮箱不在 students 表：这些行**没有**写入。
+    skipped_no_student: list[str]
+    # 学员在册但这门课没有报课记录：成绩**已经写入**，但因为名单来自报课记录，
+    # 这个人在页面上一行都不会出现。所以必须列出来让人去补报课。
+    skipped_no_enrollment: list[str]
