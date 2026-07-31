@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>homework-upload mocks</title>
+  <!-- HAS_UI_SURFACE: yes -->
+  <style>
+    body { font-family: "Noto Sans SC", -apple-system, BlinkMacSystemFont, sans-serif; margin: 0; padding: 24px; max-width: 1040px; color: #1a1917; background: #f6f4f0; }
+    section { margin-bottom: 32px; padding-bottom: 18px; border-bottom: 1px solid #e4e0d8; }
+    h1 { margin-top: 0; font-size: 21px; }
+    h2 { font-size: 16px; margin-bottom: 6px; }
+    p, li { line-height: 1.65; font-size: 13.5px; }
+    code { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12.5px; background: #f2efe9; border: 1px solid #e4e0d8; border-radius: 4px; padding: 1px 5px; }
+    table { border-collapse: collapse; width: 100%; font-size: 12.5px; margin: 8px 0; }
+    th, td { border: 1px solid #e4e0d8; padding: 6px 9px; text-align: left; vertical-align: top; }
+    th { background: #f2efe9; font-weight: 600; }
+    .warn { background: #fbf0ee; border: 1px solid #f0cfc9; border-radius: 8px; padding: 12px 14px; font-size: 13px; line-height: 1.65; }
+    .ok { background: #eef4ee; border: 1px solid #cfe0d0; border-radius: 8px; padding: 12px 14px; font-size: 13px; line-height: 1.65; }
+    .frame { border: 1px solid #e4e0d8; border-radius: 8px; background: #fff; padding: 14px 16px; margin: 10px 0; }
+    .muted { color: #a09a90; font-family: "JetBrains Mono", monospace; font-size: 11.5px; }
+    .btn { display: inline-flex; align-items: center; height: 28px; padding: 0 12px; border-radius: 8px; font-size: 12.5px; border: 1px solid #e4e0d8; background: #fff; }
+    .btn.primary { background: #9c3417; border-color: #9c3417; color: #fff; }
+    .btn.ghost { border-color: transparent; color: #9c3417; background: transparent; }
+    .btn[disabled] { opacity: .45; }
+    .row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 7px 11px; font-size: 12.5px; border-bottom: 1px solid #f2efe9; }
+    .row:last-child { border-bottom: 0; }
+    .lead { font: 500 13px/1.4 "Noto Sans SC", sans-serif; }
+    .num { font-family: "JetBrains Mono", monospace; }
+  </style>
+</head>
+<body>
+
+<h1>homework-upload — 视觉基准导览</h1>
+
+<p>
+  稿子（<code>2026-07-31-course-enrollment-design.dc.html</code> 的 <code>sc-if isHomework</code>）
+  画了「重新同步 grades.csv」按钮与「上次同步 …」一行，但**没有画预览屏** ——
+  而预览屏是这一片的主体界面。这份导览定它的形状。
+</p>
+
+<div class="ok">
+  <strong>翻案：</strong>之前把「作业页没有重新同步按钮」记成**永久偏离**，理由是
+  「文件在另一个仓库，后端看不到」。前半句对，后半句的推论错了 ——
+  浏览器上传恰恰就是「先导入本系统数据库」。稿子是对的，这条偏离作废。
+</div>
+
+<section>
+  <h2>入口：作业页顶部</h2>
+  <div class="frame">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:16px">
+      <div>
+        <div style="font:600 19px/1.2 'Noto Sans SC',sans-serif">作业 <span class="muted">17 人</span></div>
+        <div class="muted" style="margin-top:4px">上次导入 2026-07-31 15:47 · session1/grades.csv · 17 行</div>
+      </div>
+      <span class="btn">导入 grades.csv</span>
+    </div>
+  </div>
+  <p>
+    按钮旁边**不放课程选择器**：目标课程恒为当前高亮的那个 chip。
+    界面上无从选错，比给一个下拉再校验更省事。
+  </p>
+  <p class="muted">「上次导入」这一行来自导入记录表（时间 · 文件名 · 行数）。不存原文。</p>
+</section>
+
+<section>
+  <h2>预览屏</h2>
+  <div class="frame">
+    <div class="lead">从零开始用 Claude 和 Cowork · session1/grades.csv</div>
+    <div class="muted" style="margin:4px 0 12px">按 UTF-8 读取 · 18 行 → 去重后 17 行 · 10 个分项列</div>
+
+    <div style="display:flex;gap:18px;margin-bottom:12px">
+      <div><span class="num" style="font-size:22px">0</span> <span class="muted">将新建</span></div>
+      <div><span class="num" style="font-size:22px">16</span> <span class="muted">将更新</span></div>
+      <div><span class="num" style="font-size:22px;color:#b3261e">1</span> <span class="muted">将跳过</span></div>
+    </div>
+
+    <div style="border:1px solid #e4e0d8;border-radius:7px;margin-bottom:12px">
+      <div class="row" style="background:#f2efe9"><span class="muted">同一人重复提交，取较晚的一次</span><span class="muted">1 行</span></div>
+      <div class="row"><span>示例学员甲 <span class="muted">alp…@example.com</span></span><span class="muted">grades.csv:6 → 被 :9 顶掉</span></div>
+    </div>
+
+    <div class="warn" style="margin-bottom:12px">
+      <strong>1 人不在学员表里，成绩不会写入。</strong><br>
+      <span class="muted">nob…@example.com（张三）</span><br>
+      先去学员页建档，再回来重传。
+    </div>
+
+    <div style="border:1px solid #e4e0d8;border-radius:7px;margin-bottom:12px">
+      <div class="row" style="background:#f2efe9"><span class="muted">将写入的 16 人</span><span class="muted">点右侧可永久排除</span></div>
+      <div class="row"><span>示例学员乙 <span class="muted">bra…@example.com</span> <span class="num">77</span></span><span class="btn ghost">以后不算作业</span></div>
+      <div class="row" style="opacity:.5"><span style="text-decoration:line-through">讲师本人 <span class="muted">aus…@gmail.com</span></span><span class="muted">已排除</span></div>
+    </div>
+
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <span class="btn">取消</span>
+      <span class="btn primary">确认导入 16 条</span>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>这一屏的几条硬规则</h2>
+  <table>
+    <tr><th>规则</th><th>为什么</th></tr>
+    <tr>
+      <td>确认按钮上写**具体条数**（「确认导入 16 条」），不写「确认」</td>
+      <td>按钮上的数字是最后一道核对。写「确认」的话，用户点的是一个自己没复述过的动作。</td>
+    </tr>
+    <tr>
+      <td>标记「以后不算作业」后**整屏重算**，不是把那一行划掉就算</td>
+      <td>划掉那一行而不改上面的数字，会让你确认一个已经过期的数字。
+          重算靠重发一次 <code>dry_run=true</code>，**不在前端加减** ——
+          前端算出来的数与后端真跑时的判断可以不一致，而不一致只在写入后才暴露。</td>
+    </tr>
+    <tr>
+      <td>写入期间**所有出口禁用**，含「取消」</td>
+      <td>写入失败的信息渲染在这一屏上；中途关掉它就把失败信息一起带走了。
+          只在成功回调里关闭。（<code>course-catalog</code> 的原教旨版本，那次 evaluator BLOCK 了两轮）</td>
+    </tr>
+    <tr>
+      <td>失败信息就地渲染在这一屏，**不是** toast、不是跳转</td>
+      <td>同上。承载错误的组件不能先于错误消失。</td>
+    </tr>
+    <tr>
+      <td>编码那一行永远显示，即使是 UTF-8</td>
+      <td>只在异常时显示的话，用户永远不知道正常长什么样，也就无从判断这次是不是异常。</td>
+    </tr>
+    <tr>
+      <td>「不在学员表」用 danger 框，「无报课记录」用普通框</td>
+      <td>处置**相反**：前者成绩不会写入（要先建档），后者成绩会写入但页面上看不到
+          （要补报课）。同一种视觉语气会让人以为是同一件事。</td>
+    </tr>
+  </table>
+</section>
+
+<section>
+  <h2>编码提示</h2>
+  <div class="frame">
+    <div class="muted">按 <span style="color:#9c3417">GBK</span> 读取 · 9 行 · 9 个分项列</div>
+    <div style="margin-top:6px;font-size:12.5px">
+      这份文件不是 UTF-8，已按 GBK 解读。<strong>请核对下面的中文是否正常</strong>——
+      解错编码不会报错，只会让亮点、改进建议与分项列名变成乱码。
+    </div>
+  </div>
+  <p class="muted">
+    两种编码都解不开时直接拒绝，不写入任何东西。
+  </p>
+</section>
+
+<section>
+  <h2>表头不符的警告</h2>
+  <div class="frame">
+    <div class="warn">
+      <strong>这份表头与该课程已有成绩的分项列不同。</strong><br>
+      文件里是 <code>E1领域与结构 … G2心得深度</code>（9 项）<br>
+      库里已有 <code>A1工作流结构 … D2心得深度</code>（10 项）<br>
+      很可能传错了课程。评分表真的改了也是合法情况，确认后新的列名会整套替换。
+    </div>
+  </div>
+  <p>
+    **警告，不拦。** 直接拒绝会在课程真的改了评分表时卡死，而那是合法的。
+  </p>
+</section>
+
+<section>
+  <h2>移动端</h2>
+  <p>
+    <strong>桌面单一视口，没有移动版</strong> —— 与既有各页一致（内部工具，讲师在电脑上用）。
+    预览屏沿用既有的卡片与列表骨架，窄屏表现与它们相同，不为本页单独做响应式。
+  </p>
+</section>
+
+<section>
+  <h2>要删的东西</h2>
+  <table>
+    <tr><th>位置</th><th>处置</th></tr>
+    <tr><td>侧边栏「导入 / 同步 · CSV」</td><td>改为**「作业 CSV 导入」**并真的跳到 <code>/homework</code></td></tr>
+    <tr><td>学员页表格空态的「导入 CSV」按钮</td><td>删除 —— 背后没有功能</td></tr>
+    <tr><td>新建学员弹窗里「批量导入请用 CSV 导入」链接</td><td>删除 —— 同上</td></tr>
+  </table>
+  <div class="warn">
+    按不动的按钮比没有按钮更糟：它看起来像功能坏了。而通用的「导入 / 同步」标签
+    本身也是个小谎，它暗示一个不存在的通用导入面 —— 报课导入将来真做了再把入口加回来。
+  </div>
+</section>
+
+</body>
+</html>
