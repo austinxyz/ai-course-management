@@ -65,7 +65,7 @@
 - [x] 2.F2 FIX — `EnrollmentUpdate` 对 `status`/`enrolled_at`/`note` 拒绝显式 null
       （沿用 `SessionUpdate` 的 `_reject_explicit_null`）；`session_id` **不在**其列，
       它可空且显式 null 是合法的"清空场次"
-- [ ] 2.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-2.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
+- [x] 2.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-2.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 3. 计数与场次删除守卫
 
@@ -88,15 +88,15 @@
   - 归档学员**不排除**在计数外 —— 排除会让历史数字随今天的操作被改写
 - **Threshold**: 80
 
-- [ ] 3.0 CONTRACT — write openspec/changes/enrollment-core/contracts/group-3.md with the ### Contract block above
-- [ ] 3.1 RED — `test_courses_api.py`：场次带 `enrolled_count`，退课的不计入
-- [ ] 3.2 GREEN — `GET /api/courses` 聚合每场人数
-- [ ] 3.3 RED — **归档学员后该场人数不变**（这条钉住"归档≠退课"）
-- [ ] 3.4 GREEN — 确认聚合不过滤归档学员
-- [ ] 3.5 RED — 课程带 `undecided_count`（未定场次且未退课的条数）；以及报课**人数**按学员去重
-- [ ] 3.6 GREEN — 补两个聚合
-- [ ] 3.7 RED — 删除有报课的场次返回 409 且 detail 含条数；**只有退课记录时同样 409**
-- [ ] 3.8 GREEN — 场次删除守卫
+- [x] 3.0 CONTRACT — write openspec/changes/enrollment-core/contracts/group-3.md with the ### Contract block above
+- [x] 3.1 RED — `test_courses_api.py`：场次带 `enrolled_count`，退课的不计入
+- [x] 3.2 GREEN — `GET /api/courses` 聚合每场人数
+- [x] 3.3 RED — **归档学员后该场人数不变**（这条钉住"归档≠退课"）
+- [x] 3.4 GREEN — 确认聚合不过滤归档学员
+- [x] 3.5 RED — 课程带 `undecided_count`（未定场次且未退课的条数）；以及报课**人数**按学员去重
+- [x] 3.6 GREEN — 补两个聚合
+- [x] 3.7 RED — 删除有报课的场次返回 409 且 detail 含条数；**只有退课记录时同样 409**
+- [x] 3.8 GREEN — 场次删除守卫
 - [ ] 3.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-3.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 4. 前端：学员详情的报课区块与补录

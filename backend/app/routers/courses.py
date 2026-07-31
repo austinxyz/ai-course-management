@@ -1,5 +1,6 @@
 import uuid
 from datetime import UTC, date, datetime
+from typing import NamedTuple
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -7,7 +8,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from app.db import get_session
-from app.models import Course, CourseAlias, CourseSession
+from app.models import Course, CourseAlias, CourseSession, Enrollment
 from app.schemas import (
     AliasCreate,
     AliasRead,
@@ -59,13 +60,14 @@ def _starts_at(row: CourseSession) -> datetime:
     return datetime.combine(row.local_date, row.local_time, tzinfo=ZoneInfo(row.tz))
 
 
-def _to_session_read(row: CourseSession) -> SessionRead:
+def _to_session_read(row: CourseSession, enrolled_count: int = 0) -> SessionRead:
     state, is_override = derive_session_state(row)
     return SessionRead(
         id=row.id,
         starts_at=_starts_at(row),
         state=state,
         state_is_override=is_override,
+        enrolled_count=enrolled_count,
         local_date=row.local_date,
         local_time=row.local_time,
         tz=row.tz,
@@ -74,10 +76,54 @@ def _to_session_read(row: CourseSession) -> SessionRead:
     )
 
 
+class EnrollmentCounts(NamedTuple):
+    """一门课的报课计数，全部排除退课。"""
+
+    by_session: dict[uuid.UUID, int]
+    undecided: int
+    people: int
+
+
+EMPTY_COUNTS = EnrollmentCounts(by_session={}, undecided=0, people=0)
+
+
+def tally_enrollments(rows: list[Enrollment]) -> dict[uuid.UUID, EnrollmentCounts]:
+    """按课程归拢报课计数。
+
+    在 `GET /api/courses` 的同一次请求里算完：场次本来就已经取回内存归拢过
+    （为了避免 N+1），再发一轮 per-session 的 count 查询是白费。
+
+    退课一律不计；**归档的学员照算**——排除会让历史数字随今天的操作被改写。
+    """
+    by_course: dict[uuid.UUID, dict[uuid.UUID, int]] = {}
+    undecided: dict[uuid.UUID, int] = {}
+    people: dict[uuid.UUID, set[str]] = {}
+
+    for row in rows:
+        if row.status == "withdrawn":
+            continue
+        people.setdefault(row.course_id, set()).add(row.student_email)
+        if row.session_id is None:
+            undecided[row.course_id] = undecided.get(row.course_id, 0) + 1
+        else:
+            per = by_course.setdefault(row.course_id, {})
+            per[row.session_id] = per.get(row.session_id, 0) + 1
+
+    return {
+        course_id: EnrollmentCounts(
+            by_session=by_course.get(course_id, {}),
+            undecided=undecided.get(course_id, 0),
+            people=len(people.get(course_id, set())),
+        )
+        for course_id in set(by_course) | set(undecided) | set(people)
+    }
+
+
 def _to_course_read(
     course: Course,
     aliases: list[CourseAlias],
     sessions: list[CourseSession],
+    counts: EnrollmentCounts = EMPTY_COUNTS,
 ) -> CourseRead:
     return CourseRead(
         id=course.id,
@@ -90,7 +136,9 @@ def _to_course_read(
         offline=course.offline,
         default_tz=course.default_tz,
         aliases=[AliasRead(raw=a.raw) for a in aliases],
-        sessions=[_to_session_read(s) for s in sessions],
+        sessions=[_to_session_read(s, counts.by_session.get(s.id, 0)) for s in sessions],
+        undecided_count=counts.undecided,
+        enrolled_people=counts.people,
     )
 
 
@@ -119,8 +167,12 @@ def list_courses(session: Session = Depends(get_session)):
     for row in session.exec(ordered).all():
         sessions.setdefault(row.course_id, []).append(row)
 
+    counts = tally_enrollments(list(session.exec(select(Enrollment)).all()))
+
     return [
-        _to_course_read(c, aliases.get(c.id, []), sessions.get(c.id, []))
+        _to_course_read(
+            c, aliases.get(c.id, []), sessions.get(c.id, []), counts.get(c.id, EMPTY_COUNTS)
+        )
         for c in sorted(courses, key=lambda c: _list_order(c, sessions))
     ]
 
@@ -169,7 +221,12 @@ def _read_one(course: Course, session: Session) -> CourseRead:
         .where(CourseSession.course_id == course.id)
         .order_by(CourseSession.local_date, CourseSession.local_time, CourseSession.id)
     ).all()
-    return _to_course_read(course, list(aliases), list(sessions))
+    # 计数也要给：前端拿写操作的返回直接更新界面，给 0 会让人数在编辑后归零，
+    # 刷新又变回来——看着像数据丢了。
+    counts = tally_enrollments(
+        list(session.exec(select(Enrollment).where(Enrollment.course_id == course.id)).all())
+    ).get(course.id, EMPTY_COUNTS)
+    return _to_course_read(course, list(aliases), list(sessions), counts)
 
 
 @router.post("", response_model=CourseRead, status_code=201)
@@ -332,13 +389,28 @@ def follow_date(
 def remove_session(
     course_id: uuid.UUID, session_id: uuid.UUID, session: Session = Depends(get_session)
 ):
-    """删一场。
+    """删一场，但有人报了就不行。
 
-    本 change 没有报课表，所以删除没有连带影响。报课能力落地时**必须**补上
-    "删除已有报课的场次要被拒绝"，否则报课记录会指向不存在的场次。
+    不采用"删除时把这些报课的场次置空"：那会**静默**把一批人推进待跟进状态，
+    而讲师不会知道自己制造了这些待办。删场次牵动的是真人的位子，值得多一步——
+    先把这些人改派到别的场次或清空场次，再删。
+
+    退课的记录同样挡着：它仍是一条指向这一场的历史记录。
+
+    条数要写进错误信息里——只说"删不掉"而不说几条挡着，用户无从下手。
     """
     course = _load(course_id, session)
     row = _load_session(course, session_id, session)
+
+    blocking = len(
+        session.exec(select(Enrollment).where(Enrollment.session_id == row.id)).all()
+    )
+    if blocking:
+        raise HTTPException(
+            status_code=409,
+            detail=f"这一场有 {blocking} 条报课记录，删不掉。先把这些人改派到别的场次或清空场次。",
+        )
+
     session.delete(row)
     session.commit()
     return _read_one(course, session)

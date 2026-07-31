@@ -182,6 +182,9 @@ class SessionRead(BaseModel):
     state: str
     # 界面据此显示「跟随日期」还是「恢复跟随日期」。
     state_is_override: bool
+    # 指向这一场、且未退课的报课条数。归档的学员照算——归档说的是"这个人还在不在
+    # 名单里"，报课说的是"他报没报这门课"，两件事。界面在为 0 时不显示它。
+    enrolled_count: int
 
 
 class CourseRead(BaseModel):
@@ -203,6 +206,12 @@ class CourseRead(BaseModel):
     default_tz: str
     aliases: list[AliasRead]
     sessions: list[SessionRead]
+    # 报了这门课但还没定上哪一场、且未退课的条数。不另计的话这批人在课程页上
+    # 完全不可见（他们不属于任何一场），"总报名 12 人、四场加起来 9 人"的差额无处可查。
+    undecided_count: int
+    # 报课**人数**（按学员去重）。重复听同一门课的人有多条记录，但只是一个人——
+    # 作业也只算一份。
+    enrolled_people: int
 
 
 def normalize_alias(value: str) -> str:
