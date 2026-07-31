@@ -241,3 +241,63 @@ class TestFailurePaths:
                 base="http://backend",
                 headers={},
             )
+
+
+class TestExclude:
+    """显式排除，而不是指望某人"碰巧不在学员表里"。
+
+    讲师本人的测试提交在 session1/grades.csv 里出现两次（两行姓名还不一样）。
+    它们目前没进库，唯一原因是他不在学员表里——那是巧合，不是排除。
+    他哪天被加进名单，这两条测试提交就会**静默**变成真实成绩。
+    """
+
+    def test_excluded_rows_never_reach_the_server(self, grades_file):
+        client = RecordingClient(response=_ok(EMPTY_RESULT))
+
+        sync.main(
+            ["--course", "S1", str(grades_file), "--apply", "--exclude", "alpha@example.com"],
+            client=client,
+            base="http://backend",
+            headers={},
+        )
+
+        sent = [r["student_email"] for r in client.calls[0][1]["rows"]]
+        assert sent == ["bravo@example.com"]
+
+    def test_exclusion_is_case_insensitive(self, grades_file):
+        """邮箱是主键，大小写不同不是两个人。"""
+        client = RecordingClient(response=_ok(EMPTY_RESULT))
+
+        sync.main(
+            ["--course", "S1", str(grades_file), "--apply", "--exclude", " ALPHA@Example.com "],
+            client=client,
+            base="http://backend",
+            headers={},
+        )
+
+        sent = [r["student_email"] for r in client.calls[0][1]["rows"]]
+        assert sent == ["bravo@example.com"]
+
+    def test_the_report_says_who_was_excluded(self, grades_file, capsysbinary):
+        """排除掉的人要说出来。悄悄少几行与"数据本来就没有"分不出来。"""
+        sync.main(
+            ["--course", "S1", str(grades_file), "--exclude", "alpha@example.com"],
+            client=RecordingClient(response=_ok(EMPTY_RESULT)),
+            base="http://backend",
+            headers={},
+        )
+
+        out = capsysbinary.readouterr().out.decode("utf-8")
+        assert "排除" in out
+        assert "alpha@example.com" in out
+
+    def test_excluding_someone_absent_is_not_an_error(self, grades_file):
+        """排除名单是长期配置，里面有几个当期文件里没有的人是正常的。"""
+        code = sync.main(
+            ["--course", "S1", str(grades_file), "--exclude", "nobody@example.com"],
+            client=RecordingClient(response=_ok(EMPTY_RESULT)),
+            base="http://backend",
+            headers={},
+        )
+
+        assert code == 0

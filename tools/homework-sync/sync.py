@@ -141,6 +141,17 @@ def main(
     parser.add_argument("--course", required=True, help="课程别名，例如 S1（走 course_aliases 解析）")
     parser.add_argument("path", help="grades.csv 的路径")
     parser.add_argument("--apply", action="store_true", help="真的写入。不加就是 dry-run")
+    # 显式排除，而不是指望某人"碰巧不在学员表里"。
+    # 讲师本人的测试提交就在 session1/grades.csv 里（两行，姓名还不一样）；
+    # 它们现在没进库只是因为他不在学员表里——他哪天被加进名单，
+    # 那两条测试提交就会静默变成真实成绩。
+    parser.add_argument(
+        "--exclude",
+        action="append",
+        default=[],
+        metavar="EMAIL",
+        help="不算作业的邮箱，可重复。用于讲师自己的测试提交",
+    )
     args = parser.parse_args(argv)
 
     path = Path(args.path)
@@ -160,7 +171,17 @@ def main(
         _say(f"解析失败：{exc}")
         return 1
 
+    excluded = {e.strip().lower() for e in args.exclude if e.strip()}
+    dropped = [r for r in result.rows if r["student_email"] in excluded]
+    rows = [r for r in result.rows if r["student_email"] not in excluded]
+
     describe(result, args.course, path)
+
+    if dropped:
+        # 说出来。悄悄少几行与"数据本来就没有"分不出来。
+        _say(f"\n  排除 {len(dropped)} 行——显式指定不算作业：")
+        for row in dropped:
+            _say(f"    {row['student_email']}（{result.names.get(row['student_email'], '?')}）")
 
     if client is None:  # pragma: no cover - 真实运行路径
         client = httpx.Client()
@@ -174,7 +195,7 @@ def main(
         headers = {"X-Backend-Secret": secret}
 
     try:
-        body = push(client, base, headers, args.course, result.rows, dry_run=not args.apply)
+        body = push(client, base, headers, args.course, rows, dry_run=not args.apply)
     except httpx.TimeoutException:
         _say(f"\n  请求超时（{TIMEOUT:.0f}s）。后端可能在冷启动，稍等再跑一次。")
         return 1
