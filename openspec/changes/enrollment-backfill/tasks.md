@@ -88,7 +88,7 @@
 - [x] 3.9 GREEN — busy 与按 id 分开的错误状态
 - [x] 3.10 VISUAL DIFF — 起 dev stack，**造一条未定场次的记录**，把它改到某一场再清空回来；
       确认失败信息就近显示（可临时让 action 返回失败）
-- [ ] 3.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-3.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 70 → PASS; < 70 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
+- [x] 3.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-3.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 70 → PASS; < 70 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 4. 报课总表
 
@@ -109,18 +109,18 @@
   - 页面取数与既有页一致（Server Component + `lib/api.ts`），不直连后端
 - **Threshold**: 70
 
-- [ ] 4.0 CONTRACT — write openspec/changes/enrollment-backfill/contracts/group-4.md with the ### Contract block above
-- [ ] 4.1 MOCK — 读 mocks 的「照做 / 不做」与「总表：倒推数据进来之后的样子」
-- [ ] 4.2 RED — 总表逐条显示六列；**未定场次显示为"未定场次"而非留白**
-- [ ] 4.3 GREEN — `/enroll` 页面 + 表格
-- [ ] 4.4 RED — 按课程筛选后只剩该课程的记录，并显示筛选后的条数
-- [ ] 4.5 GREEN — 课程筛选
-- [ ] 4.6 RED — 一条都没有时显示说明文案
-- [ ] 4.7 GREEN — 空态
-- [ ] 4.8 RED — 页面**不提供**修改或删除入口（钉住"只读"这条）
-- [ ] 4.9 GREEN — 确认无需改动并说明；本条防止将来有人顺手加编辑
-- [ ] 4.10 GREEN — 改 `placeholder-routes.test.tsx`：报课不再是占位页
-- [ ] 4.11 VISUAL DIFF — 起 dev stack 进 `/enroll`，对着 mocks 比：六列、筛选 chip、
+- [x] 4.0 CONTRACT — write openspec/changes/enrollment-backfill/contracts/group-4.md with the ### Contract block above
+- [x] 4.1 MOCK — 读 mocks 的「照做 / 不做」与「总表：倒推数据进来之后的样子」
+- [x] 4.2 RED — 总表逐条显示六列；**未定场次显示为"未定场次"而非留白**
+- [x] 4.3 GREEN — `/enroll` 页面 + 表格
+- [x] 4.4 RED — 按课程筛选后只剩该课程的记录，并显示筛选后的条数
+- [x] 4.5 GREEN — 课程筛选
+- [x] 4.6 RED — 一条都没有时显示说明文案
+- [x] 4.7 GREEN — 空态
+- [x] 4.8 RED — 页面**不提供**修改或删除入口（钉住"只读"这条）
+- [x] 4.9 GREEN — 确认无需改动并说明；本条防止将来有人顺手加编辑
+- [x] 4.10 GREEN — 改 `placeholder-routes.test.tsx`：报课不再是占位页
+- [x] 4.11 VISUAL DIFF — 起 dev stack 进 `/enroll`，对着 mocks 比：六列、筛选 chip、
       未定场次的呈现、空态。**造几条未定场次的记录再看** —— 全是有场次的记录看不出这一页的重点
 - [ ] 4.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-4.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 70 → PASS; < 70 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
