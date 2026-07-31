@@ -161,9 +161,15 @@ def list_homework(
 @router.put("", response_model=HomeworkUpsertResult)
 def sync_homework(
     payload: HomeworkUpsert,
+    dry_run: bool = Query(default=False),
     session: Session = Depends(get_session),
 ) -> HomeworkUpsertResult:
     """整批同步一门课的作业成绩。**幂等**。
+
+    `?dry_run=true` 算出完整的处置结果但一条都不写。两份跳过清单的判据是
+    "谁在学员表""谁有该课的报课记录"——只有数据库知道，所以 dry-run 不能只在
+    调用方本地做：那样它报不出实际执行会跳过谁，而"先看看会发生什么"正是
+    dry-run 的全部意义。走的是**同一条**代码路径，只是最后不 commit。
 
     语义是「这批行的最新状态是这样」，按 `(学员, 课程)` upsert。
     重复送同一份文件不出错也不多出记录——csv 会被反复同步，让调用方去处理 409
@@ -206,6 +212,7 @@ def sync_homework(
     created = updated = 0
     no_student: list[str] = []
     no_enrollment: list[str] = []
+    staged: set[str] = set()
 
     for row in payload.rows:
         if row.student_email not in known:
@@ -227,20 +234,35 @@ def sync_homework(
             "source_ref": row.source_ref,
         }
         found = existing.get(row.student_email)
+        # 同一封邮箱在一次请求里出现两次时，第二次是更新而不是新建。
+        # 解析层已经去过重，但接口不该指望调用方替它守这条。
+        if found is None and row.student_email not in staged:
+            created += 1
+        else:
+            updated += 1
+        staged.add(row.student_email)
+
+        # dry-run **不往 session 里放任何东西**。
+        #
+        # 不用"照常 add、最后 rollback"：那样 dry-run 的正确性就取决于事务语义，
+        # 而调用方的事务边界不归这里管——真发生过一次，回滚把调用方在本次事务里
+        # 做的别的事一起撤销了。不写就是不写，比"写了再撤"少一整类假设。
+        if dry_run:
+            continue
+
         if found is None:
             record = HomeworkSubmission(
                 student_email=row.student_email, course_id=course.id, **fields
             )
             session.add(record)
             existing[row.student_email] = record
-            created += 1
         else:
             for key, value in fields.items():
                 setattr(found, key, value)
             session.add(found)
-            updated += 1
 
-    session.commit()
+    if not dry_run:
+        session.commit()
     return HomeworkUpsertResult(
         created=created,
         updated=updated,

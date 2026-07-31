@@ -12,6 +12,10 @@ python tools/homework-sync/sync.py --course S1 <同上> --apply
 
 需要两个环境变量：`BACKEND_URL`（默认 `http://127.0.0.1:8000`）与 `BACKEND_SECRET`。
 
+**dry-run 也要连后端。** 它带 `?dry_run=true` 请求同一个接口，服务端算完整个处置结果
+但不落库。这不是多余的往返：下面那两份清单的判据是「谁在学员表」「谁有该课的报课记录」——
+只有数据库知道。纯本地的 dry-run 报不出实际会跳过谁，而那正是 dry-run 的全部意义。
+
 ## 为什么只能在本地跑
 
 `grades.csv` 在**另一个仓库**里。部署环境的后端看不到那些文件，所以网页上不可能

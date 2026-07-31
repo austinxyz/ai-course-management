@@ -61,7 +61,13 @@ EMPTY_RESULT = {
 
 
 class TestDryRun:
-    def test_dry_run_sends_nothing(self, grades_file, capsysbinary):
+    """dry-run 问服务端"如果真跑会怎样"，但不写。
+
+    两份跳过清单的判据是"谁在学员表""谁有该课的报课记录"——只有数据库知道。
+    只在本地解析的 dry-run 报不出实际会跳过谁，而那正是 dry-run 的全部意义。
+    """
+
+    def test_dry_run_asks_the_server_with_dry_run_set(self, grades_file, capsysbinary):
         client = RecordingClient(response=_ok(EMPTY_RESULT))
 
         code = sync.main(
@@ -72,24 +78,33 @@ class TestDryRun:
         )
 
         assert code == 0
-        assert client.calls == []
+        assert len(client.calls) == 1
+        assert client.calls[0][0] == "http://backend/api/homework?dry_run=true"
 
-    def test_dry_run_still_reports_what_it_parsed(self, grades_file, capsysbinary):
-        """dry-run 走完整条解析路径。
+    def test_dry_run_reports_both_skip_lists(self, grades_file, capsysbinary):
+        client = RecordingClient(
+            response=_ok(
+                {
+                    "created": 2,
+                    "updated": 0,
+                    "skipped_no_student": ["ghost@example.com"],
+                    "skipped_no_enrollment": ["bravo@example.com"],
+                }
+            )
+        )
 
-        报不出实际执行会发生什么的 dry-run 等于没有 dry-run。
-        """
         sync.main(
             ["--course", "S1", str(grades_file)],
-            client=RecordingClient(response=_ok(EMPTY_RESULT)),
+            client=client,
             base="http://backend",
             headers={},
         )
 
         out = capsysbinary.readouterr().out.decode("utf-8")
-        assert "2 行" in out
-        assert "S1" in out
+        assert "ghost@example.com" in out
+        assert "bravo@example.com" in out
         assert "dry-run" in out
+        assert "2 行" in out
 
     def test_apply_actually_sends(self, grades_file):
         client = RecordingClient(response=_ok({**EMPTY_RESULT, "created": 2}))

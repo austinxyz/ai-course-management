@@ -156,23 +156,23 @@ S1  ←  .../session1/grades.csv
   同一人重复提交，取较晚的一次，丢弃 1 行：
     session1/grades.csv:9
 
-  dry-run，什么都没写。加 --apply 执行。
-
-
-$ python tools/homework-sync/sync.py --course S1 .../session1/grades.csv --apply
-  ...
-  新建 17 条 · 更新 0 条
+  将新建 17 条 · 将更新 0 条
 
   ⚠ 在学员表里但这门课没有报课记录（3 人）。
     成绩**已写入**，但名单来自报课记录，所以他们在页面上不会出现。
     先补报课记录，再回来看计数：
-    ec…@example.com（学员甲）</pre>
+    ec…@example.com（学员甲）
+
+  dry-run，什么都没写。加 --apply 执行。</pre>
   <p class="muted">
     <strong>默认 dry-run，`--apply` 才写</strong>（与 <code>tools/enrollment-backfill</code> 同一约定）——
     手滑不会写库。这与本文件早先那版写的 <code>--dry-run</code> 标志相反：安全的默认值比
     标志名的对称性重要。
   </p>
   <div class="warn">
+    <strong>dry-run 也要连后端</strong>（`?dry_run=true`，服务端算完但不落库）。
+    两份清单的判据是「谁在学员表」「谁有该课的报课记录」—— 只有数据库知道。
+    纯本地的 dry-run 报不出实际会跳过谁，等于没有 dry-run。<br><br>
     两份清单<strong>必须分开列</strong> —— 处置相反：上面那份要先建学员，下面那份要补报课。
     混在一起就变成一句无从下手的「有 3 个人有问题」。<br>
     输出全中文，必须走 <code>sys.stdout.buffer.write(...encode("utf-8"))</code>：

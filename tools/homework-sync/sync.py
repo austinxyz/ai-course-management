@@ -69,13 +69,17 @@ def describe(result, course: str, path: Path) -> None:
             _say(f"    {ref}")
 
 
-def report_outcome(body: dict, names: dict[str, str]) -> None:
+def report_outcome(body: dict, names: dict[str, str], *, dry_run: bool = False) -> None:
     """接口返回的处置结果。
 
     两份跳过清单**分开列**：处置相反——一类要先建学员，另一类要补报课记录。
     合成一句"有 N 个人有问题"就无从下手。
+
+    dry-run 与真跑打**同一段**报告，只是措辞是"将"。两条渲染路径会长出差异，
+    而差异恰好出现在"我以为我预演过了"这件事上。
     """
-    _say(f"\n  新建 {body['created']} 条 · 更新 {body['updated']} 条")
+    verb = "将新建" if dry_run else "新建"
+    _say(f"\n  {verb} {body['created']} 条 · {'将更新' if dry_run else '更新'} {body['updated']} 条")
 
     no_student = body.get("skipped_no_student") or []
     if no_student:
@@ -91,9 +95,24 @@ def report_outcome(body: dict, names: dict[str, str]) -> None:
         )
         _emails(no_enrollment, names)
 
+    if dry_run:
+        _say("\n  dry-run，什么都没写。加 --apply 执行。")
 
-def push(client, base: str, headers: dict[str, str], course: str, rows: list[dict]) -> dict:
+
+def push(
+    client,
+    base: str,
+    headers: dict[str, str],
+    course: str,
+    rows: list[dict],
+    *,
+    dry_run: bool = False,
+) -> dict:
     """发出去。返回接口的响应体。
+
+    dry-run 也走这条路，只是带上 `?dry_run=true`：服务端算完整个处置结果但不落库。
+    两份跳过清单的判据是"谁在学员表""谁有该课的报课记录"——只有数据库知道，
+    所以 dry-run 不能只在本地解析，那样它报不出实际会跳过谁。
 
     `raise_for_status` 不能省：httpx 不会因 4xx/404 抛异常，不显式检查的话
     脚本会"成功地什么都没做"——每个请求 404，报告照样打印一切正常。
@@ -104,7 +123,8 @@ def push(client, base: str, headers: dict[str, str], course: str, rows: list[dic
             {**row, "submitted_at": row["submitted_at"].isoformat()} for row in rows
         ],
     }
-    resp = client.put(f"{base}/api/homework", json=payload, headers=headers, timeout=TIMEOUT)
+    url = f"{base}/api/homework" + ("?dry_run=true" if dry_run else "")
+    resp = client.put(url, json=payload, headers=headers, timeout=TIMEOUT)
     resp.raise_for_status()
     return resp.json()
 
@@ -142,10 +162,6 @@ def main(
 
     describe(result, args.course, path)
 
-    if not args.apply:
-        _say("\n  dry-run，什么都没写。加 --apply 执行。")
-        return 0
-
     if client is None:  # pragma: no cover - 真实运行路径
         client = httpx.Client()
     if base is None:  # pragma: no cover
@@ -158,7 +174,7 @@ def main(
         headers = {"X-Backend-Secret": secret}
 
     try:
-        body = push(client, base, headers, args.course, result.rows)
+        body = push(client, base, headers, args.course, result.rows, dry_run=not args.apply)
     except httpx.TimeoutException:
         _say(f"\n  请求超时（{TIMEOUT:.0f}s）。后端可能在冷启动，稍等再跑一次。")
         return 1
@@ -174,7 +190,7 @@ def main(
         _say(f"\n  请求失败：{exc}")
         return 1
 
-    report_outcome(body, result.names)
+    report_outcome(body, result.names, dry_run=not args.apply)
     return 0
 
 

@@ -287,3 +287,61 @@ def test_anonymous_callers_are_turned_away(anon_client, db_session, seeded):
     )
 
     assert resp.status_code == 401
+
+
+class TestServerSideDryRun:
+    """`?dry_run=true`：算出完整的处置结果，但一条都不写。
+
+    两份跳过清单的判据是"谁在学员表""谁有报课记录"——只有数据库知道。
+    所以 dry-run 不能只在本地解析：那样它报不出实际执行会跳过谁，
+    而"先看看会发生什么"正是 dry-run 的全部意义。
+    """
+
+    def test_dry_run_writes_nothing(self, client, db_session, seeded):
+        from sqlmodel import select
+
+        resp = client.put(
+            "/api/homework?dry_run=true",
+            json={"course_alias": "S1", "rows": [_row("alpha@example.com")]},
+        )
+
+        assert resp.status_code == 200, resp.text
+        assert db_session.exec(select(HomeworkSubmission)).all() == []
+
+    def test_dry_run_reports_the_same_counts_the_real_run_would(
+        self, client, db_session, seeded
+    ):
+        payload = {"course_alias": "S1", "rows": [_row("alpha@example.com")]}
+
+        dry = client.put("/api/homework?dry_run=true", json=payload).json()
+        real = client.put("/api/homework", json=payload).json()
+
+        assert dry == real
+
+    def test_dry_run_reports_both_skip_lists(self, client, db_session, seeded):
+        _student(db_session, "bravo@example.com", "学员乙")  # 有学员，无报课
+
+        body = client.put(
+            "/api/homework?dry_run=true",
+            json={
+                "course_alias": "S1",
+                "rows": [
+                    _row("alpha@example.com"),
+                    _row("bravo@example.com"),
+                    _row("ghost@example.com"),
+                ],
+            },
+        ).json()
+
+        assert body["skipped_no_student"] == ["ghost@example.com"]
+        assert body["skipped_no_enrollment"] == ["bravo@example.com"]
+
+    def test_dry_run_distinguishes_created_from_updated(self, client, db_session, seeded):
+        """已经同步过一次之后，dry-run 该说"更新 1 条"而不是"新建 1 条"。"""
+        payload = {"course_alias": "S1", "rows": [_row("alpha@example.com")]}
+        client.put("/api/homework", json=payload)
+
+        body = client.put("/api/homework?dry_run=true", json=payload).json()
+
+        assert body["created"] == 0
+        assert body["updated"] == 1
