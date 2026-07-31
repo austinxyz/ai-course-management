@@ -5,8 +5,10 @@ import { Button } from "@/components/ui";
 import { BLANK_FORM, TZ_BY_REGION } from "./vocab";
 import {
   archiveStudentAction,
+  changeEnrollmentSessionAction,
   createEnrollmentAction,
   createStudentAction,
+  deleteEnrollmentAction,
   restoreStudentAction,
   updateStudentField,
 } from "./actions";
@@ -80,6 +82,21 @@ export function StudentsClient({
   const today = new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/Los_Angeles",
   }).format(new Date());
+  // 场次选项按课程归拢一次：补录弹窗与行内改场次共用同一份，
+  // 两处各算一遍必然会在某天长出不同的标签。
+  const sessionsByCourse = useMemo(
+    () =>
+      Object.fromEntries(
+        courses.map((c) => [
+          c.id,
+          c.sessions.map((s) => ({
+            id: s.id,
+            label: `${s.local_date} ${s.local_time.slice(0, 5)}`,
+          })),
+        ]),
+      ),
+    [courses],
+  );
   const [form, setFormState] = useState<NewStudentForm>(BLANK_FORM);
 
   const inScope = scope === "archived";
@@ -408,6 +425,9 @@ export function StudentsClient({
                   student={selectedStudent}
                   enrollments={enrollments.filter((e) => e.studentEmail === selectedStudent.email)}
                   onAddEnrollment={() => setShowEnroll(true)}
+                  sessionsByCourse={sessionsByCourse}
+                  onChangeEnrollmentSession={changeEnrollmentSessionAction}
+                  onDeleteEnrollment={deleteEnrollmentAction}
                   isArchived={isSelectedArchived}
                   editKey={editKey}
                   editValue={editVal}
@@ -446,10 +466,7 @@ export function StudentsClient({
             id: c.id,
             name: c.name,
             offline: c.offline,
-            sessions: c.sessions.map((s) => ({
-              id: s.id,
-              label: `${s.local_date} ${s.local_time.slice(0, 5)}`,
-            })),
+            sessions: sessionsByCourse[c.id] ?? [],
           }))}
           today={today}
           onSave={(draft) =>

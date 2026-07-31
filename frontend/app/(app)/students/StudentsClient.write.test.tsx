@@ -10,6 +10,9 @@ const actions = vi.hoisted(() => ({
   createStudentAction: vi.fn(),
   archiveStudentAction: vi.fn(),
   restoreStudentAction: vi.fn(),
+  createEnrollmentAction: vi.fn(),
+  changeEnrollmentSessionAction: vi.fn(),
+  deleteEnrollmentAction: vi.fn(),
 }));
 vi.mock("./actions", () => actions);
 

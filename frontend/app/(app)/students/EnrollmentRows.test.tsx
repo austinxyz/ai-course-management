@@ -22,7 +22,7 @@ function row(over: Partial<Enrollment> = {}): Enrollment {
 
 describe("EnrollmentRows", () => {
   it("shows the course, session, enrol date and state of each record", () => {
-    render(<EnrollmentRows enrollments={[row()]} onAdd={vi.fn()} />);
+    render(<EnrollmentRows enrollments={[row()]} onAdd={vi.fn()} sessionsByCourse={{}} onChangeSession={vi.fn()} onDelete={vi.fn()} />);
 
     expect(screen.getByText("AI 炒股分析系统")).toBeInTheDocument();
     expect(screen.getByText(/2026-07-26/)).toBeInTheDocument();
@@ -40,6 +40,9 @@ describe("EnrollmentRows", () => {
       <EnrollmentRows
         enrollments={[row({ sessionId: null, sessionDate: null, state: "enrolled" })]}
         onAdd={vi.fn()}
+        sessionsByCourse={{}}
+        onChangeSession={vi.fn()}
+        onDelete={vi.fn()}
       />,
     );
 
@@ -47,7 +50,7 @@ describe("EnrollmentRows", () => {
   });
 
   it("says so when there are no records at all", () => {
-    render(<EnrollmentRows enrollments={[]} onAdd={vi.fn()} />);
+    render(<EnrollmentRows enrollments={[]} onAdd={vi.fn()} sessionsByCourse={{}} onChangeSession={vi.fn()} onDelete={vi.fn()} />);
 
     expect(screen.getByText(/还没有报课记录/)).toBeInTheDocument();
   });
@@ -63,6 +66,9 @@ describe("EnrollmentRows", () => {
       <EnrollmentRows
         enrollments={[row({ sessionDate: "2020-01-01", state: "enrolled" })]}
         onAdd={vi.fn()}
+        sessionsByCourse={{}}
+        onChangeSession={vi.fn()}
+        onDelete={vi.fn()}
       />,
     );
 

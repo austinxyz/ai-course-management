@@ -9,7 +9,11 @@ interface DetailPanelProps {
   student: Student;
   /** 该学员的报课记录。状态由服务端派生，这里只渲染。 */
   enrollments: Enrollment[];
+  /** 每门课可选的场次，按 courseId 取。改场次时只列该课程自己的场次。 */
+  sessionsByCourse: Record<string, { id: string; label: string }[]>;
   onAddEnrollment: () => void;
+  onChangeEnrollmentSession: (id: string, sessionId: string | null) => Promise<{ ok: boolean; message?: string }>;
+  onDeleteEnrollment: (id: string) => Promise<{ ok: boolean; message?: string }>;
   isArchived: boolean;
   editKey: EditableFieldKey | "note" | null;
   editValue: string;
@@ -77,7 +81,10 @@ export function DetailPanel(props: DetailPanelProps) {
   const {
     student,
     enrollments,
-    onAddEnrollment, isArchived, editKey, editValue, tagEditing, askArchive,
+    sessionsByCourse,
+    onAddEnrollment,
+    onChangeEnrollmentSession,
+    onDeleteEnrollment, isArchived, editKey, editValue, tagEditing, askArchive,
     archivePending, archiveError, fieldStatus, onRetryField,
     onClose, onStartEdit, onEditValueChange, onCommitEdit, onEditKeyDown, onPickEnum,
     onToggleTagEditing, onToggleTag,
@@ -399,7 +406,13 @@ export function DetailPanel(props: DetailPanelProps) {
         </div>
 
         <div className="border-t border-border px-4 py-3.5">
-          <EnrollmentRows enrollments={enrollments} onAdd={onAddEnrollment} />
+          <EnrollmentRows
+            enrollments={enrollments}
+            sessionsByCourse={sessionsByCourse}
+            onAdd={onAddEnrollment}
+            onChangeSession={onChangeEnrollmentSession}
+            onDelete={onDeleteEnrollment}
+          />
         </div>
 
         {!isArchived && (

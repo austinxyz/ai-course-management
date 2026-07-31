@@ -55,7 +55,7 @@
 - [x] 2.7 RED — 计划输出：将建 N 条、跳过哪些邮箱、`session4` 不导且带原因
 - [x] 2.8 GREEN — `plan()` 纯函数 + dry-run 打印
 - [x] 2.9 GREEN — `--apply` 写入路径：409 归类为"已存在，跳过"，不失败退出
-- [ ] 2.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-2.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
+- [x] 2.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-2.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 3. 学员详情：逐条改场次与删除
 
@@ -74,19 +74,19 @@
   - 前端**不参与状态派生**，改完场次后的状态以后端返回为准
 - **Threshold**: 70
 
-- [ ] 3.0 CONTRACT — write openspec/changes/enrollment-backfill/contracts/group-3.md with the ### Contract block above
-- [ ] 3.1 MOCK — 读 `docs/superpowers/specs/mocks/2026-07-30-enrollment-backfill-mocks.html`
+- [x] 3.0 CONTRACT — write openspec/changes/enrollment-backfill/contracts/group-3.md with the ### Contract block above
+- [x] 3.1 MOCK — 读 `docs/superpowers/specs/mocks/2026-07-30-enrollment-backfill-mocks.html`
       的「学员详情：每条报课多了两个动作」
-- [ ] 3.2 RED — 每条报课有「改场次」与「删除」入口
-- [ ] 3.3 GREEN — `EnrollmentRows` 增加两个入口
-- [ ] 3.4 RED — 改场次：选一场保存后，该条显示为那一场；**清空**后回到「未定场次」
-- [ ] 3.5 GREEN — 行内改场次 + Server Action
-- [ ] 3.6 RED — 删除：确认后该条从列表消失
-- [ ] 3.7 GREEN — 删除入口（二次确认）
-- [ ] 3.8 RED — 写入进行中该条的所有出口被禁用（**挂住不 resolve 的 promise**）；
+- [x] 3.2 RED — 每条报课有「改场次」与「删除」入口
+- [x] 3.3 GREEN — `EnrollmentRows` 增加两个入口
+- [x] 3.4 RED — 改场次：选一场保存后，该条显示为那一场；**清空**后回到「未定场次」
+- [x] 3.5 GREEN — 行内改场次 + Server Action
+- [x] 3.6 RED — 删除：确认后该条从列表消失
+- [x] 3.7 GREEN — 删除入口（二次确认）
+- [x] 3.8 RED — 写入进行中该条的所有出口被禁用（**挂住不 resolve 的 promise**）；
       失败时说明挂在**那一条**上、其余条不受影响
-- [ ] 3.9 GREEN — busy 与按 id 分开的错误状态
-- [ ] 3.10 VISUAL DIFF — 起 dev stack，**造一条未定场次的记录**，把它改到某一场再清空回来；
+- [x] 3.9 GREEN — busy 与按 id 分开的错误状态
+- [x] 3.10 VISUAL DIFF — 起 dev stack，**造一条未定场次的记录**，把它改到某一场再清空回来；
       确认失败信息就近显示（可临时让 action 返回失败）
 - [ ] 3.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-3.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 70 → PASS; < 70 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 

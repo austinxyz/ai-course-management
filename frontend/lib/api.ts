@@ -408,3 +408,19 @@ export async function createEnrollment(draft: NewEnrollment): Promise<Enrollment
   })) as ApiEnrollment;
   return toEnrollment(data);
 }
+
+export async function updateEnrollmentSession(
+  id: string,
+  sessionId: string | null,
+): Promise<Enrollment> {
+  // `null` 在这里是**合法输入**（清空场次），不是"没提到这个字段"——
+  // 该列本来就可空，而清空是补课流程唯一的表达方式。
+  const data = (await backendWrite(`/api/enrollments/${id}`, "PATCH", {
+    session_id: sessionId,
+  })) as ApiEnrollment;
+  return toEnrollment(data);
+}
+
+export async function deleteEnrollment(id: string): Promise<void> {
+  await backendWrite(`/api/enrollments/${id}`, "DELETE");
+}

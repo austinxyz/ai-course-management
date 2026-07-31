@@ -22,6 +22,8 @@ import {
   archiveStudent,
   createEnrollment,
   createStudent,
+  deleteEnrollment,
+  updateEnrollmentSession,
   restoreStudent,
   updateStudent,
   BackendError,
@@ -125,6 +127,41 @@ export async function createEnrollmentAction(
   } catch (error) {
     if (error instanceof BackendError) return { ok: false, message: error.detail };
     return { ok: false, message: "没保存上。" };
+  }
+  revalidatePath("/students", "layout");
+  return { ok: true };
+}
+
+/**
+ * 给一条报课换场次，或清空它（补课、指派）。
+ *
+ * 与补录一样用**返回值**表达预期内的失败：生产构建会把抛出的错误抹成 digest。
+ */
+export async function changeEnrollmentSessionAction(
+  id: string,
+  sessionId: string | null,
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  await requireSitePassword();
+  try {
+    await updateEnrollmentSession(id, sessionId);
+  } catch (error) {
+    if (error instanceof BackendError) return { ok: false, message: error.detail };
+    return { ok: false, message: "没保存上。" };
+  }
+  revalidatePath("/students", "layout");
+  return { ok: true };
+}
+
+/** 删掉一条录错的报课。退课是另一件事——那表示这件事发生过。 */
+export async function deleteEnrollmentAction(
+  id: string,
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  await requireSitePassword();
+  try {
+    await deleteEnrollment(id);
+  } catch (error) {
+    if (error instanceof BackendError) return { ok: false, message: error.detail };
+    return { ok: false, message: "没删掉。" };
   }
   revalidatePath("/students", "layout");
   return { ok: true };
