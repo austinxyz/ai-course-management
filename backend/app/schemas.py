@@ -368,6 +368,15 @@ class EnrollmentRead(BaseModel):
     note: str
 
 
+EnrollmentSource = Literal["manual", "platform", "derived"]
+"""报课记录的来源。
+
+用 `Literal` 是**请求体**校验，不是响应校验——只读响应上放 Literal 时，
+一行落在枚举外会让整个列表接口 500，而不是那一行出错。所以 `EnrollmentRead.source`
+仍是 `str`。
+"""
+
+
 class EnrollmentCreate(BaseModel):
     """补录一条报课。
 
@@ -381,6 +390,12 @@ class EnrollmentCreate(BaseModel):
     session_id: uuid.UUID | None = None
     enrolled_at: date
     note: str = ""
+    # 三种：manual（人特意录的）/ platform（平台同步）/ derived（从别处倒推的占位）。
+    # 界面补录不传它，落默认的 manual；倒推脚本显式给 derived。
+    #
+    # 取值只能在这里挡：列是 text 且没有 CHECK 约束（与 region/level 同一判断，
+    # 给未来留口子）。不挡的话第四种值会悄悄进来，而将来的覆盖规则是按三值写的。
+    source: EnrollmentSource = "manual"
 
 
 class EnrollmentUpdate(BaseModel):

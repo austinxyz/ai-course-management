@@ -16,13 +16,13 @@
   - 覆盖规则本身不实现（平台导入不存在），只把值与语义定下来
 - **Threshold**: 80
 
-- [ ] 1.0 CONTRACT — write openspec/changes/enrollment-backfill/contracts/group-1.md with the ### Contract block above
-- [ ] 1.1 RED — `POST /api/enrollments` 不给 `source` 时落 `manual`（既有行为，先钉住）
-- [ ] 1.2 GREEN — 若已满足则确认并说明；本条防止将来有人改默认值
-- [ ] 1.3 RED — 给 `source: "derived"` 时如实落库并在读取时返回
-- [ ] 1.4 GREEN — `EnrollmentCreate` 接受 `source`
-- [ ] 1.5 RED — 给第四种值（如 `"imported"`）被拒（422）
-- [ ] 1.6 GREEN — 边界校验
+- [x] 1.0 CONTRACT — write openspec/changes/enrollment-backfill/contracts/group-1.md with the ### Contract block above
+- [x] 1.1 RED — `POST /api/enrollments` 不给 `source` 时落 `manual`（既有行为，先钉住）
+- [x] 1.2 GREEN — 若已满足则确认并说明；本条防止将来有人改默认值
+- [x] 1.3 RED — 给 `source: "derived"` 时如实落库并在读取时返回
+- [x] 1.4 GREEN — `EnrollmentCreate` 接受 `source`
+- [x] 1.5 RED — 给第四种值（如 `"imported"`）被拒（422）
+- [x] 1.6 GREEN — 边界校验
 - [ ] 1.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-1.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
 ## 2. 倒推脚本

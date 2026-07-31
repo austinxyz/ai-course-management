@@ -135,6 +135,7 @@ def create_enrollment(
         session_id=payload.session_id,
         enrolled_at=payload.enrolled_at,
         note=payload.note,
+        source=payload.source,
     )
     session.add(row)
     try:

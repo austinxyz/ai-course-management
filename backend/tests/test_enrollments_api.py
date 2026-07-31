@@ -347,3 +347,55 @@ def test_explicit_null_on_a_not_null_column_is_refused(client, db_session):
     assert client.patch(f"/api/enrollments/{row.id}", json={"note": None}).status_code == 422
     # 对照：场次上的显式 null 仍然是合法的清空
     assert client.patch(f"/api/enrollments/{row.id}", json={"session_id": None}).status_code == 200
+
+
+# --- 来源 -----------------------------------------------------------------
+#
+# 三种：manual（人特意录的）/ platform（平台同步）/ derived（从别处倒推的占位）。
+# 三者的区别对将来的平台导入有约束力——"人特意录的"与"系统推出来的占位"
+# 在被平台数据覆盖这件事上恰好相反，塞进同一个值就分不出哪些能覆盖。
+
+
+def post_enrollment(client, student, course, **extra):
+    body = {
+        "student_email": student.email,
+        "course_id": str(course.id),
+        "enrolled_at": "2026-05-04",
+        **extra,
+    }
+    return client.post("/api/enrollments", json=body)
+
+
+def test_manual_is_the_default_source(client, db_session):
+    """界面补录不传 source，落 manual。"""
+    student = seed_student(db_session)
+    course = seed_course(db_session)
+
+    resp = post_enrollment(client, student, course)
+
+    assert resp.status_code == 201
+    assert resp.json()["source"] == "manual"
+
+
+def test_derived_source_is_stored_as_given(client, db_session):
+    """倒推脚本要能把记录标成 derived，否则将来分不出哪些可以被平台数据覆盖。"""
+    student = seed_student(db_session)
+    course = seed_course(db_session)
+
+    resp = post_enrollment(client, student, course, source="derived")
+
+    assert resp.status_code == 201
+    assert resp.json()["source"] == "derived"
+
+
+def test_an_unknown_source_is_refused(client, db_session):
+    """列上没有 CHECK 约束（给未来留口子），所以取值只能在边界上挡。
+
+    不挡的话第四种值会悄悄进来，而计数与将来的覆盖规则都是按三值写的。
+    """
+    student = seed_student(db_session)
+    course = seed_course(db_session)
+
+    resp = post_enrollment(client, student, course, source="imported")
+
+    assert resp.status_code == 422
