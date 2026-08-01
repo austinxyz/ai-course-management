@@ -90,17 +90,19 @@
 > 也不提供：出勤记录（来没来）、退款与收费、名额上限。
 
 ### `homework` ✅ 已实现 · 🌐 已上线
-**用户故事**: 作为讲师，我批完的成绩只存在另一个仓库的 `grades.csv` 里和我自己脑子里 —— 我想在系统里看到某门课谁交了谁没交、某人的分项得分与我当时写的改进建议；更要紧的是「有报课记录但没提交」这个判断在此之前**根本算不出来**，而它是催作业的第一前提
-**覆盖需求**: docs/superpowers/specs/2026-07-31-homework-requirements.md
-**设计基准**: docs/superpowers/specs/mocks/2026-07-31-course-enrollment-design.dc.html（`sc-if isHomework` 分支）+ docs/superpowers/specs/mocks/2026-07-31-homework-mocks.html（照做 / 有意不做的逐条对照）
+**用户故事**: 作为讲师，我批完的成绩只存在另一个仓库的 `grades.csv` 里和我自己脑子里 —— 我想在系统里看到某门课谁交了谁没交、某人的分项得分与我当时写的改进建议；更要紧的是「有报课记录但没提交」这个判断在此之前**根本算不出来**，而它是催作业的第一前提；导入不该依赖我记不记得本地命令行怎么写
+**覆盖需求**:
+- docs/superpowers/specs/2026-07-31-homework-requirements.md（数据主干、只读名单）
+- docs/superpowers/specs/2026-07-31-homework-upload-requirements.md（浏览器导入、预览屏、排除名单）
+**设计基准**: docs/superpowers/specs/mocks/2026-07-31-course-enrollment-design.dc.html（`sc-if isHomework` 分支）+ docs/superpowers/specs/mocks/2026-07-31-homework-mocks.html + docs/superpowers/specs/mocks/2026-07-31-homework-upload-mocks.html（预览屏与硬规则表）
 
-**后台**: `homework_submissions` 表 —— 唯一键 `(student_email, course_id)`，**不含 `session_id`**；`scores` 是 `jsonb` **数组** `[{item, score}]`；`total` / `highlight` / `improve` / `reply_status` / `source_ref`（`session1/grades.csv:7`）；`PUT /api/homework`（幂等 upsert，`?dry_run=true` 算完不落库，返回 `created` / `updated` / **两份**跳过清单）；`GET /api/homework?course=<id>`（**一次** JOIN 取全，以 `Enrollment` 为驱动表 outer join 作业）；`tools/homework-sync/`（纯函数解析层 + 薄 I/O 层，`--course` 显式指定、`--exclude`、默认 dry-run）
-**前台**: `/homework` **全只读** —— 课程 chip（按课程名，与报课页一致）、四态名单（已交 / 未交 / 未开放 / 未定场次，三种"没交"三种颜色）、四个筛选（全部 / 已交 / 未交 / 待回复）、详情面板（总分 · 本课名次 · 分项**原始分** · 亮点 · 改进 · 回复状态 · 来源行号）；无任何修改、删除、新增或同步入口
-**关键性质**: **分项列整列原样存下且保序** —— 列的先后是评分表分组（A 工作流 / B 提示词 / C 输出 / D 心得）的唯一载体，而 `jsonb` 不保对象键序（实测 10 个真实列名过一遍对象被打散成 A2 A3 B2 B3 D1 D2 A1 C1 C2 B1），所以只能是数组；新增课程只是多一套 item 名，**不动表结构**。**总分取自源文件不重算** —— `session2/grades.csv` 里真有一行总分与分项之和不符，镜像的职责是忠实不是纠正。**覆盖式不是同步式删除** —— 源文件少一行，库里那条仍在。名单**按人去重**（重听同一门课只欠一份作业），**已归档与已退课不进计数** —— 与报课页**有意不同**：那边是历史统计，这里的计数直接导向"催谁"。「场次已结束」复用 `derive_session_state`，不另写日期比较。两份跳过清单**分开列**，因为处置相反（一类先建学员、一类补报课）
-**验收标准**: 生产 26 条真实成绩 —— S1 已交 16 / 未交 1、S2 已交 9 / 未交 3、S3 已交 1；三份 csv 复跑均为「将新建 0 条」；真实浏览器里 S1 的 17 行外框 957 ≈ 表格 955（未被裁切）、滚到底最后一行 y=697 ≤ 视口 720、`<main>` 内写入控件 0 个、console 错误 0 条
+**后台**: `homework_submissions` 表 —— 唯一键 `(student_email, course_id)`，**不含 `session_id`**；`scores` 是 `jsonb` **数组** `[{item, score}]`；`total` / `highlight` / `improve` / `reply_status` / `source_ref`（`session1/grades.csv:7`）。`homework_excluded_emails`（「不算作业的邮箱」，键是邮箱、**全课程通用**、不挂在 `students` 上）与 `homework_imports`（每次**实际写入**的元信息，dry-run 不留记录，不存原文）。**唯一进库的路**是 `POST /api/homework/import?dry_run=`（收 base64 原始字节 + `course_id`/`course_alias`，服务端解码→解析→分类，幂等 upsert）；`GET /api/homework?course=<id>`（一次 JOIN 取全）；`GET /api/homework/last-import`；`POST /api/homework/excluded`。`backend/app/homework_parsing.py` 是纯函数解析层（UTF-8-sig → GB18030 顺序解码，`BadHeader` / `CannotDecode` / `MalformedCell` 三种可区分异常）。旧的 `PUT /api/homework` 与 `tools/homework-sync/` 已删除
+**前台**: `/homework` 页只有**一个写入口**——「导入 grades.csv」+ `ImportDialog` 预览屏（编码始终显示、行数对账「共 N 行 → 可用 M 行」、将新建/将更新/**将跳过**三个数、两份跳过清单**语气不同**、表头警告、逐行「以后不算作业」）；课程 chip、四态名单、四个筛选、详情面板与逐条编辑控件的缺席均沿用不变
+**关键性质**: **分项列整列原样存下且保序** —— 列的先后是评分表分组（A 工作流 / B 提示词 / C 输出 / D 心得）的唯一载体，而 `jsonb` 不保对象键序（实测 10 个真实列名过一遍对象被打散成 A2 A3 B2 B3 D1 D2 A1 C1 C2 B1），所以只能是数组；新增课程只是多一套 item 名，**不动表结构**。**总分取自源文件不重算** —— `session2/grades.csv` 里真有一行总分与分项之和不符，镜像的职责是忠实不是纠正。**覆盖式不是同步式删除** —— 源文件少一行，库里那条仍在。名单**按人去重**（重听同一门课只欠一份作业），**已归档与已退课不进计数**。写入前必须先给出**只读预览**，标记排除后**重新请求一次预览**而非前端自行加减；写入期间所有出口（含取消）禁用，只在成功回调里关闭；上传按内容判定不按扩展名，体积上限在 base64 解码**之前**先粗筛（decode 会为误传大文件实打实分配一次内存）
+**验收标准**: 生产真实浏览器验收全绿（`frontend/e2e/homework-import-acceptance.spec.ts` 只读四项 + `homework-import-write.spec.ts` 写入一项）——S1 预览「将更新 16 · 将新建 0」、讲师邮箱在已排除清单（migration 回填，本地空库跑在 0 行上、只能在生产验）、GBK 文件注明「按 GBK 读取」中文不乱码、传错文件被拒且说得出「不像作业成绩文件」、S2 文件传到 S1 触发表头警告但不阻止确认、真写入后计数保持 16（幂等）并出现「上次导入」；本地 `frontend/e2e/homework-import.spec.ts` 九项覆盖 17 行长清单不被裁切、可滚到最后一行
 
 > **本能力不提供**（归 `homework-rubric`）：各分项满分、`11 / 15` 写法、分项条形图与按比例着色的总分 —— 满分不在 `grades.csv` 里，而 S3/S4 的加分列本来就没有申报满分。
 >
-> 也不提供（归 `homework-upload`）：**网页上传 `grades.csv`** —— 目前导入只能在本地跑命令行。
->
 > 也不提供（归催作业那一片）：起草文案、发邮件、回写互动记录、已催次数、作业截止日期。
+>
+> 也不提供（归 `enrollment-import` 阻塞的同一原因）：报课数据的浏览器导入——本片只解决了作业这一侧。
