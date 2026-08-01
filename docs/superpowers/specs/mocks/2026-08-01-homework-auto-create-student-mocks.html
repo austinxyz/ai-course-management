@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>homework-auto-create-student mocks</title>
+<!-- HAS_UI_SURFACE: yes -->
+<style>
+  :root {
+    --border: #e3e0da;
+    --surface: #ffffff;
+    --muted: #8a8478;
+    --ink: #1f1c17;
+    --danger-border: #e8b4ab;
+    --danger-surface: #fbe9e6;
+    --info-border: #b7c9e0;
+    --info-surface: #eef3fa;
+    --rounded: 10px;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    margin: 0;
+    padding: 24px;
+    background: #f6f4f0;
+    color: var(--ink);
+  }
+  section { margin-bottom: 56px; }
+  h1 { font-size: 20px; }
+  h2 { margin-top: 0; font-size: 16px; }
+  p.desc { color: var(--muted); font-size: 13px; max-width: 640px; }
+  .dialog {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 640px;
+    max-width: 100%;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    border-radius: var(--rounded);
+    padding: 20px;
+  }
+  .dialog.mobile { width: 360px; }
+  .dialog-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .title { font-size: 15px; font-weight: 600; }
+  .subtitle { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .close-btn { border: none; background: none; color: var(--muted); font-size: 13px; cursor: default; }
+  .counts { display: flex; gap: 20px; }
+  .count-label { font-size: 11px; color: var(--muted); }
+  .count-value { font-size: 20px; font-weight: 600; }
+  .count-value.danger { color: #b23c2e; }
+  .panel {
+    border: 1px solid var(--border);
+    border-radius: var(--rounded);
+    padding: 10px 12px;
+    font-size: 12.5px;
+  }
+  .panel.danger { border-color: var(--danger-border); background: var(--danger-surface); }
+  .panel.info { border-color: var(--info-border); background: var(--info-surface); }
+  .panel-title { font-weight: 600; margin-bottom: 4px; }
+  .panel-hint { color: var(--muted); font-size: 11.5px; margin-bottom: 6px; }
+  .row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 3px 0;
+    font-family: ui-monospace, monospace;
+    font-size: 12px;
+  }
+  .row .tag {
+    font-family: -apple-system, sans-serif;
+    font-size: 10.5px;
+    color: var(--muted);
+    background: rgba(0,0,0,0.05);
+    padding: 1px 6px;
+    border-radius: 999px;
+  }
+  .before-after {
+    display: flex;
+    gap: 32px;
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+  .col-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+</style>
+</head>
+<body>
+
+<section id="import-dialog-before-after">
+  <h1>作业导入预览：未知邮箱的处置从「跳过」变成「自动建档」</h1>
+  <p class="desc">
+    只改 ImportDialog 里"不在学员表"这一块的呈现：语气从 danger（成绩不会写入）
+    改为 info（已写入、建议之后回填）；顶部计数从「将跳过」的 danger 计数
+    改为并入「将新建」，因为现在这些行确实会写入。字段来源
+    <code>skipped_no_student</code> → <code>auto_created</code>。
+  </p>
+
+  <div class="before-after">
+    <div>
+      <div class="col-label">改动前</div>
+      <div class="dialog">
+        <div class="dialog-head">
+          <div>
+            <div class="title">Session 3 · grades.csv</div>
+            <div class="subtitle">按 UTF-8 读取 · 18 行</div>
+          </div>
+          <button class="close-btn">关闭</button>
+        </div>
+        <div class="counts">
+          <div><div class="count-label">将新建</div><div class="count-value">2</div></div>
+          <div><div class="count-label">将更新</div><div class="count-value">14</div></div>
+          <div><div class="count-label">将跳过</div><div class="count-value danger">1</div></div>
+        </div>
+        <div class="panel danger" data-testid="skipped-no-student">
+          <div class="panel-title">1 人不在学员表里，成绩不会写入</div>
+          <div class="panel-hint">先去学员页建档，再回来重传。</div>
+          <div class="row">
+            <span>lisa.new@example.com</span>
+            <span class="tag">标记为不算作业</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="col-label">改动后</div>
+      <div class="dialog">
+        <div class="dialog-head">
+          <div>
+            <div class="title">Session 3 · grades.csv</div>
+            <div class="subtitle">按 UTF-8 读取 · 18 行</div>
+          </div>
+          <button class="close-btn">关闭</button>
+        </div>
+        <div class="counts">
+          <div><div class="count-label">将新建</div><div class="count-value">3</div></div>
+          <div><div class="count-label">将更新</div><div class="count-value">14</div></div>
+        </div>
+        <div class="panel info" data-testid="auto-created">
+          <div class="panel-title">1 人自动建档，成绩已写入</div>
+          <div class="panel-hint">档案信息是占位值（美东 / 有基础 / 讲武堂），建议之后去学员页回填真实信息。</div>
+          <div class="row">
+            <span>lisa.new@example.com</span>
+            <span class="tag">标记为不算作业</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="import-dialog-before-after-mobile">
+  <h2>移动端等效（导入弹窗仍是覆盖全屏的对话框，窄视口下纵向堆叠）</h2>
+  <div class="before-after">
+    <div>
+      <div class="col-label">改动前</div>
+      <div class="dialog mobile">
+        <div class="dialog-head">
+          <div>
+            <div class="title">Session 3</div>
+            <div class="subtitle">18 行</div>
+          </div>
+          <button class="close-btn">关闭</button>
+        </div>
+        <div class="counts">
+          <div><div class="count-label">将新建</div><div class="count-value">2</div></div>
+          <div><div class="count-label">将跳过</div><div class="count-value danger">1</div></div>
+        </div>
+        <div class="panel danger">
+          <div class="panel-title">1 人不在学员表里</div>
+          <div class="panel-hint">先建档再重传</div>
+          <div class="row"><span>lisa.new@example.com</span></div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="col-label">改动后</div>
+      <div class="dialog mobile">
+        <div class="dialog-head">
+          <div>
+            <div class="title">Session 3</div>
+            <div class="subtitle">18 行</div>
+          </div>
+          <button class="close-btn">关闭</button>
+        </div>
+        <div class="counts">
+          <div><div class="count-label">将新建</div><div class="count-value">3</div></div>
+        </div>
+        <div class="panel info">
+          <div class="panel-title">1 人自动建档</div>
+          <div class="panel-hint">成绩已写入，建议之后回填真实信息</div>
+          <div class="row"><span>lisa.new@example.com</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</body>
+</html>
