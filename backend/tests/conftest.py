@@ -86,11 +86,27 @@ def empty_course_tables(db_session):
     （手工建的、截图用的），删场次就会撞外键，而失败会落在某个与报课
     毫不相干的课程测试上——看着像那个测试坏了。
     删除顺序跟着外键走：先引用方，后被引用方。
+
+    `homework_imports` 也引用 `courses`，所以必须排在 `Course` **之前**——
+    一次生产验收留下的导入记录就足以让一批不相干的课程测试红在 setup 阶段。
+    `homework_excluded_emails` 没有外键，清它是为了确定性：migration 里
+    回填的讲师邮箱是一条**真实存在**的行，留着的话"排除名单为空"这个前提
+    就只在某些测试里成立。
     """
     from sqlmodel import delete
 
-    from app.models import Course, CourseAlias, CourseSession, Enrollment, HomeworkSubmission
+    from app.models import (
+        Course,
+        CourseAlias,
+        CourseSession,
+        Enrollment,
+        HomeworkExcludedEmail,
+        HomeworkImport,
+        HomeworkSubmission,
+    )
 
+    db_session.exec(delete(HomeworkImport))
+    db_session.exec(delete(HomeworkExcludedEmail))
     db_session.exec(delete(HomeworkSubmission))
     db_session.exec(delete(Enrollment))
     db_session.exec(delete(CourseSession))

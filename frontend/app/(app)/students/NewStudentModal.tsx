@@ -203,9 +203,10 @@ export function NewStudentModal(props: NewStudentModalProps) {
         </div>
 
         <div className="flex flex-none items-center justify-between gap-3 border-t border-border bg-surface-muted/40 px-[18px] py-3">
-          <span className="font-sans text-xs text-muted-foreground">
-            批量导入请用 <a href="#" onClick={(e) => { e.preventDefault(); onClose(); }}>CSV 导入</a>
-          </span>
+          {/* 原来这里有一句「批量导入请用 CSV 导入」，链接指向 `#` ——
+              背后没有任何功能，点了只是把弹窗关掉。学员批量导入至今不存在，
+              所以这句话整条删除，而不是换个去处。 */}
+          <span />
           <div className="flex items-center gap-2">
             <Button variant="secondary" onClick={onClose}>
               取消

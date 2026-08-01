@@ -262,3 +262,142 @@ describe("a 422 from the backend", () => {
   });
 
 });
+
+describe("导入相关的字段映射", () => {
+  const originalBackendUrl = process.env.BACKEND_URL;
+
+  beforeEach(() => {
+    process.env.BACKEND_URL = "http://backend.internal:8000";
+  });
+
+  afterEach(() => {
+    process.env.BACKEND_URL = originalBackendUrl;
+    vi.unstubAllGlobals();
+    vi.resetModules();
+  });
+
+  function respondWith(body: unknown) {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, status: 200, json: () => Promise.resolve(body) }),
+    );
+  }
+
+  it("importHomework 把后端的 snake_case 收成前端的 camelCase", async () => {
+    // 这一层漏掉一个字段不会报错：`undefined` 渲染出来就是空白，
+    // 于是"跳过了 3 个人"在界面上长得跟"一个都没跳过"一模一样。
+    respondWith({
+      encoding: "gb18030",
+      row_count: 17,
+      created: 16,
+      updated: 0,
+      skipped_no_student: ["ghost@example.com"],
+      skipped_no_enrollment: ["nocourse@example.com"],
+      superseded: ["session1/grades.csv:5"],
+      rows_without_email: ["session1/grades.csv:9"],
+      excluded: ["teacher@example.com"],
+      header_warning: { file_items: ["E1"], existing_items: ["A1"] },
+    });
+    const { importHomework } = await import("./api");
+
+    const result = await importHomework({
+      contentBase64: "AAAA",
+      filename: "grades.csv",
+      courseId: "c-1",
+      dryRun: true,
+    });
+
+    expect(result).toEqual({
+      encoding: "gb18030",
+      rowCount: 17,
+      created: 16,
+      updated: 0,
+      skippedNoStudent: ["ghost@example.com"],
+      skippedNoEnrollment: ["nocourse@example.com"],
+      superseded: ["session1/grades.csv:5"],
+      rowsWithoutEmail: ["session1/grades.csv:9"],
+      excluded: ["teacher@example.com"],
+      headerWarning: { fileItems: ["E1"], existingItems: ["A1"] },
+    });
+  });
+
+  it("dry_run 走查询参数，且真跑与预览分得开", async () => {
+    respondWith({
+      encoding: "utf-8",
+      row_count: 0,
+      created: 0,
+      updated: 0,
+      skipped_no_student: [],
+      skipped_no_enrollment: [],
+      superseded: [],
+      rows_without_email: [],
+      excluded: [],
+      header_warning: null,
+    });
+    const { importHomework } = await import("./api");
+
+    await importHomework({ contentBase64: "AAAA", filename: "g.csv", courseId: "c-1", dryRun: false });
+
+    expect(fetch).toHaveBeenCalledWith(
+      "http://backend.internal:8000/api/homework/import?dry_run=false",
+      expect.any(Object),
+    );
+  });
+
+  it("没有表头警告时是 null，不是一个空壳对象", async () => {
+    // `{fileItems: [], existingItems: []}` 是真值，界面会照样把警告渲染出来。
+    respondWith({
+      encoding: "utf-8",
+      row_count: 1,
+      created: 1,
+      updated: 0,
+      skipped_no_student: [],
+      skipped_no_enrollment: [],
+      superseded: [],
+      rows_without_email: [],
+      excluded: [],
+      header_warning: null,
+    });
+    const { importHomework } = await import("./api");
+
+    const result = await importHomework({
+      contentBase64: "AAAA",
+      filename: "g.csv",
+      courseId: "c-1",
+      dryRun: true,
+    });
+
+    expect(result.headerWarning).toBeNull();
+  });
+
+  it("getLastImport 映射字段，并把「还没导过」保持成 null", async () => {
+    respondWith({
+      filename: "session1/grades.csv",
+      encoding: "utf-8",
+      row_count: 17,
+      created_count: 16,
+      updated_count: 1,
+      imported_at: "2026-07-31T10:00:00Z",
+    });
+    const { getLastImport } = await import("./api");
+
+    const found = await getLastImport("c-1");
+
+    expect(found).toEqual({
+      filename: "session1/grades.csv",
+      encoding: "utf-8",
+      rowCount: 17,
+      createdCount: 16,
+      updatedCount: 1,
+      importedAt: "2026-07-31T10:00:00Z",
+    });
+  });
+
+  it("getLastImport 在这门课还没导过时返回 null", async () => {
+    // 「还没有」是正常状态，不是错误——不能在这里变成一个字段全 undefined 的对象。
+    respondWith(null);
+    const { getLastImport } = await import("./api");
+
+    expect(await getLastImport("c-1")).toBeNull();
+  });
+});

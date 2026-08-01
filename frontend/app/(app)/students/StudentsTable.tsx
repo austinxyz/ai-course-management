@@ -182,12 +182,14 @@ export function EmptyDatabaseState({ onOpenNew }: { onOpenNew: () => void }) {
         </div>
         <div className="mb-3 flex flex-col gap-1">
           <h3 className="m-0 font-sans text-sm font-semibold">暂无学员</h3>
+          {/* 不提「导入 CSV」：学员导入**不存在**（报课导入阻塞于
+              EliteCoach101 的导出方式未知）。写在空态里等于承诺一件做不到的事，
+              而空态恰恰是最会被当真的地方。 */}
           <p className="m-0 font-sans text-[13px] leading-relaxed text-muted">
-            学员库为空。从报课表导入 CSV，或手动添加第一位学员。邮箱作为唯一标识，重复导入会自动合并。
+            学员库为空。手动添加第一位学员——邮箱是唯一标识。
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="primary">导入 CSV</Button>
           <Button variant="secondary" onClick={onOpenNew}>
             手动添加
           </Button>

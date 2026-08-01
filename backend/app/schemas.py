@@ -462,34 +462,102 @@ class HomeworkRow(BaseModel):
     source_ref: str = ""
 
 
-class HomeworkUpsert(BaseModel):
-    """一次同步：指明哪门课，加上该课的全部行。
+class HomeworkImportRequest(BaseModel):
+    """一次导入：文件的**原始字节**（base64）+ 目标课程。
 
-    课程用**别名**指定而不是 uuid：调用方是命令行工具，人在命令行里写的是 `S1`。
-    别名解析走既有的 `course_aliases`，与课程导入同一条路径。
+    送字节而不是文本：编码判定必须拿到原始字节。一旦在 Next 侧用 `file.text()`
+    读成字符串，浏览器已经按 UTF-8 解过一遍，GBK 文件在那一步就变成替换字符了，
+    后端再想试 GB18030 已经没有原始字节可试。
 
-    有意不接受"从文件路径推断"——源仓库的目录名已经错了一处
-    （`session3/` 与 `session4/` 的 rubric 是对调的），路径看着像可靠线索，实际不是。
+    课程两种入参都收：网页手里已经有 `course_id`（在 URL 里，选不错），
+    而将来通过 MCP 调用的批改流程手里只有一份刚批完的文件和"这是 S1"这个概念——
+    逼它先查一遍课程列表按名字匹配，等于把别名表的职责重写一遍在调用方。
+    两者都不给则拒绝整份导入：**不从文件名、路径或内容推断课程。**
     """
 
-    course_alias: AliasRaw
-    rows: list[HomeworkRow]
+    content_base64: str
+    # 只用于报告与 `source_ref`，**不参与**课程判断。
+    filename: str = ""
+    course_id: uuid.UUID | None = None
+    course_alias: str | None = None
 
 
-class HomeworkUpsertResult(BaseModel):
-    """同步结果。两份跳过清单是**两个字段**，不合并。
+class HeaderMismatch(BaseModel):
+    """上传文件的分项列与该课程既有成绩的分项列不同。
 
-    合并成一句"有 N 个人有问题"就无从下手：两类的处置相反，
-    一类要先建学员，另一类要补报课记录。
+    两边都列出来：这个信号最常见的成因是传错了课程，而"数据缺口"那类提示
+    表达不了这件事。它是**警告不是拒绝**——课程真的改了评分表是合法的。
     """
 
+    file_items: list[str]
+    existing_items: list[str]
+
+
+class ImportRow(BaseModel):
+    """预览里将写入的一行。
+
+    姓名带出来**只为报告可读**，关联一律走邮箱——姓名与微信昵称都会变。
+    `action` 让"将新建"与"将更新"分得出：确认按钮上的数字由它们汇总而来。
+    """
+
+    email: str
+    name: str
+    total: int
+    # create | update
+    action: str
+
+
+class HomeworkImportResult(BaseModel):
+    """导入结果。dry-run 与真跑用**同一个**形状。
+
+    自描述是硬要求：已知的下一个调用方是 MCP，那边没有人在看屏幕，
+    只能靠返回值判断发生了什么。
+    """
+
+    # **始终**报出，包括判定为 UTF-8 时——只在异常时出现的话，
+    # 用户永远不知道正常长什么样，也就无从判断这次是不是异常。
+    encoding: str
+    # 解析出的有效行数（已去重、已去掉无邮箱的行）。
+    row_count: int
     created: int
     updated: int
-    # 邮箱不在 students 表：这些行**没有**写入。
+    # 两份清单是**两个字段**，不合并：处置相反，一类要先建学员，
+    # 另一类要补报课记录（成绩已经写了，但页面上一行都不会出现）。
     skipped_no_student: list[str]
-    # 学员在册但这门课没有报课记录：成绩**已经写入**，但因为名单来自报课记录，
-    # 这个人在页面上一行都不会出现。所以必须列出来让人去补报课。
     skipped_no_enrollment: list[str]
+    # 被同一人更晚的一次提交顶掉的行（`文件:行号`）。
+    superseded: list[str]
+    # 邮箱为空的行（`文件:行号`）。没有邮箱就关联不到人。
+    rows_without_email: list[str]
+    # 命中排除名单、因而没有写入的邮箱。
+    excluded: list[str]
+    # 将写入的那些人，逐行。预览的「以后不算作业」控件挂在这上面——
+    # 会被写进去的行恰恰最需要它。
+    rows: list[ImportRow] = []
+    header_warning: HeaderMismatch | None = None
+
+
+class ExcludedEmailCreate(BaseModel):
+    """把一个邮箱**永久**加入排除名单。"""
+
+    email: str
+    note: str = ""
+
+
+class ExcludedEmailRead(BaseModel):
+    email: str
+    note: str
+
+
+class HomeworkImportRead(BaseModel):
+    """作业页上的「上次导入 …」。"""
+
+    filename: str
+    encoding: str
+    row_count: int
+    created_count: int
+    updated_count: int
+    imported_at: datetime
 
 
 class HomeworkPersonRead(BaseModel):

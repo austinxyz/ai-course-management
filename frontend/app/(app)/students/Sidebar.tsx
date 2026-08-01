@@ -91,13 +91,17 @@ export function Sidebar({ studentCount }: SidebarProps) {
         <div className="mx-2 mb-1.5 mt-3.5 font-mono text-[10px] leading-none tracking-[0.12em] text-sidebar-foreground-dim">
           数据
         </div>
-        <button
-          type="button"
-          className="flex h-8 w-full cursor-default items-center justify-between gap-2 rounded-token border-0 bg-transparent px-2.5 text-left font-sans text-[13px] text-sidebar-foreground/80"
+        {/* 此前是个死键：写着「导入 / 同步 · CSV」但点了没反应，因为当时唯一的
+            导入路径是本地命令行。现在它有真东西可去了，所以做成真链接。
+            名字收窄成「作业 CSV 导入」而不是笼统的「导入 / 同步」——
+            报课导入还不存在（阻塞于 EliteCoach101 的导出方式未知），
+            用一个大词占位等于承诺一件做不到的事。 */}
+        <Link
+          href="/homework"
+          className="flex h-8 w-full items-center justify-between gap-2 rounded-token px-2.5 text-left font-sans text-[13px] text-sidebar-foreground/80 no-underline hover:bg-sidebar-active"
         >
-          <span>导入 / 同步</span>
-          <span className="font-mono text-[10px] text-sidebar-foreground-dim">CSV</span>
-        </button>
+          <span>作业 CSV 导入</span>
+        </Link>
       </nav>
 
       <div className="flex flex-col gap-0.5 border-t border-sidebar-border px-3.5 py-2.5">

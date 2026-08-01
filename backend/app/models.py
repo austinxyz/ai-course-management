@@ -1,5 +1,5 @@
 import uuid
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timezone
 
 from sqlalchemy import Column
 from sqlalchemy.dialects.postgresql import JSONB
@@ -124,3 +124,39 @@ class HomeworkSubmission(SQLModel, table=True):
     # "session1/grades.csv:7"
     source_ref: str = Field(default="")
     # synced_at / created_at 同 Course：DB 有 now() 默认值，应用不读不写，不映射。
+
+
+class HomeworkExcludedEmail(SQLModel, table=True):
+    """一个「不算作业」的邮箱。**全课程通用**。
+
+    键是邮箱而不是学员外键：被排除的人恰恰可能不在 `students` 里
+    （讲师本人就是），挂外键等于要求先给他建档。
+    """
+
+    __tablename__ = "homework_excluded_emails"
+
+    email: str = Field(primary_key=True)
+    note: str = Field(default="")
+    # created_at 同 Course：DB 有 now() 默认值，应用不读不写，不映射。
+
+
+class HomeworkImport(SQLModel, table=True):
+    """一次**实际写入**的导入。dry-run 不产生记录。
+
+    只记元信息，**不存原文**：权威副本在 ai-course 仓库里，这里再存一份
+    就多一份含真实姓名邮箱的副本要看管，而它不参与任何功能。
+    """
+
+    __tablename__ = "homework_imports"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    course_id: uuid.UUID = Field(foreign_key="courses.id")
+    filename: str
+    encoding: str
+    row_count: int
+    created_count: int
+    updated_count: int
+    # 这一列与 Course.created_at 不同：作业页要**读**它（"上次导入 …"），
+    # 所以必须映射。映射了就不能留给 DB 默认——SQLModel 会把 None 显式发出去
+    # 盖掉 DB 默认值，撞上 NOT NULL。因此应用侧自己生成，且带时区。
+    imported_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

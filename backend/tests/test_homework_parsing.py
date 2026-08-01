@@ -6,15 +6,19 @@
 夹具一律用虚构姓名与 @example.com —— 真实学员数据不进仓库。
 """
 
-import sys
 from datetime import date
-from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent))
-
-from parsing import FIXED_COLUMNS, BadHeader, parse, split_header  # noqa: E402
+from app.homework_parsing import (
+    FIXED_COLUMNS,
+    BadHeader,
+    CannotDecode,
+    MalformedCell,
+    decode_csv,
+    parse,
+    split_header,
+)
 
 # S1 的形状：分项列夹在「总分」与「亮点」之间。
 S1_HEADER = [
@@ -64,6 +68,140 @@ def _csv(header: list[str], *rows: list[str]) -> str:
     return "\n".join(lines) + "\n"
 
 
+class TestDecodeCsv:
+    """上传上来的是**字节**，先判编码再谈解析。
+
+    判据不能只是"内容对"：GB18030 能把 UTF-8 中文解成**另一批中文字**，
+    人眼分得出、断言分不出。所以每个用例都钉住 `encoding` 这个返回值本身。
+    """
+
+    def test_gb18030_bytes_are_decoded_and_reported(self):
+        """Excel 另存出来的就是这种字节。
+
+        夹具先自证：这串字节按 UTF-8 **解不开**——这正是回退到 GB18030
+        的必要条件。少了这一句，测试就退化成一次 encode/decode 往返，
+        任何实现都能过。
+        """
+        raw = "姓名,邮件\n学员甲,alpha@example.com\n".encode("gb18030")
+        with pytest.raises(UnicodeDecodeError):
+            raw.decode("utf-8")
+
+        text, encoding = decode_csv(raw)
+
+        assert encoding == "gb18030"
+        assert text.startswith("姓名,邮件")
+        assert "学员甲" in text
+
+    def test_utf8_bytes_are_reported_as_utf8(self):
+        """断言的重点是 `encoding` 这个值，不是内容。
+
+        夹具先自证：这串 UTF-8 字节按 GB18030 **也解得开**，解出来是
+        `瀛﹀憳鐢蹭箼` 这样一批别的中文字，不抛异常。所以"内容对不对"
+        在测试里根本区分不了顺序反没反，能区分的只有这个返回值。
+
+        姓名用四个字不是随意的：UTF-8 的中日韩字符一个占 3 字节，
+        **三个字**（9 字节，奇数）会让 GB18030 在最后一个字节上撞到
+        非法双字节序列而解不开——于是即便顺序反了也会退回 UTF-8，
+        测试照样绿。这个夹具因此必须凑成偶数个汉字，
+        否则它就是一条永远不会红的假测试（1.7 的变异验证抓到过一次）。
+        """
+        raw = "姓名,邮件\n学员甲乙,alpha@example.com\n".encode("utf-8")
+        assert raw.decode("gb18030") != "姓名,邮件\n学员甲乙,alpha@example.com\n"
+
+        text, encoding = decode_csv(raw)
+
+        assert encoding == "utf-8"
+        assert text.startswith("姓名,邮件")
+        assert "学员甲乙" in text
+
+    def test_utf8_with_bom_loses_the_bom(self):
+        """Excel 存的 UTF-8 带 BOM。
+
+        不剥掉的话第一个列名是 `﻿姓名`，「姓名」这一列就认不出来，
+        而抛出来的错会说"表头缺少必需的列"——指向一个完全不相干的方向。
+        用 `utf-8-sig` 的全部理由就是这一句。
+        """
+        raw = "﻿姓名,邮件\n学员甲,alpha@example.com\n".encode("utf-8")
+
+        text, encoding = decode_csv(raw)
+
+        assert encoding == "utf-8"
+        assert text.split(",")[0] == "姓名"
+        assert not text.startswith("﻿")
+
+    def test_bytes_that_decode_as_neither_are_rejected(self):
+        """两种编码都解不开就拒绝，且异常要与「表头不对」**可区分**。
+
+        两者的处置完全不同：编码问题让用户换个格式另存，表头问题让用户
+        确认是不是传错了文件。混成一种异常，上层就没法分别措辞。
+        """
+        raw = b"\xff\xfe\x00\x00\xff\xff\xfe\xfe"
+
+        with pytest.raises(CannotDecode):
+            decode_csv(raw)
+
+        assert not issubclass(CannotDecode, BadHeader)
+        assert not issubclass(BadHeader, CannotDecode)
+
+
+class TestMalformedCells:
+    """格式错的单元格要抛**可分辨**的异常，且说得出是哪一行哪一列。
+
+    这一层原本只被 CLI 调用：抛裸 `ValueError` 时操作者看得见 traceback，
+    知道是自己那份文件的问题。现在同一层挂在浏览器上传与 MCP 后面，
+    裸 `ValueError` 会一路冒到端点外变成 500——用户看到的是"服务器错了"，
+    而实际是他那份 csv 的第 7 行有个 `N/A`。
+    """
+
+    def test_a_non_numeric_score_names_the_row_and_the_value(self):
+        text = _csv(
+            ["姓名", "邮件", "提交时间", "总分", "亮点", "改进建议", "回复状态"],
+            ["学员甲", "alpha@example.com", "2026-06-20", "abc", "", "", ""],
+        )
+
+        with pytest.raises(MalformedCell) as caught:
+            parse(text, source="session1/grades.csv")
+
+        assert caught.value.ref == "session1/grades.csv:2"
+        assert caught.value.column == "总分"
+        assert caught.value.value == "abc"
+        # 消息要能直接展示给上传的人看：他要回源文件去改那一行。
+        assert "session1/grades.csv:2" in str(caught.value)
+        assert "总分" in str(caught.value)
+
+    def test_an_unparseable_date_is_the_same_kind_of_error(self):
+        text = _csv(
+            ["姓名", "邮件", "提交时间", "总分", "亮点", "改进建议", "回复状态"],
+            ["学员甲", "alpha@example.com", "N/A", "70", "", "", ""],
+        )
+
+        with pytest.raises(MalformedCell) as caught:
+            parse(text, source="s.csv")
+
+        assert caught.value.column == "提交时间"
+        assert caught.value.value == "N/A"
+
+    def test_a_bad_item_score_names_that_item_column(self):
+        """分项列的列名各课不同，所以报的必须是**实际那一列**的名字，
+        不能笼统说"某个分数列"——用户要拿着它去源文件里定位。"""
+        text = _csv(
+            ["姓名", "邮件", "提交时间", "总分", "A1工作流结构", "亮点", "改进建议", "回复状态"],
+            ["学员甲", "alpha@example.com", "2026-06-20", "70", "满分", "", "", ""],
+        )
+
+        with pytest.raises(MalformedCell) as caught:
+            parse(text, source="s.csv")
+
+        assert caught.value.column == "A1工作流结构"
+        assert caught.value.value == "满分"
+
+    def test_it_is_distinguishable_from_the_other_two_rejections(self):
+        """三类拒绝的处置各不相同：换编码另存 / 确认传的是不是这份文件 /
+        回源文件改某一行。合成一种异常，上层就没法分别措辞。"""
+        assert not issubclass(MalformedCell, BadHeader)
+        assert not issubclass(MalformedCell, CannotDecode)
+
+
 class TestSplitHeader:
     """哪些列是分项，由**排除法**决定：不在固定列白名单里的就是分项。
 
@@ -93,6 +231,25 @@ class TestSplitHeader:
         """少了「邮件」就没法关联到人。中止，不猜。"""
         with pytest.raises(BadHeader):
             split_header(["姓名", "提交时间", "总分"])
+
+    def test_the_error_lets_the_user_tell_they_uploaded_the_wrong_file(self):
+        """最常见的成因是传错了文件，所以错误要先说这件事。
+
+        「表头缺少必需的列：提交时间、总分」是写给命令行看的：它假设读的人
+        知道"必需的列"是一份作业成绩文件才有的东西。网页上传的人手里
+        可能是一份学员名单，他需要的判断依据是"这看起来不是作业成绩文件"，
+        而不是一条内部校验细节。两样都要有——只说前者他不知道该换成什么。
+        """
+        roster_shaped = ["姓名", "邮件", "微信号"]
+
+        with pytest.raises(BadHeader) as caught:
+            split_header(roster_shaped)
+
+        message = str(caught.value)
+        assert "不是作业成绩文件" in message
+        assert "提交时间" in message and "总分" in message
+        # 缺了哪几列要能被上层拿去渲染，而不是只能对着字符串做子串匹配
+        assert caught.value.missing == ["提交时间", "总分"]
 
 
 class TestParse:

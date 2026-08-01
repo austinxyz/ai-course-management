@@ -3,7 +3,11 @@
 // outside Next's own build pipeline, which breaks unit testing this file
 // directly under vitest.)
 import type { Course } from "@/app/(app)/courses/types";
-import type { HomeworkPerson } from "@/app/(app)/homework/types";
+import type {
+  HomeworkPerson,
+  ImportResult,
+  LastImport,
+} from "@/app/(app)/homework/types";
 import type { Enrollment, Student } from "@/app/(app)/students/types";
 
 interface ApiStudent {
@@ -456,6 +460,97 @@ interface ApiHomeworkPerson {
  * 只有读。同步是本地命令行的事——`grades.csv` 在另一个仓库，
  * 部署环境的后端看不到那些文件，所以这里**不存在**对应的写方法。
  */
+interface ApiImportResult {
+  encoding: string;
+  row_count: number;
+  created: number;
+  updated: number;
+  skipped_no_student: string[];
+  skipped_no_enrollment: string[];
+  superseded: string[];
+  rows_without_email: string[];
+  excluded: string[];
+  rows: { email: string; name: string; total: number; action: string }[];
+  header_warning: { file_items: string[]; existing_items: string[] } | null;
+}
+
+/**
+ * 把一份 `grades.csv` 的**原始字节**送去后端导入。
+ *
+ * 这一层只搬运：解码、解析、校验、排除、分类全部在后端，因为已知的下一个
+ * 调用方是 MCP，它不经过 Next.js。任何落在这条路径上的规则都会被那条绕过，
+ * 而两个客户端行为不一致只在"命令行导进去的和网页导进去的不一样"时才暴露。
+ *
+ * 送的是 base64 的字节而不是文本：编码判定必须拿到原始字节。
+ */
+export async function importHomework(input: {
+  contentBase64: string;
+  filename: string;
+  courseId: string;
+  dryRun: boolean;
+}): Promise<ImportResult> {
+  const data = (await backendWrite(
+    `/api/homework/import?dry_run=${input.dryRun ? "true" : "false"}`,
+    "POST",
+    {
+      content_base64: input.contentBase64,
+      filename: input.filename,
+      course_id: input.courseId,
+    },
+  )) as ApiImportResult;
+  return {
+    encoding: data.encoding,
+    rowCount: data.row_count,
+    created: data.created,
+    updated: data.updated,
+    skippedNoStudent: data.skipped_no_student,
+    skippedNoEnrollment: data.skipped_no_enrollment,
+    superseded: data.superseded,
+    rowsWithoutEmail: data.rows_without_email,
+    excluded: data.excluded,
+    rows: data.rows,
+    headerWarning: data.header_warning
+      ? {
+          fileItems: data.header_warning.file_items,
+          existingItems: data.header_warning.existing_items,
+        }
+      : null,
+  };
+}
+
+/** 把一个邮箱**永久**加入「不算作业」名单。全课程通用。 */
+export async function addExcludedEmail(email: string): Promise<void> {
+  await backendWrite("/api/homework/excluded", "POST", { email });
+}
+
+interface ApiLastImport {
+  filename: string;
+  encoding: string;
+  row_count: number;
+  created_count: number;
+  updated_count: number;
+  imported_at: string;
+}
+
+/** 这门课最近一次导入。还没导过就是 `null`——"还没有"不是错误。 */
+export async function getLastImport(courseId: string): Promise<LastImport | null> {
+  const res = await fetch(
+    backendUrl(`/api/homework/last-import?course=${encodeURIComponent(courseId)}`),
+    backendRequestInit(),
+  );
+  if (!res.ok) throw new Error(`getLastImport failed: ${res.status}`);
+  const data: ApiLastImport | null = await res.json();
+  if (data === null) return null;
+  return {
+    filename: data.filename,
+    encoding: data.encoding,
+    rowCount: data.row_count,
+    createdCount: data.created_count,
+    updatedCount: data.updated_count,
+    importedAt: data.imported_at,
+  };
+}
+
 export async function getHomework(courseId: string): Promise<HomeworkPerson[]> {
   const res = await fetch(
     backendUrl(`/api/homework?course=${encodeURIComponent(courseId)}`),

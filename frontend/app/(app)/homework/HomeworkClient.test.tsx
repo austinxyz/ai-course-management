@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { HomeworkClient } from "./HomeworkClient";
-import type { HomeworkCourse, HomeworkPerson } from "./types";
+import type { HomeworkCourse, HomeworkPerson, LastImport } from "./types";
 
 vi.mock("next/navigation", () => ({ usePathname: () => "/homework" }));
 
@@ -50,9 +50,18 @@ function blank(over: Partial<HomeworkPerson> = {}): HomeworkPerson {
   });
 }
 
-function view(people: HomeworkPerson[], courseId = "c1") {
+function view(
+  people: HomeworkPerson[],
+  courseId = "c1",
+  lastImport: LastImport | null = null,
+) {
   return render(
-    <HomeworkClient courses={COURSES} courseId={courseId} people={people} />,
+    <HomeworkClient
+      courses={COURSES}
+      courseId={courseId}
+      people={people}
+      lastImport={lastImport}
+    />,
   );
 }
 
@@ -250,17 +259,63 @@ describe("详情面板", () => {
 });
 
 /**
- * 页面只读是有意的：源文件由批改流程生成并由人维护，两边都能写就会分叉。
- * 而「重新同步」按钮更是做不出来——`grades.csv` 在另一个仓库，部署环境的后端
- * 看不到那些文件。
+ * 成绩本身仍然不可逐条编辑：源文件由批改流程生成并由人维护，
+ * 两边都能改单条就会分叉，而分叉之后没有哪一边有资格当准。
+ *
+ * 页面上唯一的写入口是**整份文件导入**——它的语义是"以这份文件为准"，
+ * 不产生分叉。原来那条"连导入也做不出来"的理由（源文件在另一个仓库、
+ * 部署环境的后端看不到）只证明了后端读不到文件系统，
+ * 而浏览器上传恰恰绕开了这一点。
  */
 describe("只读", () => {
-  it("页面上没有任何修改、删除、新增或同步入口", () => {
+  it("页面上没有逐条修改、删除、新增成绩的入口", () => {
     view([person()]);
 
     expect(
-      screen.queryByRole("button", { name: /修改|删除|新增|同步|补录|编辑|保存/ }),
+      screen.queryByRole("button", { name: /修改|删除|新增|补录|编辑|保存/ }),
     ).toBeNull();
+  });
+});
+
+describe("导入入口", () => {
+  it("有「导入 grades.csv」入口", () => {
+    view([person()]);
+
+    expect(screen.getByLabelText(/导入 grades\.csv/)).toBeInTheDocument();
+  });
+
+  it("显示上次导入的时间、文件名与行数", () => {
+    view([person()], "c1", {
+      filename: "session1/grades.csv",
+      encoding: "utf-8",
+      rowCount: 17,
+      createdCount: 16,
+      updatedCount: 1,
+      importedAt: "2026-07-31T22:47:00Z",
+    });
+
+    const line = screen.getByTestId("last-import");
+    expect(within(line).getByText(/session1\/grades\.csv/)).toBeInTheDocument();
+    expect(within(line).getByText(/17 行/)).toBeInTheDocument();
+  });
+
+  it("还没导过时不显示那一行——「还没有」不是错误，不该占一行说空话", () => {
+    view([person()], "c1", null);
+
+    expect(screen.queryByTestId("last-import")).toBeNull();
+  });
+
+  it("没有课程选择控件——课程恒为当前选中的那一门", () => {
+    view([person()]);
+
+    expect(screen.queryByRole("combobox")).toBeNull();
+  });
+
+  it("不再提 tools/homework-sync —— 那个工具已经删了", () => {
+    // 留着的话，页面在教用户去跑一个不存在的脚本。
+    view([blank({ state: "missing" })]);
+
+    expect(screen.queryByText(/homework-sync/)).toBeNull();
   });
 });
 

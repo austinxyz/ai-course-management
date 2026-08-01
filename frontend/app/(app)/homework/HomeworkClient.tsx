@@ -1,17 +1,24 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import { cn } from "@/lib/cn";
-import type { HomeworkCourse, HomeworkPerson } from "./types";
+import { applyImport, excludeEmailAction, previewImport } from "./actions";
+import { ImportDialog } from "./ImportDialog";
+import type { HomeworkCourse, HomeworkPerson, LastImport } from "./types";
 
 /**
- * 作业页：`grades.csv` 的**只读**镜像。
+ * 作业页：`grades.csv` 的镜像。
  *
- * 页面上没有任何写入控件。源文件由批改流程生成并由人维护，两边都能写就会分叉，
- * 而分叉之后没有哪一边有资格当准。稿子上那个「重新同步 grades.csv」按钮更是
- * 做不出来——文件在另一个仓库，部署环境的后端根本看不到它。
+ * 有且只有**一个**写入入口：整份文件导入。成绩本身不可逐条编辑——
+ * 源文件由批改流程生成并由人维护，两边都能改单条就会分叉，
+ * 而分叉之后没有哪一边有资格当准。整份导入不产生这个问题：
+ * 它的语义是"以这份文件为准"。
+ *
+ * 稿子上那个「重新同步」按钮此前被判为做不出来，理由是文件在另一个仓库、
+ * 部署环境的后端看不到。前半句成立，结论不成立：**浏览器上传**恰恰
+ * 绕开了后端读不到文件系统这件事。
  */
 
 /** 四态。三态不够：没有场次就没有截止时间，催他是冤的。 */
@@ -64,11 +71,37 @@ interface HomeworkClientProps {
   courses: HomeworkCourse[];
   courseId: string;
   people: HomeworkPerson[];
+  /** 还没导过就是 null——"还没有"是正常状态，不占一行说空话。 */
+  lastImport: LastImport | null;
 }
 
-export function HomeworkClient({ courses, courseId, people }: HomeworkClientProps) {
+/** `2026-07-31T22:47:00Z` → `2026-07-31 15:47`（美西）。 */
+function formatImportedAt(iso: string): string {
+  const when = new Date(iso);
+  if (Number.isNaN(when.getTime())) return iso;
+  return new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "America/Los_Angeles",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(when);
+}
+
+export function HomeworkClient({
+  courses,
+  courseId,
+  people,
+  lastImport,
+}: HomeworkClientProps) {
   const [filter, setFilter] = useState<Filter>("all");
   const [selected, setSelected] = useState<string | null>(null);
+  // 浏览器留着这个 File，确认时再读一次、再送一次。服务端不存临时上传：
+  // 那要多一张表、要过期清理、还要处理"确认时那份临时数据已被清掉"，
+  // 而文件只有几 KB。
+  const [picked, setPicked] = useState<File | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
 
   const counts = useMemo(
     () => ({
@@ -84,8 +117,33 @@ export function HomeworkClient({ courses, courseId, people }: HomeworkClientProp
   const current = rows.find((p) => p.studentEmail === selected) ?? null;
   const course = courses.find((c) => c.id === courseId);
 
+  /**
+   * File + courseId → FormData → Server Action。
+   *
+   * 每次都重新读一遍那个 File 而不是把 base64 存下来：预览与确认之间
+   * 数据库可能变了（比如有人补建了学员），确认时的结果**以真跑为准**，
+   * 界面显示实际结果，不复述预览。
+   */
+  function formFor(file: File): FormData {
+    const form = new FormData();
+    form.set("file", file);
+    form.set("courseId", courseId);
+    return form;
+  }
+
   return (
     <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
+      {picked && (
+        <ImportDialog
+          file={picked}
+          courseId={courseId}
+          courseName={course?.name ?? ""}
+          onPreview={(file) => previewImport(formFor(file))}
+          onApply={(file) => applyImport(formFor(file))}
+          onExclude={(email) => excludeEmailAction(email)}
+          onClose={() => setPicked(null)}
+        />
+      )}
       <header className="flex flex-none flex-col gap-2.5 border-b border-border bg-surface px-[22px] pb-[13px] pt-4">
         <div className="flex min-w-0 flex-col gap-1">
           <div className="flex items-baseline gap-2.5">
@@ -95,14 +153,45 @@ export function HomeworkClient({ courses, courseId, people }: HomeworkClientProp
             <span className="font-mono text-xs text-muted">
               {courses.length === 0 ? "还没有课程" : `${people.length} 人`}
             </span>
+            {/* 包住 input 的 label：它的可见文字就是这个 file input 的
+                可访问名称，不用再加 aria-label（加了反而变成两个同名节点）。 */}
+            {courseId && (
+              <label className="ml-auto inline-flex h-[26px] cursor-pointer items-center rounded-token border border-border bg-surface px-2.5 font-sans text-xs">
+                导入 grades.csv
+                {/* 按**内容**判定可用与否，不按扩展名——扩展名是最容易伪装
+                    也最容易误伤的判据。`accept` 只是文件选择器的默认过滤，
+                    不是校验：用户照样能选别的，而那由后端说了算。 */}
+                <input
+                  ref={fileInput}
+                  type="file"
+                  accept=".csv,text/csv"
+                  className="hidden"
+                  onChange={(event) => {
+                    const chosen = event.target.files?.[0] ?? null;
+                    setPicked(chosen);
+                    // 选同一个文件两次也要能触发——input 的 value 不清空的话
+                    // 第二次 change 根本不发生，看起来像按钮坏了。
+                    event.target.value = "";
+                  }}
+                />
+              </label>
+            )}
           </div>
           <p className="m-0 font-sans text-[12.5px] text-muted">
-            grades.csv 的只读镜像。改成绩要回 ai-course 仓库改 csv，再跑一次
-            tools/homework-sync。
+            grades.csv 的镜像。改成绩要回 ai-course 仓库改 csv，再把新的文件导进来。
           </p>
+          {lastImport && (
+            <div data-testid="last-import" className="font-mono text-[11.5px] text-muted-fg">
+              <span>上次导入 {formatImportedAt(lastImport.importedAt)}</span>
+              <span> · {lastImport.filename}</span>
+              <span> · {lastImport.rowCount} 行</span>
+            </div>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5">
+          {/* 课程**不**给选：已经在 URL 里，多一个可选错的地方不如没有。
+              这些 chip 是导航，不是这次导入的目标选择器。 */}
           {courses.map((c) => (
             <Link
               key={c.id}
@@ -155,10 +244,8 @@ export function HomeworkClient({ courses, courseId, people }: HomeworkClientProp
 
               {counts.submitted === 0 && (
                 <p className="m-0 rounded-token border border-dashed border-border bg-surface-muted px-3 py-2.5 font-sans text-[12.5px] leading-relaxed text-muted">
-                  这门课还没有任何提交记录。如果作业已经批过了，跑一次{" "}
-                  <code className="font-mono text-[11.5px]">
-                    tools/homework-sync/sync.py --course {course?.short || "S?"} …
-                  </code>
+                  这门课还没有任何提交记录。如果作业已经批过了，用右上角的
+                  「导入 grades.csv」把批改结果传上来。
                 </p>
               )}
 

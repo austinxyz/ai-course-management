@@ -87,8 +87,11 @@
 已归档与已退课的人不进名单，因为这里的计数直接导向"催谁"（这一点与报课页**有意不同**，
 那边的已报人数是历史统计）。
 
-**导入目前只能在本地跑命令行**（`tools/homework-sync/`，默认只预演，`--apply` 才写）。
-网页上传 `grades.csv` 归下一片 `homework-upload`。
+**导入从网页做**：作业页的「导入 grades.csv」选一个文件，先看一屏预览
+（按什么编码读的、将新建/将更新多少条、两份跳过清单），确认了才写。
+业务逻辑全在 `POST /api/homework/import`，网页只负责把**原始字节**转发过去——
+下一个调用方是批改 skill 的 MCP，它不经过 Next.js。
+原来的本地命令行 `tools/homework-sync/` 已随 `homework-upload` 删除。
 各分项的**满分**不在 `grades.csv` 里，所以暂时不显示 `11 / 15`、也不画分项条形图——
 归 `homework-rubric`。
 

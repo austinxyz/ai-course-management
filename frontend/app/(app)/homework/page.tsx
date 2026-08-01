@@ -1,4 +1,4 @@
-import { getCourses, getHomework } from "@/lib/api";
+import { getCourses, getHomework, getLastImport } from "@/lib/api";
 import { HomeworkClient } from "./HomeworkClient";
 import { pickCourse } from "./pickCourse";
 
@@ -20,13 +20,28 @@ export default async function HomeworkPage({
   // 而那个顺序与"这门课有没有人"完全不相干（生产上排最前的 S4 一条报课都没有）。
   const courseId = pickCourse(courses, course);
 
-  const people = courseId ? await getHomework(courseId) : [];
+  // 两条独立的取数并发发出：串行的话这一页的首屏要等两个来回，
+  // 而每次往返实测 ≈ 61ms（Render → Supabase），且后端是免费档、会冷启动。
+  //
+  // 两者的失败**处置相反**，所以不能一把 Promise.all 了事：
+  //
+  // - 名单取不到 → 照常抛，交给 `(app)/error.tsx`。名单是这一页存在的理由，
+  //   它挂了还渲染一个空页面，看起来就是"这门课没有人"——一个假事实。
+  // - 「上次导入」取不到 → 退成 null。它是一行说明性的字，
+  //   为它把整份名单一起换成错误卡片，代价与收益完全不成比例。
+  const [people, lastImport] = courseId
+    ? await Promise.all([
+        getHomework(courseId),
+        getLastImport(courseId).catch(() => null),
+      ])
+    : [[], null];
 
   return (
     <HomeworkClient
       courses={courses.map((c) => ({ id: c.id, name: c.name, short: c.short }))}
       courseId={courseId ?? ""}
       people={people}
+      lastImport={lastImport}
     />
   );
 }
