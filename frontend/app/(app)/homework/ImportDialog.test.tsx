@@ -11,7 +11,7 @@ function resultOf(over: Partial<ImportResult> = {}): ImportResult {
     rowCount: 17,
     created: 0,
     updated: 16,
-    skippedNoStudent: [],
+    autoCreated: [],
     skippedNoEnrollment: [],
     superseded: [],
     rowsWithoutEmail: [],
@@ -89,26 +89,24 @@ describe("ImportDialog", () => {
       expect(within(counts).getByTestId("count-updated")).toHaveTextContent("16");
     });
 
-    it("三个数：将新建 / 将更新 / 将跳过", async () => {
-      // 「将跳过」算的是**不在学员表**那一批——他们的成绩不会写入。
-      // 「无报课记录」不算：那些成绩是写了的，只是页面上看不到，
-      // 两者合成一个数就把"写了没有"这件事抹平了。
+    it("两个数：将新建 / 将更新，不再有「将跳过」", async () => {
+      // 自动建档的行现在**正常写入**，不再是"跳过"，所以没有第三个数字。
       setup({
         onPreview: vi.fn().mockResolvedValue({
           ok: true,
           result: resultOf({
-            created: 0,
+            created: 1,
             updated: 16,
-            skippedNoStudent: ["ghost@example.com"],
+            autoCreated: ["new@example.com"],
             skippedNoEnrollment: ["noenroll@example.com"],
           }),
         }),
       });
 
       const counts = await screen.findByTestId("import-counts");
-      expect(within(counts).getByTestId("count-created")).toHaveTextContent("0");
+      expect(within(counts).getByTestId("count-created")).toHaveTextContent("1");
       expect(within(counts).getByTestId("count-updated")).toHaveTextContent("16");
-      expect(within(counts).getByTestId("count-skipped")).toHaveTextContent("1");
+      expect(screen.queryByTestId("count-skipped")).not.toBeInTheDocument();
     });
 
     it("行数说得出「少掉的那些去哪了」", async () => {
@@ -190,27 +188,36 @@ describe("ImportDialog", () => {
       expect(await screen.findByText(/session1\/grades\.csv:6/)).toBeInTheDocument();
     });
 
-    it("两份跳过清单**彼此分开**，中间隔着第二份的标题", async () => {
-      // 处置相反：一类要先建学员（成绩没写），一类要补报课（成绩写了）。
-      // 合成一句"有 N 个人有问题"就无从下手。
+    it("自动建档与无报课记录**彼此分开**，中间隔着第二份的标题", async () => {
+      // 含义不同：一类是本次新建的档案（讲师要回头核对占位信息），
+      // 一类是已在册但没报这门课（要补报课）。合成一句"有 N 个人有问题"就无从下手。
       setup({
         onPreview: vi.fn().mockResolvedValue({
           ok: true,
           result: resultOf({
-            skippedNoStudent: ["ghost@example.com"],
+            autoCreated: ["new@example.com"],
             skippedNoEnrollment: ["nocourse@example.com"],
           }),
         }),
       });
 
-      const noStudent = await screen.findByTestId("skipped-no-student");
+      const autoCreated = await screen.findByTestId("auto-created");
       const noEnrollment = screen.getByTestId("skipped-no-enrollment");
-      expect(within(noStudent).getByText(/ghost@example\.com/)).toBeInTheDocument();
+      expect(within(autoCreated).getByText(/new@example\.com/)).toBeInTheDocument();
       expect(within(noEnrollment).getByText(/nocourse@example\.com/)).toBeInTheDocument();
+    });
 
-      // 视觉语气必须不同，否则读起来像同一件事。
-      expect(noStudent).toHaveAttribute("data-tone", "danger");
-      expect(noEnrollment).toHaveAttribute("data-tone", "normal");
+    it("自动建档面板说明这是占位信息，需要之后回填", async () => {
+      setup({
+        onPreview: vi.fn().mockResolvedValue({
+          ok: true,
+          result: resultOf({ autoCreated: ["new@example.com"] }),
+        }),
+      });
+
+      const panel = await screen.findByTestId("auto-created");
+      expect(within(panel).getByText(/自动建档/)).toBeInTheDocument();
+      expect(screen.getByText(/回填/)).toBeInTheDocument();
     });
 
     it("界面上没有课程选择控件，但说得出导入到哪门课", async () => {

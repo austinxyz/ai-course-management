@@ -145,11 +145,9 @@ export function ImportDialog(props: ImportDialogProps) {
     await load("writing");
   }
 
+  // 自动建档的行已经算在 `created` 里了（后端把它们当普通新建处理）——
+  // 这里不需要额外加。
   const willWrite = result ? result.created + result.updated : 0;
-  // 「将跳过」只算**不在学员表**那一批——他们的成绩不会写入。
-  // 「无报课记录」不算：那些成绩是写了的，只是页面上看不到，
-  // 合成一个数就把"到底写了没有"这件事抹平了，而两者的处置正好相反。
-  const willSkip = result ? result.skippedNoStudent.length : 0;
   // 源文件里有、这次没用上的行：重复提交被顶掉的 + 没有邮箱的。
   // 两种丢法不同，但对账时是同一笔差额——只报"可用 17 行"的话，
   // 源文件明明是 18 行这件事就没人对得上。
@@ -213,14 +211,6 @@ export function ImportDialog(props: ImportDialogProps) {
             <div data-testid="import-counts" className="flex gap-5 font-sans">
               <Count testId="count-created" label="将新建" value={result.created} />
               <Count testId="count-updated" label="将更新" value={result.updated} />
-              {/* 第三个数用 danger 语气：它是"有东西进不去"，
-                  与前两个"会发生什么"不是一类。 */}
-              <Count
-                testId="count-skipped"
-                label="将跳过"
-                value={willSkip}
-                tone={willSkip > 0 ? "danger" : "normal"}
-              />
             </div>
 
             {result.superseded.length > 0 && (
@@ -239,18 +229,16 @@ export function ImportDialog(props: ImportDialogProps) {
               </Panel>
             )}
 
-            {/* 两份清单**分开**、语气**不同**：
-                「不在学员表」成绩不会写入（要先建档）→ danger；
-                「无报课记录」成绩会写入但页面上看不到（要补报课）→ 普通。
-                同一种视觉语气会让人以为是同一件事。 */}
-            {result.skippedNoStudent.length > 0 && (
+            {/* 两份清单**分开**：「自动建档」是本次新建的档案（占位信息，
+                需要之后回填）；「无报课记录」是已在册但没报这门课（要补报课）。
+                两者含义不同，合在一起就分不出了。 */}
+            {result.autoCreated.length > 0 && (
               <Panel
-                testId="skipped-no-student"
-                tone="danger"
-                title={`${result.skippedNoStudent.length} 人不在学员表里，成绩不会写入`}
-                hint="先去学员页建档，再回来重传。"
+                testId="auto-created"
+                title={`${result.autoCreated.length} 人自动建档，成绩已写入`}
+                hint="档案信息是占位值（美东 / 有基础 / 讲武堂），建议之后去学员页回填真实信息。"
               >
-                {result.skippedNoStudent.map((email) => (
+                {result.autoCreated.map((email) => (
                   <Row key={email} action={<ExcludeButton email={email} onClick={exclude} busy={busy} />}>
                     {email}
                   </Row>

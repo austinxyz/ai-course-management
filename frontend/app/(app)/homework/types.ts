@@ -70,8 +70,8 @@ export interface ImportResult {
   rowCount: number;
   created: number;
   updated: number;
-  /** 邮箱不在学员表：这些行**没写**。要先建学员。 */
-  skippedNoStudent: string[];
+  /** 邮箱本来不在学员表：系统已用占位信息自动建档、建报课，成绩**已写入**。建议之后回填真实信息。 */
+  autoCreated: string[];
   /** 学员在册但这门课没报课：成绩**写了**，但页面上一行都不会出现。要补报课。 */
   skippedNoEnrollment: string[];
   /** 被同一人更晚的一次提交顶掉的行（`文件:行号`）。 */

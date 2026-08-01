@@ -12,8 +12,10 @@
 import base64
 import binascii
 import uuid
+from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func
 from sqlmodel import Session, select
 
 from app.db import get_session
@@ -54,6 +56,12 @@ router = APIRouter(prefix="/api/homework", tags=["homework"])
 # 上限存在的理由不是省空间，而是让一份误传的视频或数据库导出在**解码之前**
 # 就被挡住：那些内容 GB18030 几乎都能解开，解完再拒绝等于白解一遍几百 MB。
 MAX_UPLOAD_BYTES = 2 * 1024 * 1024
+
+# 自动建档的占位默认值。这门机构目前只服务讲武堂这一家，占位值就是这家机构
+# 当前最常见的真实取值——不做成"一眼假"的哨兵值，因为自动建档清单本身
+# 已经是"这些人需要回头核对"的信号，不需要靠字段本身自证。
+_AUTO_CREATE_DEFAULTS = {"region": "美东", "level": "有基础", "source": "讲武堂"}
+_UNKNOWN_NAME_PLACEHOLDER = "待定"
 
 # 四态。三态（稿子那版）不够：倒推进来的报课全是未定场次，而没有场次就没有
 # 截止时间——把这些人算作「未交」等于制造一批催不了的催促目标。
@@ -311,6 +319,9 @@ def _classify(
     **覆盖式，不是同步式删除**：源文件里少了一行，库里那条仍然留着。
     csv 是会被裁剪、被重新生成的，把"这次没送来"读成"该删掉"会让一次误操作
     抹掉历史成绩，而权威副本的恢复要跨仓库。
+
+    邮箱不在学员表的行不再跳过：自动建一条最小学员档案与一条 `derived` 报课，
+    成绩照常写入（详见 `homework` / `enrollment` spec 的对应 Requirement）。
     """
     emails = [row["student_email"] for row in rows]
     known = (
@@ -338,17 +349,49 @@ def _classify(
     }
 
     created = updated = 0
-    no_student: list[str] = []
+    auto_created: list[str] = []
     no_enrollment: list[str] = []
     staged: set[str] = set()
     will_write: list[ImportRow] = []
+    # 只在真的遇到未知邮箱、且非 dry-run 时才查一次——多数导入（重复导入、
+    # 老学员补交）不会触发它，不给"数据库往返次数受约束"这条纪律增加常态开销。
+    new_enrollment_date: date | None = None
 
     for row in rows:
         email = row["student_email"]
         if email not in known:
-            # 学员都不在册，成绩挂不上去。留给"先建学员"那条处置路径。
-            no_student.append(email)
-            continue
+            auto_created.append(email)
+            if not dry_run:
+                if new_enrollment_date is None:
+                    earliest = session.exec(
+                        select(func.min(CourseSession.local_date)).where(
+                            CourseSession.course_id == course.id
+                        )
+                    ).one()
+                    new_enrollment_date = earliest or date.today()
+                session.add(
+                    Student(
+                        email=email,
+                        name=names.get(email) or _UNKNOWN_NAME_PLACEHOLDER,
+                        **_AUTO_CREATE_DEFAULTS,
+                    )
+                )
+                # 建 Enrollment 之前先落库 Student——两者之间没有 ORM
+                # `relationship()`，unit of work 不会自动按外键把插入顺序
+                # 排到 Student 之前，不 flush 会撞外键约束。
+                session.flush()
+                session.add(
+                    Enrollment(
+                        student_email=email,
+                        course_id=course.id,
+                        session_id=None,
+                        source="derived",
+                        enrolled_at=new_enrollment_date,
+                    )
+                )
+            # 建了档、建了报课，走下面与已在册学员相同的写入路径。
+            known.add(email)
+            enrolled.add(email)
         if email not in enrolled:
             # 成绩照写——它是有效数据。但名单来自报课记录，所以这个人在页面上
             # 一行都不会出现，不列出来就是静默消失。
@@ -395,7 +438,7 @@ def _classify(
     return {
         "created": created,
         "updated": updated,
-        "skipped_no_student": no_student,
+        "auto_created": auto_created,
         "skipped_no_enrollment": no_enrollment,
         "rows": will_write,
     }
@@ -412,30 +455,29 @@ def import_homework(
     解码、解析、校验、排除、分类全在这里，因为已知的下一个调用方是 MCP，
     它不经过 Next.js——任何落在 Server Action 里的规则都会被那条路径绕过。
 
-    `?dry_run=true` 算出完整处置结果但一条都不写。两份跳过清单的判据
-    （"谁在学员表""谁有该课的报课记录"）只有数据库知道，所以 dry-run
-    不能只在调用方本地做：那样它报不出实际会跳过谁。
+    `?dry_run=true` 算出完整处置结果但一条都不写。"谁在学员表""谁有该课的报课记录"
+    只有数据库知道，所以 dry-run 不能只在调用方本地做：那样它报不出实际会自动建
+    哪些人。
 
     **幂等**：同一份文件导几遍结果都一样，不会多出记录。唯一键是
     「学员 + 课程」——一个人重复听同一门课会有多条报课，但只欠一份作业。
 
-    返回体里的两份清单**处置相反**，所以分开列，不要合并看
-    （原本写在 `tools/homework-sync/README.md`，那个工具本片删除）：
+    返回体里的两份清单**含义不同**，所以分开列，不要合并看：
 
     | 清单 | 含义 | 成绩写了吗 | 该做什么 |
     |---|---|---|---|
-    | `skipped_no_student` | 邮箱在 `students` 里查不到 | **没写** | 先建学员，再重导 |
+    | `auto_created` | 邮箱在 `students` 里原本查不到，本次自动建了档案与报课 | **写了** | 讲师之后回填真实信息（占位字段：美东 / 有基础 / 讲武堂） |
     | `skipped_no_enrollment` | 学员在册，但这门课没有报课 | **写了** | 补报课记录 |
 
-    第二类要特别注意：成绩已经进库了，但作业页的名单来自**报课记录**，
-    所以这些人在页面上一行都不会出现。不补报课的话，页面计数会比 csv 的
-    行数少，而那是**正确行为**，不是缺陷。
+    两类要特别注意：成绩都已经进库了，但作业页的名单来自**报课记录**，
+    `skipped_no_enrollment` 那一类在页面上一行都不会出现。不补报课的话，
+    页面计数会比 csv 的行数少，而那是**正确行为**，不是缺陷。
     """
     encoding, parsed = _decode_and_parse(payload)
     course = _course_of(payload, session)
 
     # 排除名单先于一切分类：被排除的人不是"待处理项"，
-    # 把他留在「不在学员表」那份清单里会让人一次次去建那个不该建的档。
+    # 把他留在「自动建档」那份清单里会让人一次次去建那个不该建的档。
     excluded_all = set(session.exec(select(HomeworkExcludedEmail.email)).all())
     excluded = [row["student_email"] for row in parsed.rows if row["student_email"] in excluded_all]
     kept = [row for row in parsed.rows if row["student_email"] not in excluded_all]

@@ -465,7 +465,7 @@ interface ApiImportResult {
   row_count: number;
   created: number;
   updated: number;
-  skipped_no_student: string[];
+  auto_created: string[];
   skipped_no_enrollment: string[];
   superseded: string[];
   rows_without_email: string[];
@@ -503,7 +503,7 @@ export async function importHomework(input: {
     rowCount: data.row_count,
     created: data.created,
     updated: data.updated,
-    skippedNoStudent: data.skipped_no_student,
+    autoCreated: data.auto_created,
     skippedNoEnrollment: data.skipped_no_enrollment,
     superseded: data.superseded,
     rowsWithoutEmail: data.rows_without_email,

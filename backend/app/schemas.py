@@ -521,9 +521,9 @@ class HomeworkImportResult(BaseModel):
     row_count: int
     created: int
     updated: int
-    # 两份清单是**两个字段**，不合并：处置相反，一类要先建学员，
+    # 两份清单是**两个字段**，不合并：一类是本次自动建档的邮箱（新学员），
     # 另一类要补报课记录（成绩已经写了，但页面上一行都不会出现）。
-    skipped_no_student: list[str]
+    auto_created: list[str]
     skipped_no_enrollment: list[str]
     # 被同一人更晚的一次提交顶掉的行（`文件:行号`）。
     superseded: list[str]

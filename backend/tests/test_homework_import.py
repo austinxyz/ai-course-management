@@ -11,7 +11,7 @@
 """
 
 import base64
-from datetime import date
+from datetime import date, time
 
 import pytest
 from sqlmodel import select
@@ -20,6 +20,7 @@ from app.routers.homework import MAX_UPLOAD_BYTES
 from app.models import (
     Course,
     CourseAlias,
+    CourseSession,
     Enrollment,
     HomeworkExcludedEmail,
     HomeworkImport,
@@ -61,6 +62,13 @@ def _course(session, name="课程甲", short="S1", alias="S1") -> Course:
     return course
 
 
+def _session_row(session, course: Course, day: date) -> CourseSession:
+    row = CourseSession(course_id=course.id, local_date=day, local_time=time(19, 30), teacher="讲师")
+    session.add(row)
+    session.commit()
+    return row
+
+
 def _enroll(session, email: str, course: Course) -> Enrollment:
     session.add(Enrollment(student_email=email, course_id=course.id, enrolled_at=date(2026, 6, 1)))
     session.commit()
@@ -89,8 +97,8 @@ class TestDryRun:
     def test_dry_run_reports_everything_and_writes_nothing(self, client, db_session, seeded):
         """预览要能独立回答"确认之后会发生什么"，且**一条都不写**。
 
-        判据里的两份跳过清单只有数据库知道（谁在学员表、谁有该课的报课记录），
-        所以 dry-run 不能只在调用方本地算——那样它报不出实际会跳过谁，
+        判据（谁在学员表、谁有该课的报课记录）只有数据库知道，所以 dry-run
+        不能只在调用方本地算——那样它报不出实际会自动建哪些人，
         而"先看看会发生什么"正是 dry-run 的全部意义。
         """
         text = _csv(
@@ -107,10 +115,10 @@ class TestDryRun:
         # 用户永远不知道正常长什么样，也就无从判断这次是不是异常。
         assert body["encoding"] == "utf-8"
         assert body["row_count"] == 2
-        assert body["created"] == 1
+        # bravo 邮箱不在学员表，自动建档也算「将新建」——它是会被写入的一行。
+        assert body["created"] == 2
         assert body["updated"] == 0
-        # 两份清单**彼此分开**：处置相反，一个要先建学员，一个要补报课记录。
-        assert body["skipped_no_student"] == ["bravo@example.com"]
+        assert body["auto_created"] == ["bravo@example.com"]
         assert body["skipped_no_enrollment"] == []
         assert body["superseded"] == []
         assert body["rows_without_email"] == []
@@ -118,6 +126,7 @@ class TestDryRun:
 
         # 库里一条都没有。这是 dry-run 唯一不可让步的断言。
         assert db_session.exec(select(HomeworkSubmission)).all() == []
+        assert db_session.exec(select(Student).where(Student.email == "bravo@example.com")).first() is None
 
 
 class TestWrite:
@@ -128,7 +137,12 @@ class TestWrite:
         它们会在某个边界上分叉，而分叉之后用户点下的"确认导入 16 条"
         写进去的是另一个数——且只在事后对着页面计数才看得出来。
         所以这里直接断言两次返回体逐字段相同。
+
+        两行都用已在册学员——自动建档是另一条被单独测试的路径
+        （见 `TestAutoCreateStudent`），这里不需要它掺进来。
         """
+        _student(db_session, "bravo@example.com", "学员乙")
+        _enroll(db_session, "bravo@example.com", seeded)
         text = _csv(
             S1_HEADER,
             ["学员甲", "alpha@example.com", "2026-06-11", "77", "11", "7", "亮点", "改进", "待回复"],
@@ -141,14 +155,18 @@ class TestWrite:
         assert real.status_code == 200
         assert real.json() == preview
 
-        written = db_session.exec(select(HomeworkSubmission)).all()
-        assert [row.student_email for row in written] == ["alpha@example.com"]
-        assert written[0].total == 77
-        assert written[0].submitted_at == date(2026, 6, 11)
+        written = {
+            row.student_email: row
+            for row in db_session.exec(select(HomeworkSubmission)).all()
+        }
+        assert set(written) == {"alpha@example.com", "bravo@example.com"}
+        alpha_row = written["alpha@example.com"]
+        assert alpha_row.total == 77
+        assert alpha_row.submitted_at == date(2026, 6, 11)
         # 分项列的先后是评分表分组结构的唯一载体，所以断言的是**有序序列**。
-        assert [s["item"] for s in written[0].scores] == ["A1工作流结构", "D2心得深度"]
-        assert [s["score"] for s in written[0].scores] == [11, 7]
-        assert written[0].reply_status == "待回复"
+        assert [s["item"] for s in alpha_row.scores] == ["A1工作流结构", "D2心得深度"]
+        assert [s["score"] for s in alpha_row.scores] == [11, 7]
+        assert alpha_row.reply_status == "待回复"
 
     def test_replaying_the_same_file_creates_nothing_new(self, client, db_session, seeded):
         """幂等。csv 会被反复导入，第二遍要么报错要么多出一行的话，
@@ -164,6 +182,132 @@ class TestWrite:
         assert second["created"] == 0
         assert second["updated"] == 1
         assert len(db_session.exec(select(HomeworkSubmission)).all()) == 1
+
+
+class TestAutoCreateStudent:
+    """未知邮箱不再被跳过——自动建最小档案 + 报课，成绩正常写入。"""
+
+    def test_unknown_email_gets_auto_created_and_written(self, client, db_session, seeded):
+        text = _csv(
+            S1_HEADER,
+            ["学员甲", "alpha@example.com", "2026-06-11", "77", "11", "7", "", "", ""],
+            ["新学员", "new@example.com", "2026-06-11", "60", "9", "5", "", "", ""],
+        )
+
+        body = _import(client, seeded, text, dry_run=False).json()
+
+        assert body["auto_created"] == ["new@example.com"]
+
+        student = db_session.get(Student, "new@example.com")
+        assert student is not None
+        assert student.name == "新学员"
+        assert student.region == "美东"
+        assert student.level == "有基础"
+        assert student.source == "讲武堂"
+
+        enrollment = db_session.exec(
+            select(Enrollment).where(Enrollment.student_email == "new@example.com")
+        ).one()
+        assert enrollment.course_id == seeded.id
+        assert enrollment.session_id is None
+        assert enrollment.source == "derived"
+
+        submission = db_session.exec(
+            select(HomeworkSubmission).where(HomeworkSubmission.student_email == "new@example.com")
+        ).one()
+        assert submission.total == 60
+
+    def test_enrolled_at_uses_the_earliest_session_date(self, client, db_session, seeded):
+        """新学员的报名日期用课程最早那一场，而不是导入当天——
+        对于开课已久、后段才补交作业的学员，最早场次日期比"今天"更接近事实。
+        """
+        _session_row(db_session, seeded, date(2026, 7, 5))
+        _session_row(db_session, seeded, date(2026, 6, 1))
+        _session_row(db_session, seeded, date(2026, 6, 15))
+        text = _csv(
+            S1_HEADER,
+            ["新学员", "new@example.com", "2026-06-11", "60", "9", "5", "", "", ""],
+        )
+
+        _import(client, seeded, text, dry_run=False)
+
+        enrollment = db_session.exec(
+            select(Enrollment).where(Enrollment.student_email == "new@example.com")
+        ).one()
+        assert enrollment.enrolled_at == date(2026, 6, 1)
+
+    def test_enrolled_at_falls_back_to_today_without_any_session(self, client, db_session, seeded):
+        """这门课一场都没排——没有最早场次可用，回退成导入当天。"""
+        text = _csv(
+            S1_HEADER,
+            ["新学员", "new@example.com", "2026-06-11", "60", "9", "5", "", "", ""],
+        )
+
+        _import(client, seeded, text, dry_run=False)
+
+        enrollment = db_session.exec(
+            select(Enrollment).where(Enrollment.student_email == "new@example.com")
+        ).one()
+        assert enrollment.enrolled_at == date.today()
+
+    def test_empty_name_becomes_placeholder(self, client, db_session, seeded):
+        text = _csv(
+            S1_HEADER,
+            ["", "new@example.com", "2026-06-11", "60", "9", "5", "", "", ""],
+        )
+
+        _import(client, seeded, text, dry_run=False)
+
+        student = db_session.get(Student, "new@example.com")
+        assert student.name == "待定"
+
+    def test_replaying_the_same_new_email_does_not_duplicate(self, client, db_session, seeded):
+        text = _csv(
+            S1_HEADER,
+            ["新学员", "new@example.com", "2026-06-11", "60", "9", "5", "", "", ""],
+        )
+
+        _import(client, seeded, text, dry_run=False)
+        second = _import(client, seeded, text, dry_run=False).json()
+
+        assert second["auto_created"] == []
+        assert len(db_session.exec(select(Student).where(Student.email == "new@example.com")).all()) == 1
+        assert (
+            len(
+                db_session.exec(
+                    select(Enrollment).where(Enrollment.student_email == "new@example.com")
+                ).all()
+            )
+            == 1
+        )
+
+    def test_dry_run_previews_auto_created_without_writing(self, client, db_session, seeded):
+        text = _csv(
+            S1_HEADER,
+            ["新学员", "new@example.com", "2026-06-11", "60", "9", "5", "", "", ""],
+        )
+
+        body = _import(client, seeded, text, dry_run=True).json()
+
+        assert body["auto_created"] == ["new@example.com"]
+        assert db_session.get(Student, "new@example.com") is None
+        assert db_session.exec(
+            select(Enrollment).where(Enrollment.student_email == "new@example.com")
+        ).first() is None
+        assert db_session.exec(select(HomeworkSubmission)).all() == []
+
+    def test_known_student_never_triggers_auto_create(self, client, seeded):
+        body = _import(
+            client,
+            seeded,
+            _csv(
+                S1_HEADER,
+                ["学员甲", "alpha@example.com", "2026-06-11", "77", "11", "7", "", "", ""],
+            ),
+            dry_run=False,
+        ).json()
+
+        assert body["auto_created"] == []
 
 
 class TestCourseArgument:
@@ -243,10 +387,9 @@ class TestCourseArgument:
 class TestWriteList:
     """预览要列得出**将写入的那些人**，每一行带着邮箱。
 
-    没有这份清单的话，"在预览的每一行上把该邮箱加入排除名单"就只能作用在
-    几份跳过清单上——而恰恰是那些**会被写进去**的行最需要这个控件：
-    讲师本人一旦被加进学员表，他的测试提交就从"跳过"变成"将写入"，
-    那时候界面上反而没有地方标记他了。
+    没有这份清单的话，"在预览的每一行上把该邮箱加入排除名单"就没有地方挂——
+    而恰恰是那些**会被写进去**的行最需要这个控件：讲师本人一旦被加进学员表，
+    他的测试提交就从"排除"变成"将写入"，那时候界面上反而没有地方标记他了。
     """
 
     def test_the_rows_that_will_be_written_are_listed_with_their_emails(
@@ -254,16 +397,18 @@ class TestWriteList:
     ):
         _student(db_session, "bravo@example.com", "学员乙")
         _enroll(db_session, "bravo@example.com", seeded)
+        db_session.add(HomeworkExcludedEmail(email="ghost@example.com"))
+        db_session.commit()
         text = _csv(
             S1_HEADER,
             ["学员甲", "alpha@example.com", "2026-06-11", "77", "11", "7", "", "", ""],
             ["学员乙", "bravo@example.com", "2026-06-11", "60", "9", "5", "", "", ""],
-            ["查无此人", "ghost@example.com", "2026-06-11", "50", "8", "4", "", "", ""],
+            ["已排除", "ghost@example.com", "2026-06-11", "50", "8", "4", "", "", ""],
         )
 
         body = _import(client, seeded, text, dry_run=True).json()
 
-        # 只列会写进去的，不含跳过的——两者处置不同，混在一起就分不出了。
+        # 只列会写进去的，不含被排除的——两者处置不同，混在一起就分不出了。
         assert [row["email"] for row in body["rows"]] == [
             "alpha@example.com",
             "bravo@example.com",
@@ -322,8 +467,8 @@ class TestExcludedEmails:
 
         assert body["excluded"] == ["alpha@example.com"]
         assert body["created"] == 0
-        # 已排除的人不该再出现在"不在学员表"那份清单里——他不是待处理项。
-        assert body["skipped_no_student"] == []
+        # 已排除的人不该出现在「自动建档」清单里——他不是待处理项。
+        assert body["auto_created"] == []
         assert db_session.exec(select(HomeworkSubmission)).all() == []
 
     def test_marking_an_email_lowers_created_by_one(self, client, db_session, seeded):

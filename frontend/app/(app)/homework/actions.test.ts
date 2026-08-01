@@ -47,7 +47,7 @@ const OK_RESULT = {
   rowCount: 1,
   created: 1,
   updated: 0,
-  skippedNoStudent: [],
+  autoCreated: [],
   skippedNoEnrollment: [],
   superseded: [],
   rowsWithoutEmail: [],
