@@ -148,9 +148,9 @@
 - [x] 5.2 Run frontend test suite — `cd frontend && npm run test`，确认无回归；单独跑与全量跑结果需一致
 - [x] 5.3 `cd frontend && npx tsc --noEmit` 与 `npx next build`，确认生产构建通过
 - [x] 5.4 Run superpowers:verification-before-completion — 跑 `project.test_commands` 与 `project.custom_verification_checks`；另确认 `tools/homework-sync/` 已不存在且没有任何地方还引用它
-- [ ] 5.5 上线：先跑 migration，再部署后端，最后部署前端。**等 migration workflow 真的成功再验后端** —— 判据必须是只有新构建才有的可观察差异（新端点存在），不是某个更早就有的东西还在（`homework` 那次栽在这里，把 dry-run 跑成了真写入）
-- [ ] 5.6 生产验收 · 回填 — 确认讲师邮箱确实在 `homework_excluded_emails` 里。**本地空库重放跑在 0 行上，这条回填不被任何本地测试覆盖**，只能在生产上看
-- [ ] 5.7 生产验收 · 预览 — 从浏览器上传 `session1/grades.csv`，预览显示「将更新 16 条」（不是新建，已经导过一次）、编码 UTF-8、讲师那一行显示为已排除；**此时不确认**，回到作业页确认计数没变
+- [x] 5.5 上线：先跑 migration，再部署后端，最后部署前端。**等 migration workflow 真的成功再验后端** —— 判据必须是只有新构建才有的可观察差异（新端点存在），不是某个更早就有的东西还在（`homework` 那次栽在这里，把 dry-run 跑成了真写入）
+- [x] 5.6 生产验收 · 回填 — 确认讲师邮箱确实在 `homework_excluded_emails` 里。**本地空库重放跑在 0 行上，这条回填不被任何本地测试覆盖**，只能在生产上看
+- [x] 5.7 生产验收 · 预览 — 从浏览器上传 `session1/grades.csv`，预览显示「将更新 16 条」（不是新建，已经导过一次）、编码 UTF-8、讲师那一行显示为已排除；**此时不确认**，回到作业页确认计数没变
 - [ ] 5.8 生产验收 · 写入 — 再走一遍并确认，计数仍为 S1 已交 16，说明幂等；作业页出现「上次导入 …」
-- [ ] 5.9 生产验收 · GBK — 把 `session2/grades.csv` 另存为 GBK 上传，预览注明「按 GBK 读取」且中文正常，确认后 S2 已交仍为 9
-- [ ] 5.10 生产验收 · 传错文件 — 上传一份非作业 csv，被拒绝且说明看起来不是作业成绩文件；上传 S2 的文件到 S1 课程，出现表头警告并列出两边列名（**不确认**）
+- [x] 5.9 生产验收 · GBK — 把 `session2/grades.csv` 另存为 GBK 上传，预览注明「按 GBK 读取」且中文正常，确认后 S2 已交仍为 9
+- [x] 5.10 生产验收 · 传错文件 — 上传一份非作业 csv，被拒绝且说明看起来不是作业成绩文件；上传 S2 的文件到 S1 课程，出现表头警告并列出两边列名（**不确认**）
