@@ -121,7 +121,7 @@
 - [x] 4.1 MOCK — 打开 docs/superpowers/specs/mocks/2026-07-31-homework-upload-mocks.html；记下预览屏的结构、编码提示的措辞、表头警告的措辞、以及「这一屏的几条硬规则」那张表
 - [x] 4.2 RED — 预览屏渲染：编码行、行数、去重丢弃、将新建/将更新、两份**分开**的清单（断言两个邮箱之间隔着第二份清单的标题）
 - [x] 4.3 GREEN — 实现 `ImportDialog` 的预览态
-- [ ] 4.4 VISUAL DIFF — 起 dev stack，走一遍上传，对照 mock 校 token 与文案；**用 S1 的全量数据**（17 行）确认清单长时不被裁掉
+- [x] 4.4 VISUAL DIFF — 起 dev stack，走一遍上传，对照 mock 校 token 与文案；**用 S1 的全量数据**（17 行）确认清单长时不被裁掉
 - [x] 4.5 RED — 确认按钮上写**具体条数**（「确认导入 16 条」），不是「确认」
 - [x] 4.6 GREEN — 实现确认按钮
 - [x] 4.7 RED — 写入期间**所有**出口 disabled（含取消与关闭），用挂住不 resolve 的 promise 断言
@@ -134,7 +134,7 @@
 - [x] 4.14 GREEN — 实现编码提示与表头警告
 - [x] 4.15 RED — 作业页：有「导入 grades.csv」按钮、有「上次导入 …」一行、且**没有**逐条编辑/删除/新增成绩的控件
 - [x] 4.16 GREEN — 实现入口与「上次导入」
-- [ ] 4.17 VISUAL DIFF — 对照 mock 校编码提示与表头警告两块；确认预览屏在写入中的 disabled 态看得出来
+- [x] 4.17 VISUAL DIFF — 对照 mock 校编码提示与表头警告两块；确认预览屏在写入中的 disabled 态看得出来
 - [x] 4.18 GREEN — 侧边栏那一项改为「作业 CSV 导入」并真的跳到 `/homework`；删除学员页的「导入 CSV」按钮与新建弹窗里的「批量导入请用 CSV 导入」链接
 - [x] 4.F1 FIX — 标记排除后的重算把 `phase` 落回 `previewing`，于是重算期间出口全部放开：能再标一个人，两个 dry-run 同时在飞，先发的后回时屏幕上留下的是**旧的**数字——而确认按钮上那个数正是用户要核对的东西。`load(whileLoading)` 显式接收取数期间的态，exclude 那条路传 `writing`。evaluator 报 HIGH
 - [x] 4.F2 FIX — `exclude()` 不清上一条错误，两条错误会叠在一起读不出哪条是刚发生的；并把 `encodingLabel` 对认不出的编码改成原样显示，不再假装是 UTF-8
