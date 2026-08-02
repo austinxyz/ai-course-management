@@ -13,6 +13,7 @@
 - docs/superpowers/specs/2026-07-29-roster-editing-requirements.md（姓名可编辑与检索范围）
 - docs/superpowers/specs/2026-07-30-roster-order-spec-requirements.md（名单排序，补写既有行为的依据）
 - docs/superpowers/specs/2026-07-30-enrollment-backfill-requirements.md（学员详情的报课记录可逐条编辑）
+- docs/superpowers/specs/2026-08-01-homework-auto-create-student-requirements.md（作业导入自动建档路径，与人工新增表单并列、判据不同）
 
 **后台**: FastAPI `GET /api/students`（列表，默认只返回在读，`?archived=true` 取已归档）、`GET /api/students/{email}`（按邮箱查单条，大小写不敏感）、`POST /api/students`（新增，邮箱冲突返回 409 并区分在读/已归档两种情形）、`PATCH /api/students/{email}`（部分更新，`exclude_unset` 区分"未提供"与"显式设为空"）、`POST /api/students/{email}/archive` 与 `/restore`（软删除，`archived_at` 由服务端盖时间）；Supabase Postgres `students` 表，邮箱为主键并有 `lower(email)` 唯一索引，写入时统一转小写；姓名走共享的 `StudentName` 校验（先 trim，空则 422），**新增与更新两条路径共用同一份规则**——只拦一边等于留着从另一边造出空姓名；列表 `ORDER BY name, email`（无排序时 UPDATE 会把该行写到堆尾，编辑过的学员因此跑到名单最后）
 **前台**: `frontend/app/students/` —— Server Component 同时拉在读与已归档两份数据，`StudentsClient` 只渲染 props（无本地副本），写操作走 `actions.ts` 的 Server Actions；每个字段独立的保存中/失败态，失败保留用户已输入的内容；`error.tsx` / `loading.tsx` 承接后端不可达（fetch 15s 超时，避免被平台函数上限掐死）；姓名与其余字段同构地排在详情面板字段表首位；检索匹配姓名/邮箱/微信昵称/微信名/微信号五个字段（任一命中、大小写不敏感，**不匹配**标签与备注），placeholder `搜索姓名 / 邮箱 / 微信` 是这件事唯一的可发现处；词表在 `app/students/vocab.ts`（原名 `mock-data.ts`，里面从来没有 mock 数据）
@@ -78,6 +79,7 @@
 **覆盖需求**:
 - docs/superpowers/specs/2026-07-30-enrollment-core-requirements.md（数据主干）
 - docs/superpowers/specs/2026-07-30-enrollment-backfill-requirements.md（来源三值、报课总表、逐条编辑、从作业倒推）
+- docs/superpowers/specs/2026-08-01-homework-auto-create-student-requirements.md（`derived` 报课的常态触发：此前只有一次性回填用过这个来源值，现在每次作业导入遇到未知邮箱都会走这条路）
 **设计基准**: docs/superpowers/specs/mocks/2026-07-29-course-enrollment-design.dc.html（学员详情的报课区块、`showManual` 补录弹窗、场次卡片的已报人数）
 
 **后台**: `enrollments` 表 —— `students.email` × `courses.id` × **可空**的 `course_sessions.id`，带 `enrolled_at` / `status` / `source`（**三值**：`manual` 人特意录的 / `platform` 平台同步 / `derived` 从别处倒推的占位，取值在 API 边界受限）/ `note`；**两条 partial unique index**（`session_id is not null` 一条、`is null` 一条）；`session_id` 外键**故意不写** `on delete cascade / set null`；`GET/POST/PATCH/DELETE /api/enrollments`；`GET /api/courses` 同一次请求内聚合三个计数（每场人数、未定场次人数、去重人数）；场次删除守卫返回 409 并带条数
@@ -90,19 +92,22 @@
 > 也不提供：出勤记录（来没来）、退款与收费、名额上限。
 
 ### `homework` ✅ 已实现 · 🌐 已上线
-**用户故事**: 作为讲师，我批完的成绩只存在另一个仓库的 `grades.csv` 里和我自己脑子里 —— 我想在系统里看到某门课谁交了谁没交、某人的分项得分与我当时写的改进建议；更要紧的是「有报课记录但没提交」这个判断在此之前**根本算不出来**，而它是催作业的第一前提；导入不该依赖我记不记得本地命令行怎么写
+**用户故事**: 作为讲师，我批完的成绩只存在另一个仓库的 `grades.csv` 里和我自己脑子里 —— 我想在系统里看到某门课谁交了谁没交、某人的分项得分与我当时写的改进建议；更要紧的是「有报课记录但没提交」这个判断在此之前**根本算不出来**，而它是催作业的第一前提；导入不该依赖我记不记得本地命令行怎么写；新学员交作业也不该逼我先手动建档再重传一遍
 **覆盖需求**:
 - docs/superpowers/specs/2026-07-31-homework-requirements.md（数据主干、只读名单）
 - docs/superpowers/specs/2026-07-31-homework-upload-requirements.md（浏览器导入、预览屏、排除名单）
-**设计基准**: docs/superpowers/specs/mocks/2026-07-31-course-enrollment-design.dc.html（`sc-if isHomework` 分支）+ docs/superpowers/specs/mocks/2026-07-31-homework-mocks.html + docs/superpowers/specs/mocks/2026-07-31-homework-upload-mocks.html（预览屏与硬规则表）
+- docs/superpowers/specs/2026-08-01-homework-auto-create-student-requirements.md（未知邮箱自动建档+建报课）
+**设计基准**: docs/superpowers/specs/mocks/2026-07-31-course-enrollment-design.dc.html（`sc-if isHomework` 分支）+ docs/superpowers/specs/mocks/2026-07-31-homework-mocks.html + docs/superpowers/specs/mocks/2026-07-31-homework-upload-mocks.html（预览屏与硬规则表）+ docs/superpowers/specs/mocks/2026-08-01-homework-auto-create-student-mocks.html（自动建档面板）
 
-**后台**: `homework_submissions` 表 —— 唯一键 `(student_email, course_id)`，**不含 `session_id`**；`scores` 是 `jsonb` **数组** `[{item, score}]`；`total` / `highlight` / `improve` / `reply_status` / `source_ref`（`session1/grades.csv:7`）。`homework_excluded_emails`（「不算作业的邮箱」，键是邮箱、**全课程通用**、不挂在 `students` 上）与 `homework_imports`（每次**实际写入**的元信息，dry-run 不留记录，不存原文）。**唯一进库的路**是 `POST /api/homework/import?dry_run=`（收 base64 原始字节 + `course_id`/`course_alias`，服务端解码→解析→分类，幂等 upsert）；`GET /api/homework?course=<id>`（一次 JOIN 取全）；`GET /api/homework/last-import`；`POST /api/homework/excluded`。`backend/app/homework_parsing.py` 是纯函数解析层（UTF-8-sig → GB18030 顺序解码，`BadHeader` / `CannotDecode` / `MalformedCell` 三种可区分异常）。旧的 `PUT /api/homework` 与 `tools/homework-sync/` 已删除
-**前台**: `/homework` 页只有**一个写入口**——「导入 grades.csv」+ `ImportDialog` 预览屏（编码始终显示、行数对账「共 N 行 → 可用 M 行」、将新建/将更新/**将跳过**三个数、两份跳过清单**语气不同**、表头警告、逐行「以后不算作业」）；课程 chip、四态名单、四个筛选、详情面板与逐条编辑控件的缺席均沿用不变
-**关键性质**: **分项列整列原样存下且保序** —— 列的先后是评分表分组（A 工作流 / B 提示词 / C 输出 / D 心得）的唯一载体，而 `jsonb` 不保对象键序（实测 10 个真实列名过一遍对象被打散成 A2 A3 B2 B3 D1 D2 A1 C1 C2 B1），所以只能是数组；新增课程只是多一套 item 名，**不动表结构**。**总分取自源文件不重算** —— `session2/grades.csv` 里真有一行总分与分项之和不符，镜像的职责是忠实不是纠正。**覆盖式不是同步式删除** —— 源文件少一行，库里那条仍在。名单**按人去重**（重听同一门课只欠一份作业），**已归档与已退课不进计数**。写入前必须先给出**只读预览**，标记排除后**重新请求一次预览**而非前端自行加减；写入期间所有出口（含取消）禁用，只在成功回调里关闭；上传按内容判定不按扩展名，体积上限在 base64 解码**之前**先粗筛（decode 会为误传大文件实打实分配一次内存）
-**验收标准**: 生产真实浏览器验收全绿（`frontend/e2e/homework-import-acceptance.spec.ts` 只读四项 + `homework-import-write.spec.ts` 写入一项）——S1 预览「将更新 16 · 将新建 0」、讲师邮箱在已排除清单（migration 回填，本地空库跑在 0 行上、只能在生产验）、GBK 文件注明「按 GBK 读取」中文不乱码、传错文件被拒且说得出「不像作业成绩文件」、S2 文件传到 S1 触发表头警告但不阻止确认、真写入后计数保持 16（幂等）并出现「上次导入」；本地 `frontend/e2e/homework-import.spec.ts` 九项覆盖 17 行长清单不被裁切、可滚到最后一行
+**后台**: `homework_submissions` 表 —— 唯一键 `(student_email, course_id)`，**不含 `session_id`**；`scores` 是 `jsonb` **数组** `[{item, score}]`；`total` / `highlight` / `improve` / `reply_status` / `source_ref`（`session1/grades.csv:7`）。`homework_excluded_emails`（「不算作业的邮箱」，键是邮箱、**全课程通用**、不挂在 `students` 上）与 `homework_imports`（每次**实际写入**的元信息，dry-run 不留记录，不存原文）。**唯一进库的路**是 `POST /api/homework/import?dry_run=`（收 base64 原始字节 + `course_id`/`course_alias`，服务端解码→解析→分类，幂等 upsert）；邮箱不在 `students` 表的行**自动建最小档案**（`region="美东"`/`level="有基础"`/`source="讲武堂"` 占位值，姓名空则「待定」）与一条 `source="derived"` 报课（`session_id=None`，`enrolled_at` 取该课程最早场次日期、无场次回退导入当天），成绩正常写入，不再跳过；`GET /api/homework?course=<id>`（一次 JOIN 取全）；`GET /api/homework/last-import`；`POST /api/homework/excluded`。`backend/app/homework_parsing.py` 是纯函数解析层（UTF-8-sig → GB18030 顺序解码，`BadHeader` / `CannotDecode` / `MalformedCell` 三种可区分异常）。旧的 `PUT /api/homework` 与 `tools/homework-sync/` 已删除
+**前台**: `/homework` 页只有**一个写入口**——「导入 grades.csv」+ `ImportDialog` 预览屏（编码始终显示、行数对账「共 N 行 → 可用 M 行」、将新建/将更新两个数、「自动建档」与「无报课记录」两份清单**语气不同**（自动建档正常语气，无报课记录亦为正常语气——两者都是"写了但要看一眼"，只是含义不同）、表头警告、逐行「以后不算作业」）；课程 chip、四态名单、四个筛选、详情面板与逐条编辑控件的缺席均沿用不变
+**关键性质**: **分项列整列原样存下且保序** —— 列的先后是评分表分组（A 工作流 / B 提示词 / C 输出 / D 心得）的唯一载体，而 `jsonb` 不保对象键序（实测 10 个真实列名过一遍对象被打散成 A2 A3 B2 B3 D1 D2 A1 C1 C2 B1），所以只能是数组；新增课程只是多一套 item 名，**不动表结构**。**总分取自源文件不重算** —— `session2/grades.csv` 里真有一行总分与分项之和不符，镜像的职责是忠实不是纠正。**覆盖式不是同步式删除** —— 源文件少一行，库里那条仍在。名单**按人去重**（重听同一门课只欠一份作业），**已归档与已退课不进计数**。写入前必须先给出**只读预览**，标记排除后**重新请求一次预览**而非前端自行加减；写入期间所有出口（含取消）禁用，只在成功回调里关闭；上传按内容判定不按扩展名，体积上限在 base64 解码**之前**先粗筛（decode 会为误传大文件实打实分配一次内存）。**自动建档不检查归档冲突** —— 触发判据是邮箱在 `students` 表里完全查不到，与人工新增表单「邮箱属于已归档学员」是不同判据，不会冲突；**没有删除入口** —— 导入错课程后，报课记录能通过 `enrollments` 的增删接口挪到正确课程，但已写入的 `homework_submissions` 无法通过 API 移动或删除（唯一写入口是导入，覆盖式语义故意不含删除），只能直接改数据库（生产实测踩过一次：三人误导入到 S3，报课已挪至 S4，S3 下的三条成绩记录靠直接删库处理）
+**验收标准**: 生产真实浏览器验收全绿（`frontend/e2e/homework-import-acceptance.spec.ts` 只读四项 + `homework-import-write.spec.ts` 写入一项）——S1 预览「将更新 16 · 将新建 0」、讲师邮箱在已排除清单（migration 回填，本地空库跑在 0 行上、只能在生产验）、GBK 文件注明「按 GBK 读取」中文不乱码、传错文件被拒且说得出「不像作业成绩文件」、S2 文件传到 S1 触发表头警告但不阻止确认、真写入后计数保持 16（幂等）并出现「上次导入」；本地 `frontend/e2e/homework-import.spec.ts` 九项覆盖 17 行长清单不被裁切、可滚到最后一行；自动建档一段：backend 34 项（含 enrolled_at 最早场次/无场次回退、姓名占位、幂等、dry-run）+ frontend 29 项全绿，两组评审分 99/80、100/70
 
 > **本能力不提供**（归 `homework-rubric`）：各分项满分、`11 / 15` 写法、分项条形图与按比例着色的总分 —— 满分不在 `grades.csv` 里，而 S3/S4 的加分列本来就没有申报满分。
 >
 > 也不提供（归催作业那一片）：起草文案、发邮件、回写互动记录、已催次数、作业截止日期。
 >
 > 也不提供（归 `enrollment-import` 阻塞的同一原因）：报课数据的浏览器导入——本片只解决了作业这一侧。
+>
+> 也不提供：回复状态的手动修改或系统自动判定——`reply_status` 原样镜像 `grades.csv` 的「回复状态」列，改不了、也不解读其含义。
