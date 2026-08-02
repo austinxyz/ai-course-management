@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>homework-reply-status mocks</title>
+<!-- HAS_UI_SURFACE: yes -->
+<style>
+  :root {
+    --border: #e3e0da;
+    --surface: #ffffff;
+    --surface-muted: #f6f4f0;
+    --muted: #8a8478;
+    --ink: #1f1c17;
+    --rounded: 10px;
+    --accent: #2f6f4f;
+    --accent-surface: #e9f4ee;
+    --accent-border: #bfe0cd;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    margin: 0;
+    padding: 24px;
+    background: #f6f4f0;
+    color: var(--ink);
+  }
+  section { margin-bottom: 56px; }
+  h1 { font-size: 20px; }
+  h2 { margin-top: 0; font-size: 16px; }
+  p.desc { color: var(--muted); font-size: 13px; max-width: 640px; }
+  .panel {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 360px;
+    max-width: 100%;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    border-radius: var(--rounded);
+    padding: 16px;
+  }
+  .panel.mobile { width: 320px; }
+  .name { font-size: 15px; font-weight: 600; }
+  .email { font-family: ui-monospace, monospace; font-size: 11px; color: var(--muted); }
+  .field { display: flex; flex-direction: column; gap: 2px; }
+  .field-label { font-size: 11px; color: var(--muted); }
+  .field-value { font-size: 12.5px; }
+  .reply-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .btn {
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    padding: 5px 12px;
+    font-size: 12px;
+    cursor: default;
+  }
+  .btn.mark-replied {
+    border-color: var(--accent-border);
+    color: var(--accent);
+  }
+  .btn.mark-unreplied {
+    color: var(--muted);
+  }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--accent-surface);
+    color: var(--accent);
+    border: 1px solid var(--accent-border);
+  }
+  .timestamp { font-size: 10.5px; color: var(--muted); }
+  .before-after { display: flex; gap: 32px; flex-wrap: wrap; align-items: flex-start; }
+  .col-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+</style>
+</head>
+<body>
+
+<section id="detail-panel-reply-toggle">
+  <h1>作业详情面板：回复状态旁新增「标记已回复」切换</h1>
+  <p class="desc">
+    「回复状态」字段（源文件原文，如实展示）保持不变；紧接着新增一行独立的手动标记，
+    两者视觉上分开，不合并成一句话。按钮是切换式：未标记时显示「标记已回复」，
+    标记后变成带勾选标记的徽章 + 「标记未回复」小按钮。
+  </p>
+
+  <div class="before-after">
+    <div>
+      <div class="col-label">未标记（默认）</div>
+      <div class="panel">
+        <div class="name">学员甲</div>
+        <div class="email">alpha@example.com</div>
+        <div class="field">
+          <div class="field-label">回复状态</div>
+          <div class="field-value">待回复</div>
+        </div>
+        <div class="field">
+          <div class="field-label">讲师标记</div>
+          <div class="reply-row">
+            <span class="field-value" style="color: var(--muted);">尚未标记</span>
+            <button class="btn mark-replied" data-testid="mark-replied">标记已回复</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="col-label">已标记</div>
+      <div class="panel">
+        <div class="name">学员乙</div>
+        <div class="email">bravo@example.com</div>
+        <div class="field">
+          <div class="field-label">回复状态</div>
+          <!-- 源文件那列没跟着更新也没关系——这里如实展示，不因为讲师标记了就改写 -->
+          <div class="field-value">待回复</div>
+        </div>
+        <div class="field">
+          <div class="field-label">讲师标记</div>
+          <div class="reply-row">
+            <div>
+              <span class="badge" data-testid="replied-badge">✓ 已回复</span>
+              <div class="timestamp">2026-08-02 14:20 标记</div>
+            </div>
+            <button class="btn mark-unreplied" data-testid="mark-unreplied">标记未回复</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="detail-panel-reply-toggle-mobile">
+  <h2>移动端等效（详情面板窄视口下纵向堆叠，控件不缩小触达面积）</h2>
+  <div class="before-after">
+    <div>
+      <div class="col-label">未标记</div>
+      <div class="panel mobile">
+        <div class="name">学员甲</div>
+        <div class="field">
+          <div class="field-label">回复状态</div>
+          <div class="field-value">待回复</div>
+        </div>
+        <div class="field">
+          <div class="field-label">讲师标记</div>
+          <div class="reply-row">
+            <span class="field-value" style="color: var(--muted);">尚未标记</span>
+            <button class="btn mark-replied">标记已回复</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="col-label">已标记</div>
+      <div class="panel mobile">
+        <div class="name">学员乙</div>
+        <div class="field">
+          <div class="field-label">回复状态</div>
+          <div class="field-value">待回复</div>
+        </div>
+        <div class="field">
+          <div class="field-label">讲师标记</div>
+          <div class="reply-row">
+            <span class="badge">✓ 已回复</span>
+            <button class="btn mark-unreplied">标记未回复</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</body>
+</html>
