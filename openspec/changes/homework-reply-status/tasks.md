@@ -38,6 +38,8 @@
 - [x] 2.5 RED — `frontend/app/(app)/homework/actions.test.ts`：新增用例，标记/取消标记走 Server Action，鉴权失败时抛出（与现有 `onExclude` 同一套错误处理约定）
 - [x] 2.6 GREEN — `frontend/app/(app)/homework/actions.ts` 加对应 Server Action，转发到 `lib/api.ts` 的新调用
 - [x] 2.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-2.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 70 → PASS; < 70 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
+- [x] 2.7 用户反馈追加 RED — 上线后用户反馈：名单表格「回复」列显示源文件原文会让人误以为标记没生效（源文件那列可能是过期快照）。新增用例：已标记的行显示「已回复」、不显示源文件原文
+- [x] 2.8 用户反馈追加 GREEN — 名单表格「回复」列改为以 `p.replied` 为准：已标记显示「已回复」，未标记才回退显示 `p.replyStatus` 原文；详情面板不变，仍分开展示两个信号。spec 已同步补充 Scenario
 
 ## 3. 验证与收尾
 

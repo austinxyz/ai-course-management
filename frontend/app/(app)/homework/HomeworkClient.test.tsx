@@ -218,11 +218,25 @@ describe("筛选", () => {
 });
 
 describe("回复状态", () => {
-  it("原样显示源文件里的措辞，不改写", () => {
-    view([person({ replyStatus: "草稿已创建" })]);
+  it("未标记时原样显示源文件里的措辞，不改写", () => {
+    view([person({ replyStatus: "草稿已创建", replied: false })]);
 
     expect(screen.getAllByText("草稿已创建").length).toBeGreaterThan(0);
     expect(screen.queryByText("草稿待发")).toBeNull();
+  });
+
+  /**
+   * 讲师标记比源文件那列更可信——那一列每次导入整列覆盖，常常没跟上
+   * 讲师实际的回复动作。名单表格因此**以标记为准**：标记了就显示「已回复」，
+   * 不管源文件当时写的是什么；没标记才退回显示源文件原文（详情面板里
+   * 两者依然分开展示，这里只改名单表格这一列）。
+   */
+  it("已标记时名单表格显示「已回复」，不再显示源文件原文", () => {
+    view([person({ replyStatus: "待回复", replied: true })]);
+
+    const row = screen.getByTestId("homework-alpha@example.com");
+    expect(within(row).getByText("已回复")).toBeInTheDocument();
+    expect(within(row).queryByText("待回复")).toBeNull();
   });
 });
 

@@ -318,9 +318,17 @@ export function HomeworkClient({
                             </span>
                           </Td>
                           <Td>
-                            <span className="text-muted-foreground">
-                              {p.replyStatus || "—"}
-                            </span>
+                            {/* 讲师标记比源文件那列更可信——那一列每次导入整列
+                                覆盖，常常没跟上讲师实际的回复动作。名单**以标记
+                                为准**：标记了就显示「已回复」，不看源文件当时
+                                写的是什么，避免拿一个可能过期的原文误导人。 */}
+                            {p.replied ? (
+                              <span className="text-success">已回复</span>
+                            ) : (
+                              <span className="text-muted-foreground">
+                                {p.replyStatus || "—"}
+                              </span>
+                            )}
                           </Td>
                         </tr>
                       );
