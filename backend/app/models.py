@@ -123,6 +123,10 @@ class HomeworkSubmission(SQLModel, table=True):
     reply_status: str = Field(default="")
     # "session1/grades.csv:7"
     source_ref: str = Field(default="")
+    # 讲师手动标记，独立于 reply_status——那一列每次导入整列覆盖，
+    # 标记若共用同一份存储会被下一次导入悄悄冲掉。
+    replied: bool = Field(default=False)
+    replied_at: datetime | None = Field(default=None)
     # synced_at / created_at 同 Course：DB 有 now() 默认值，应用不读不写，不映射。
 
 

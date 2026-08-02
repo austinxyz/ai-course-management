@@ -1,0 +1,5 @@
+### Contract
+- **Spec**: 系统 SHALL 允许讲师在提交详情面板将某条提交标记为「已回复」或改回「未回复」，标记 SHALL 可以来回切换。标记的时间戳 SHALL 由服务端记录，SHALL NOT 由客户端提供。该标记 SHALL 独立于源文件的 `reply_status` 列存储，重新导入这门课的成绩 SHALL NOT 清除或改变已有的标记。变更上线前已存在的提交记录，标记 SHALL 为默认值（未标记为已回复）。「待回复」SHALL 定义为：已交，且未被讲师标记为已回复（`replied = false`）。回复状态（源文件的 `reply_status` 列）SHALL NOT 参与「待回复」筛选的判据。（`specs/homework/spec.md`）
+- **Runtime**: `cd backend && pytest tests/test_homework_reply_status.py tests/test_homework_read.py` → expected: 全部通过，新增用例覆盖标记/取消标记/时间戳服务端盖/重新导入不清空/默认值/待回复判据切换，无既有用例回归
+- **Code**: migration 用 `ALTER TABLE homework_submissions ADD COLUMN replied boolean NOT NULL DEFAULT false, ADD COLUMN replied_at timestamptz`；两个动作式端点 `POST /api/homework/submissions/{id}/reply` 与 `.../unreply`（参照 `Student.archive`/`restore`：无请求体，时间戳 `datetime.now(UTC)` 服务端盖，`reply` 同时设置两个字段、`unreply` 同时清空两个字段，不留中间态）；`_classify` 的整行覆盖不需要显式排除这两列——`row` 来自 `homework_parsing.parse()` 的输出，本来就不含这两个键，用 RED 测试直接断言这一点而不是只读代码确认；`HomeworkPersonRead` 需要新增 `submission_id`（供前端调用切换端点）、`replied`、`replied_at` 三个字段
+- **Threshold**: 80

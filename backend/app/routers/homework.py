@@ -12,7 +12,7 @@
 import base64
 import binascii
 import uuid
-from datetime import date
+from datetime import UTC, date, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
@@ -46,6 +46,7 @@ from app.schemas import (
     HomeworkImportRequest,
     HomeworkImportResult,
     HomeworkPersonRead,
+    HomeworkReplyMarkRead,
     ImportRow,
     normalize_alias,
 )
@@ -191,6 +192,9 @@ def list_homework(
                 source_ref=submission.source_ref if submission else "",
                 rank=rank_by_email.get(email),
                 rank_of=len(scored),
+                submission_id=submission.id if submission else None,
+                replied=submission.replied if submission else False,
+                replied_at=submission.replied_at if submission else None,
             )
         )
     # 名单本身也要有确定顺序：没有排序的话，编辑过的记录会跑到最后——
@@ -563,3 +567,38 @@ def add_excluded_email(
         session.commit()
         session.refresh(found)
     return ExcludedEmailRead(email=found.email, note=found.note)
+
+
+def _load_submission(submission_id: uuid.UUID, session: Session) -> HomeworkSubmission:
+    row = session.get(HomeworkSubmission, submission_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="没有这条提交记录")
+    return row
+
+
+@router.post("/submissions/{submission_id}/reply", response_model=HomeworkReplyMarkRead)
+def mark_replied(submission_id: uuid.UUID, session: Session = Depends(get_session)) -> HomeworkReplyMarkRead:
+    """标记讲师已经回复过这条提交。
+
+    无请求体——这个操作只携带一个事实（"这件事发生了"），时间戳只能由服务端
+    说了算，接受调用方提供的时间会让这个审计值变成客户端可控的。与
+    `Student.archive`/`restore` 同一个理由。
+    """
+    row = _load_submission(submission_id, session)
+    row.replied = True
+    row.replied_at = datetime.now(UTC)
+    session.add(row)
+    session.commit()
+    return HomeworkReplyMarkRead(replied=row.replied, replied_at=row.replied_at)
+
+
+@router.post("/submissions/{submission_id}/unreply", response_model=HomeworkReplyMarkRead)
+def mark_unreplied(submission_id: uuid.UUID, session: Session = Depends(get_session)) -> HomeworkReplyMarkRead:
+    """标记改回来。两个字段一起清空——不给"replied=false 但 replied_at 还留着"
+    这种中间态留口子。"""
+    row = _load_submission(submission_id, session)
+    row.replied = False
+    row.replied_at = None
+    session.add(row)
+    session.commit()
+    return HomeworkReplyMarkRead(replied=row.replied, replied_at=row.replied_at)

@@ -7,6 +7,8 @@ import {
   BackendError,
   addExcludedEmail,
   importHomework,
+  markHomeworkReplied,
+  markHomeworkUnreplied,
 } from "@/lib/api";
 import { checkSitePassword } from "@/lib/site-password";
 
@@ -123,4 +125,32 @@ export async function excludeEmailAction(email: string): Promise<SimpleActionRes
     return classify(error);
   }
   return { ok: true };
+}
+
+/** 讲师标记（或取消标记）某条提交为已回复。返回值带上最新状态，供详情面板即时更新。 */
+export type ReplyMarkActionResult =
+  | { ok: true; replied: boolean; repliedAt: string | null }
+  | { ok: false; message: string };
+
+async function toggleReply(
+  submissionId: string,
+  call: (id: string) => Promise<{ replied: boolean; repliedAt: string | null }>,
+): Promise<ReplyMarkActionResult> {
+  await requireSitePassword();
+  try {
+    const result = await call(submissionId);
+    // 布局粒度：详情面板与列表的筛选计数都要跟着变，与 `submit()` 同一套理由。
+    revalidatePath("/homework", "layout");
+    return { ok: true, ...result };
+  } catch (error) {
+    return classify(error);
+  }
+}
+
+export async function markReplied(submissionId: string): Promise<ReplyMarkActionResult> {
+  return toggleReply(submissionId, markHomeworkReplied);
+}
+
+export async function markUnreplied(submissionId: string): Promise<ReplyMarkActionResult> {
+  return toggleReply(submissionId, markHomeworkUnreplied);
 }

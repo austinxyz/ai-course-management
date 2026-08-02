@@ -17,12 +17,17 @@ export interface HomeworkPerson {
   scores: ScoreItem[];
   highlight: string;
   improve: string;
-  /** 原样取自源文件，不归一化。实测取值：待回复 / 草稿已创建。 */
+  /** 原样取自源文件，不归一化。实测取值：待回复 / 草稿已创建。与 `replied` 是两个独立信号。 */
   replyStatus: string;
   /** "session1/grades.csv:7" */
   sourceRef: string;
   rank: number | null;
   rankOf: number;
+  /** 没交的人是 null——标记只对已交的提交有意义。 */
+  submissionId: string | null;
+  /** 讲师手动标记，独立于 `replyStatus`，不受重新导入影响。「待回复」筛选看这个字段。 */
+  replied: boolean;
+  repliedAt: string | null;
 }
 
 /** 课程 chips 用的最小形状。 */

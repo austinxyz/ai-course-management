@@ -587,3 +587,16 @@ class HomeworkPersonRead(BaseModel):
     # 本课名次与总人数。没交的人没有名次。
     rank: int | None = None
     rank_of: int = 0
+    # 没有提交的人这三项分别是 None / False / None——讲师标记只对已交的
+    # 提交有意义，没交的人无从标记。
+    submission_id: uuid.UUID | None = None
+    replied: bool = False
+    replied_at: datetime | None = None
+
+
+class HomeworkReplyMarkRead(BaseModel):
+    """标记（或取消标记）已回复之后的响应。只报这一条提交需要的两个字段——
+    调用方是详情面板上的一次按钮点击，不需要整条提交记录。"""
+
+    replied: bool
+    replied_at: datetime | None

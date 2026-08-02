@@ -452,6 +452,9 @@ interface ApiHomeworkPerson {
   source_ref: string;
   rank: number | null;
   rank_of: number;
+  submission_id: string | null;
+  replied: boolean;
+  replied_at: string | null;
 }
 
 /**
@@ -572,5 +575,41 @@ export async function getHomework(courseId: string): Promise<HomeworkPerson[]> {
     sourceRef: api.source_ref,
     rank: api.rank,
     rankOf: api.rank_of,
+    submissionId: api.submission_id,
+    replied: api.replied,
+    repliedAt: api.replied_at,
   }));
+}
+
+interface ApiReplyMark {
+  replied: boolean;
+  replied_at: string | null;
+}
+
+function toReplyMark(api: ApiReplyMark): { replied: boolean; repliedAt: string | null } {
+  return { replied: api.replied, repliedAt: api.replied_at };
+}
+
+/** 讲师标记某条提交为已回复。独立于 `reply_status`，重新导入不影响它。 */
+export async function markHomeworkReplied(
+  submissionId: string,
+): Promise<{ replied: boolean; repliedAt: string | null }> {
+  return toReplyMark(
+    (await backendWrite(
+      `/api/homework/submissions/${encodeURIComponent(submissionId)}/reply`,
+      "POST",
+    )) as ApiReplyMark,
+  );
+}
+
+/** 标记改回未回复。 */
+export async function markHomeworkUnreplied(
+  submissionId: string,
+): Promise<{ replied: boolean; repliedAt: string | null }> {
+  return toReplyMark(
+    (await backendWrite(
+      `/api/homework/submissions/${encodeURIComponent(submissionId)}/unreply`,
+      "POST",
+    )) as ApiReplyMark,
+  );
 }

@@ -12,6 +12,8 @@ vi.mock("next/cache", () => cache);
 const api = vi.hoisted(() => ({
   importHomework: vi.fn(),
   addExcludedEmail: vi.fn(),
+  markHomeworkReplied: vi.fn(),
+  markHomeworkUnreplied: vi.fn(),
 }));
 vi.mock("@/lib/api", async () => {
   const actual = await vi.importActual<typeof import("@/lib/api")>("@/lib/api");
@@ -65,6 +67,8 @@ describe("homework import actions", () => {
     // 单独跑与全量跑会得到不同结果，而差异出现在与本用例无关的断言上。
     api.importHomework.mockResolvedValue(OK_RESULT);
     api.addExcludedEmail.mockResolvedValue(undefined);
+    api.markHomeworkReplied.mockResolvedValue({ replied: true, repliedAt: "2026-08-02T14:20:00Z" });
+    api.markHomeworkUnreplied.mockResolvedValue({ replied: false, repliedAt: null });
   });
 
   afterEach(() => {
@@ -102,6 +106,16 @@ describe("homework import actions", () => {
       ).rejects.toThrow();
       expect(api.importHomework).not.toHaveBeenCalled();
       expect(api.addExcludedEmail).not.toHaveBeenCalled();
+    });
+
+    it("标记已回复/未回复这两个入口也各自要查", async () => {
+      const actions = await import("./actions");
+      withAuthorization(null);
+
+      await expect(actions.markReplied("sub-1")).rejects.toThrow();
+      await expect(actions.markUnreplied("sub-1")).rejects.toThrow();
+      expect(api.markHomeworkReplied).not.toHaveBeenCalled();
+      expect(api.markHomeworkUnreplied).not.toHaveBeenCalled();
     });
   });
 
@@ -259,6 +273,43 @@ describe("homework import actions", () => {
 
       await applyImport(formOf(GB18030_BYTES));
 
+      expect(cache.revalidatePath).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("标记已回复", () => {
+    it("成功时转发提交 id、带回最新状态、并 revalidate", async () => {
+      const { markReplied } = await import("./actions");
+      withAuthorization(basic(PASSWORD));
+
+      const result = await markReplied("sub-1");
+
+      expect(api.markHomeworkReplied).toHaveBeenCalledWith("sub-1");
+      expect(result).toEqual({ ok: true, replied: true, repliedAt: "2026-08-02T14:20:00Z" });
+      expect(cache.revalidatePath).toHaveBeenCalledWith("/homework", "layout");
+    });
+
+    it("标记未回复同样转发、带回状态、并 revalidate", async () => {
+      const { markUnreplied } = await import("./actions");
+      withAuthorization(basic(PASSWORD));
+
+      const result = await markUnreplied("sub-1");
+
+      expect(api.markHomeworkUnreplied).toHaveBeenCalledWith("sub-1");
+      expect(result).toEqual({ ok: true, replied: false, repliedAt: null });
+      expect(cache.revalidatePath).toHaveBeenCalledWith("/homework", "layout");
+    });
+
+    it("后端拒绝时用返回值表达，不抛，也不 revalidate", async () => {
+      const { BackendError } = await vi.importActual<typeof import("@/lib/api")>("@/lib/api");
+      const { markReplied } = await import("./actions");
+      withAuthorization(basic(PASSWORD));
+      api.markHomeworkReplied.mockRejectedValue(new BackendError(404, "没有这条提交记录"));
+
+      const result = await markReplied("missing-id");
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.message).toContain("没有这条提交记录");
       expect(cache.revalidatePath).not.toHaveBeenCalled();
     });
   });

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
 
 import { cn } from "@/lib/cn";
-import { applyImport, excludeEmailAction, previewImport } from "./actions";
+import { applyImport, excludeEmailAction, markReplied, markUnreplied, previewImport } from "./actions";
 import { ImportDialog } from "./ImportDialog";
 import type { HomeworkCourse, HomeworkPerson, LastImport } from "./types";
 
@@ -50,14 +50,14 @@ const STATE = {
 type Filter = "all" | "submitted" | "missing" | "pending_reply";
 
 /**
- * 待回复 = 已交，且回复状态**不等于**「已回复」。
+ * 待回复 = 已交，且讲师没有手动标记为已回复。
  *
- * 用不等号而不是列一张"待回复的取值"清单：回复状态原样取自源文件，
- * 实测取值是「待回复」「草稿已创建」，而将来还会有别的写法。
- * 只有「已回复」这一个值有确定含义，其余一律算还欠一句回复。
+ * 不看源文件的 `replyStatus`：那一列每次重新导入整列覆盖，讲师实际回复
+ * 往往发生在系统之外，源文件那列常常没跟上。`replied` 是独立存储、
+ * 不受重新导入影响的信号。
  */
 function awaitingReply(person: HomeworkPerson): boolean {
-  return person.state === "submitted" && person.replyStatus !== "已回复";
+  return person.state === "submitted" && !person.replied;
 }
 
 const MATCHES: Record<Filter, (p: HomeworkPerson) => boolean> = {
@@ -332,7 +332,9 @@ export function HomeworkClient({
           )}
         </div>
 
-        {current && <DetailPanel person={current} courseName={course?.name ?? ""} />}
+        {current && (
+          <DetailPanel key={current.studentEmail} person={current} courseName={course?.name ?? ""} />
+        )}
       </div>
     </main>
   );
@@ -340,6 +342,23 @@ export function HomeworkClient({
 
 function DetailPanel({ person, courseName }: { person: HomeworkPerson; courseName: string }) {
   const meta = STATE[person.state as keyof typeof STATE];
+  const [marking, setMarking] = useState(false);
+  const [markError, setMarkError] = useState<string | null>(null);
+
+  async function toggleReplied() {
+    if (!person.submissionId) return;
+    setMarking(true);
+    setMarkError(null);
+    const action = person.replied ? markUnreplied : markReplied;
+    const outcome = await action(person.submissionId);
+    setMarking(false);
+    if (!outcome.ok) {
+      setMarkError(outcome.message);
+    }
+    // 成功时不用本地更新状态——`revalidatePath` 会带回新的 `people`，
+    // `current` 从更新后的 props 里重新算出来。
+  }
+
   return (
     <aside
       data-testid="homework-detail"
@@ -407,6 +426,48 @@ function DetailPanel({ person, courseName }: { person: HomeworkPerson; courseNam
           <Field label="亮点">{person.highlight || "—"}</Field>
           <Field label="改进建议">{person.improve || "—"}</Field>
           <Field label="回复状态">{person.replyStatus || "—"}</Field>
+
+          {/* 独立于「回复状态」——那一列是源文件原文，这里是讲师自己的标记，
+              重新导入不会把它冲掉。两者视觉上分开，不合并成一句话。 */}
+          {person.submissionId && (
+            <div className="flex flex-col gap-1">
+              <span className="font-mono text-[11px] tracking-wide text-muted-foreground">
+                讲师标记
+              </span>
+              <div className="flex items-center justify-between gap-2">
+                {person.replied ? (
+                  <div className="flex flex-col gap-0.5">
+                    <span
+                      data-testid="replied-badge"
+                      className="inline-flex w-fit items-center gap-1 rounded-full border border-success/40 bg-success/10 px-2 py-0.5 font-sans text-[11px] text-success"
+                    >
+                      ✓ 已回复
+                    </span>
+                    {person.repliedAt && (
+                      <span className="font-mono text-[10.5px] text-muted-foreground">
+                        {formatImportedAt(person.repliedAt)} 标记
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <span className="font-sans text-[12.5px] text-muted">尚未标记</span>
+                )}
+                <button
+                  type="button"
+                  disabled={marking}
+                  onClick={toggleReplied}
+                  className="inline-flex h-[26px] items-center whitespace-nowrap rounded-token border border-border bg-surface px-2.5 font-sans text-xs disabled:opacity-50"
+                >
+                  {person.replied ? "标记未回复" : "标记已回复"}
+                </button>
+              </div>
+              {markError && (
+                <p role="alert" className="m-0 font-sans text-[11.5px] text-danger">
+                  {markError}
+                </p>
+              )}
+            </div>
+          )}
 
           {/* 来源单独成一个节点：出问题时要能整段复制回源仓库去核，
               跟提交日期拼在一起就复制不干净了。 */}

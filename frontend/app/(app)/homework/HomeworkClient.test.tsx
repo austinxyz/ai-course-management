@@ -1,11 +1,25 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { HomeworkClient } from "./HomeworkClient";
 import type { HomeworkCourse, HomeworkPerson, LastImport } from "./types";
 
 vi.mock("next/navigation", () => ({ usePathname: () => "/homework" }));
+
+// 标记按钮直接调用 "./actions" 里的 Server Action——真的调用会撞
+// `next/headers`（vitest 环境下不可用），所以整个模块换成替身。
+// `applyImport`/`previewImport`/`excludeEmailAction` 现有测试从不触发，
+// 留空实现即可。
+const markReplied = vi.fn();
+const markUnreplied = vi.fn();
+vi.mock("./actions", () => ({
+  previewImport: vi.fn(),
+  applyImport: vi.fn(),
+  excludeEmailAction: vi.fn(),
+  markReplied: (...args: unknown[]) => markReplied(...args),
+  markUnreplied: (...args: unknown[]) => markUnreplied(...args),
+}));
 
 const COURSES: HomeworkCourse[] = [
   { id: "c1", name: "从零开始用 Claude 和 Cowork", short: "S1" },
@@ -30,6 +44,9 @@ function person(over: Partial<HomeworkPerson> = {}): HomeworkPerson {
     sourceRef: "session1/grades.csv:2",
     rank: 3,
     rankOf: 17,
+    submissionId: "sub-alpha",
+    replied: false,
+    repliedAt: null,
     ...over,
   };
 }
@@ -46,6 +63,7 @@ function blank(over: Partial<HomeworkPerson> = {}): HomeworkPerson {
     sourceRef: "",
     rank: null,
     rankOf: 17,
+    submissionId: null,
     ...over,
   });
 }
@@ -145,8 +163,8 @@ describe("四态", () => {
 
 describe("筛选", () => {
   const people = [
-    person({ studentEmail: "a@example.com", name: "甲", replyStatus: "待回复" }),
-    person({ studentEmail: "b@example.com", name: "乙", replyStatus: "已回复" }),
+    person({ studentEmail: "a@example.com", name: "甲", replied: false }),
+    person({ studentEmail: "b@example.com", name: "乙", replied: true }),
     blank({ studentEmail: "c@example.com", name: "丙", state: "missing" }),
     blank({ studentEmail: "d@example.com", name: "丁", state: "not_open" }),
   ];
@@ -157,7 +175,7 @@ describe("筛选", () => {
     expect(screen.getByRole("button", { name: /全部 4/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /已交 2/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /未交 1/ })).toBeInTheDocument();
-    // 待回复 = 已交且回复状态 ≠「已回复」，所以只有甲
+    // 待回复 = 已交且**讲师未标记为已回复**，所以只有甲
     expect(screen.getByRole("button", { name: /待回复 1/ })).toBeInTheDocument();
   });
 
@@ -171,7 +189,7 @@ describe("筛选", () => {
     expect(screen.queryByTestId("homework-d@example.com")).toBeNull();
   });
 
-  it("待回复筛选排除已回复的人，也排除没交的人", async () => {
+  it("待回复筛选排除已标记的人，也排除没交的人", async () => {
     view(people);
     const user = userEvent.setup();
 
@@ -180,6 +198,22 @@ describe("筛选", () => {
     expect(screen.getByTestId("homework-a@example.com")).toBeInTheDocument();
     expect(screen.queryByTestId("homework-b@example.com")).toBeNull();
     expect(screen.queryByTestId("homework-c@example.com")).toBeNull();
+  });
+
+  it("待回复判据看讲师标记，不看源文件的回复状态", async () => {
+    // reply_status 依然是「已回复」，但讲师没有标记——仍然待回复。
+    view([
+      person({
+        studentEmail: "a@example.com",
+        replyStatus: "已回复",
+        replied: false,
+      }),
+    ]);
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: /待回复 1/ }));
+
+    expect(screen.getByTestId("homework-a@example.com")).toBeInTheDocument();
   });
 });
 
@@ -254,6 +288,91 @@ describe("详情面板", () => {
 
     expect(
       within(screen.getByTestId("homework-detail")).getByText(/微信.*没对齐/),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("讲师标记已回复", () => {
+  beforeEach(() => {
+    markReplied.mockReset().mockResolvedValue({ ok: true, replied: true, repliedAt: "2026-08-02T14:20:00Z" });
+    markUnreplied.mockReset().mockResolvedValue({ ok: true, replied: false, repliedAt: null });
+  });
+
+  it("未标记时显示「标记已回复」按钮，不显示徽章", async () => {
+    view([person({ replied: false })]);
+    const user = userEvent.setup();
+
+    await user.click(screen.getByTestId("homework-alpha@example.com"));
+
+    const panel = within(screen.getByTestId("homework-detail"));
+    expect(panel.getByRole("button", { name: "标记已回复" })).toBeInTheDocument();
+    expect(panel.queryByTestId("replied-badge")).toBeNull();
+  });
+
+  it("已标记时显示徽章与时间戳，按钮变成「标记未回复」", async () => {
+    view([person({ replied: true, repliedAt: "2026-08-02T14:20:00Z" })]);
+    const user = userEvent.setup();
+
+    await user.click(screen.getByTestId("homework-alpha@example.com"));
+
+    const panel = within(screen.getByTestId("homework-detail"));
+    expect(panel.getByTestId("replied-badge")).toBeInTheDocument();
+    expect(panel.getByRole("button", { name: "标记未回复" })).toBeInTheDocument();
+    expect(panel.queryByRole("button", { name: "标记已回复" })).toBeNull();
+  });
+
+  it("点「标记已回复」调用 markReplied，带上这条提交的 id", async () => {
+    view([person({ submissionId: "sub-alpha", replied: false })]);
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId("homework-alpha@example.com"));
+
+    await user.click(
+      within(screen.getByTestId("homework-detail")).getByRole("button", {
+        name: "标记已回复",
+      }),
+    );
+
+    expect(markReplied).toHaveBeenCalledWith("sub-alpha");
+  });
+
+  it("点「标记未回复」调用 markUnreplied", async () => {
+    view([person({ submissionId: "sub-alpha", replied: true, repliedAt: "2026-08-02T14:20:00Z" })]);
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId("homework-alpha@example.com"));
+
+    await user.click(
+      within(screen.getByTestId("homework-detail")).getByRole("button", {
+        name: "标记未回复",
+      }),
+    );
+
+    expect(markUnreplied).toHaveBeenCalledWith("sub-alpha");
+  });
+
+  it("没有提交的人不显示标记控件——无从标记", async () => {
+    view([blank({ state: "missing" })]);
+    const user = userEvent.setup();
+
+    await user.click(screen.getByTestId("homework-alpha@example.com"));
+
+    const panel = within(screen.getByTestId("homework-detail"));
+    expect(panel.queryByRole("button", { name: /标记/ })).toBeNull();
+  });
+
+  it("标记失败时就地显示错误", async () => {
+    markReplied.mockResolvedValue({ ok: false, message: "标记没能保存，请重试。" });
+    view([person({ replied: false })]);
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId("homework-alpha@example.com"));
+
+    await user.click(
+      within(screen.getByTestId("homework-detail")).getByRole("button", {
+        name: "标记已回复",
+      }),
+    );
+
+    expect(
+      await within(screen.getByTestId("homework-detail")).findByText(/标记没能保存/),
     ).toBeInTheDocument();
   });
 });

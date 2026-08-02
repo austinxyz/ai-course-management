@@ -353,6 +353,28 @@ class TestPayload:
         assert row["total"] is None
         assert row["scores"] == []
         assert row["reply_status"] == ""
+        # 没交就无从标记已回复。
+        assert row["submission_id"] is None
+        assert row["replied"] is False
+        assert row["replied_at"] is None
+
+    def test_a_submitted_row_carries_the_manual_reply_mark(self, client, db_session):
+        """讲师标记独立于 `reply_status` 透传出来，供前端的筛选与详情面板用。"""
+        course = _course(db_session)
+        _student(db_session, "hw-alpha@example.com", "学员甲")
+        _enroll(db_session, "hw-alpha@example.com", course, None)
+        submission = _submit(db_session, "hw-alpha@example.com", course, reply_status="待回复")
+
+        marked = client.post(f"/api/homework/submissions/{submission.id}/reply")
+        assert marked.status_code == 200
+
+        row = _fetch(client, course)[0]
+
+        assert row["submission_id"] == str(submission.id)
+        assert row["replied"] is True
+        assert row["replied_at"] is not None
+        # 源文件那列没被这次标记改写——两者独立。
+        assert row["reply_status"] == "待回复"
 
     def test_rows_are_ordered_deterministically(self, client, db_session):
         """名单本身也要有确定顺序——没有 ORDER BY 的话，编辑过的记录会跑到最后。"""
