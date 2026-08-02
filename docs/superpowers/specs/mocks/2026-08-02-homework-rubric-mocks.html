@@ -76,8 +76,19 @@
     background: var(--track);
     overflow: hidden;
   }
-  .mini-bar-fill { height: 100%; border-radius: 999px; background: var(--muted); }
+  .mini-bar-fill { height: 100%; border-radius: 999px; }
   .no-max .mini-bar-track { display: none; }
+  /* 分项条形图与分数文字按同一套三档阈值染色——弱项要一眼看出来，
+     不是中性灰。沿用 2026-07-31 那份稿子的做法，阈值改成这次定的 90/70。 */
+  .item-success .mini-bar-fill, .item-success .score-value { color: var(--success); }
+  .item-success .mini-bar-fill { background: var(--success); }
+  .item-warning .mini-bar-fill, .item-warning .score-value { color: var(--warning); }
+  .item-warning .mini-bar-fill { background: var(--warning); }
+  .item-danger .mini-bar-fill, .item-danger .score-value { color: var(--danger); }
+  .item-danger .mini-bar-fill { background: var(--danger); }
+  .item-success .score-value .max, .item-warning .score-value .max, .item-danger .score-value .max {
+    color: var(--muted);
+  }
   .before-after { display: flex; gap: 32px; flex-wrap: wrap; align-items: flex-start; }
   .col-label {
     font-size: 11px;
@@ -86,6 +97,24 @@
     color: var(--muted);
     margin-bottom: 8px;
   }
+  /* 名单表格：每行一串迷你竖条，一个分项一根柱子，不点进详情就能看出弱项在哪。
+     沿用 2026-07-31 稿子里"列表行内的迷你竖条"设计。 */
+  table.roster { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  table.roster th {
+    text-align: left;
+    padding: 6px 10px;
+    font-weight: 400;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+  }
+  table.roster td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .sparkline { display: flex; align-items: flex-end; gap: 3px; height: 24px; }
+  .spark-bar { width: 7px; border-radius: 2px; }
+  .spark-bar.tone-success { background: var(--success); }
+  .spark-bar.tone-warning { background: var(--warning); }
+  .spark-bar.tone-danger { background: var(--danger); }
+  .roster-total { font-family: ui-monospace, monospace; }
 </style>
 </head>
 <body>
@@ -93,10 +122,8 @@
 <section id="detail-panel-rubric-full">
   <h1>详情面板：满分全部配齐 → 总分进度条 + 三档颜色，分项 X / 满分 + 条形图</h1>
   <p class="desc">
-    三种总分颜色示例：≥90% 绿、70%–90% 黄、&lt;70% 红。分项条形图按各自的
-    <code>score / max</code> 比例填充，用中性色（不跟随总分那三档颜色，避免
-    "为什么这一项是黄的但总分是绿的"这种误读——分项条形图只表达"这项占比多少"，
-    不做及格判断）。
+    三种总分颜色示例：≥90% 绿、70%–90% 黄、&lt;70% 红。分项条形图与分数文字**按同一套
+    阈值染色**——弱项一眼看出来，不是中性灰（沿用 2026-07-31 那份稿子的做法）。
   </p>
 
   <div class="before-after">
@@ -111,14 +138,14 @@
           <div class="bar-track"><div class="bar-fill" style="width: 96%"></div></div>
         </div>
         <div class="score-list">
-          <div class="score-row">
+          <div class="score-row item-success">
             <div class="score-head">
               <span class="score-item-name">A1 工作流结构</span>
               <span class="score-value">48 <span class="max">/ 50</span></span>
             </div>
             <div class="mini-bar-track"><div class="mini-bar-fill" style="width: 96%"></div></div>
           </div>
-          <div class="score-row">
+          <div class="score-row item-success">
             <div class="score-head">
               <span class="score-item-name">D2 心得深度</span>
               <span class="score-value">48 <span class="max">/ 50</span></span>
@@ -140,14 +167,14 @@
           <div class="bar-track"><div class="bar-fill" style="width: 78%"></div></div>
         </div>
         <div class="score-list">
-          <div class="score-row">
+          <div class="score-row item-warning">
             <div class="score-head">
               <span class="score-item-name">A1 工作流结构</span>
               <span class="score-value">40 <span class="max">/ 50</span></span>
             </div>
             <div class="mini-bar-track"><div class="mini-bar-fill" style="width: 80%"></div></div>
           </div>
-          <div class="score-row">
+          <div class="score-row item-warning">
             <div class="score-head">
               <span class="score-item-name">D2 心得深度</span>
               <span class="score-value">38 <span class="max">/ 50</span></span>
@@ -169,14 +196,14 @@
           <div class="bar-track"><div class="bar-fill" style="width: 55%"></div></div>
         </div>
         <div class="score-list">
-          <div class="score-row">
+          <div class="score-row item-danger">
             <div class="score-head">
               <span class="score-item-name">A1 工作流结构</span>
               <span class="score-value">30 <span class="max">/ 50</span></span>
             </div>
             <div class="mini-bar-track"><div class="mini-bar-fill" style="width: 60%"></div></div>
           </div>
-          <div class="score-row">
+          <div class="score-row item-danger">
             <div class="score-head">
               <span class="score-item-name">D2 心得深度</span>
               <span class="score-value">25 <span class="max">/ 50</span></span>
@@ -202,7 +229,7 @@
       </div>
     </div>
     <div class="score-list">
-      <div class="score-row">
+      <div class="score-row item-warning">
         <div class="score-head">
           <span class="score-item-name">A1 工作流结构</span>
           <span class="score-value">38 <span class="max">/ 50</span></span>
@@ -217,6 +244,56 @@
       </div>
     </div>
   </div>
+</section>
+
+<section id="roster-table-sparkline">
+  <h2>名单表格：每行一串迷你竖条，一眼看出弱项</h2>
+  <p class="desc">
+    沿用 2026-07-31 稿子里"列表行内的迷你竖条"设计——不点进详情，扫一眼名单就能看出
+    "这个人哪几项弱"。柱子高度按该项得分比例，颜色跟详情面板同一套三档阈值。
+    没配满分的分项不画竖条（跟详情面板"没配满分不画横条"是同一条规则）。
+  </p>
+  <table class="roster">
+    <thead>
+      <tr>
+        <th>学员</th>
+        <th>总分</th>
+        <th>分项 2 项</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>学员甲</td>
+        <td class="roster-total" style="color: var(--success);">96 / 100</td>
+        <td>
+          <div class="sparkline" title="A1 48/50 · D2 48/50">
+            <div class="spark-bar tone-success" style="height: 23px;"></div>
+            <div class="spark-bar tone-success" style="height: 23px;"></div>
+          </div>
+        </td>
+      </tr>
+      <tr>
+        <td>学员乙</td>
+        <td class="roster-total" style="color: var(--warning);">78 / 100</td>
+        <td>
+          <div class="sparkline" title="A1 40/50 · D2 38/50">
+            <div class="spark-bar tone-warning" style="height: 19px;"></div>
+            <div class="spark-bar tone-warning" style="height: 18px;"></div>
+          </div>
+        </td>
+      </tr>
+      <tr>
+        <td>学员丙</td>
+        <td class="roster-total" style="color: var(--danger);">55 / 100</td>
+        <td>
+          <div class="sparkline" title="A1 30/50 · D2 25/50">
+            <div class="spark-bar tone-danger" style="height: 14px;"></div>
+            <div class="spark-bar tone-danger" style="height: 12px;"></div>
+          </div>
+        </td>
+      </tr>
+    </tbody>
+  </table>
 </section>
 
 <section id="course-page-rubric-editor">
@@ -266,7 +343,7 @@
           <div class="bar-track"><div class="bar-fill" style="width: 96%"></div></div>
         </div>
         <div class="score-list">
-          <div class="score-row">
+          <div class="score-row item-success">
             <div class="score-head">
               <span class="score-item-name">A1 工作流结构</span>
               <span class="score-value">48 <span class="max">/ 50</span></span>
@@ -274,6 +351,35 @@
             <div class="mini-bar-track"><div class="mini-bar-fill" style="width: 96%"></div></div>
           </div>
         </div>
+      </div>
+    </div>
+    <div>
+      <div class="col-label">名单迷你竖条 · 移动端</div>
+      <div class="panel mobile" style="width: 260px;">
+        <table class="roster">
+          <tbody>
+            <tr>
+              <td>学员甲</td>
+              <td class="roster-total" style="color: var(--success);">96</td>
+              <td>
+                <div class="sparkline">
+                  <div class="spark-bar tone-success" style="height: 23px;"></div>
+                  <div class="spark-bar tone-success" style="height: 23px;"></div>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td>学员丙</td>
+              <td class="roster-total" style="color: var(--danger);">55</td>
+              <td>
+                <div class="sparkline">
+                  <div class="spark-bar tone-danger" style="height: 14px;"></div>
+                  <div class="spark-bar tone-danger" style="height: 12px;"></div>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
     <div>
