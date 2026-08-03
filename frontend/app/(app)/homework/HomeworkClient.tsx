@@ -494,41 +494,58 @@ function DetailPanel({ person, courseName }: { person: HomeworkPerson; courseNam
           </div>
 
           <div className="flex flex-col gap-1">
-            <span className="font-mono text-[11px] tracking-wide text-muted-foreground">
+            <span className="flex items-center gap-1.5 font-mono text-[11px] tracking-wide text-muted-foreground">
               分项 {person.scores.length} 项 · 原始分
+              {person.dimensionComments.length > 0 && (
+                <span
+                  data-testid="source-badge-分项"
+                  className="inline-flex items-center gap-1 rounded-full border border-success/40 bg-success/10 px-1.5 py-0.5 font-sans text-[10px] normal-case tracking-normal text-success"
+                >
+                  来自批改报告
+                </span>
+              )}
             </span>
             <div className="overflow-hidden rounded-token border border-border">
               {person.scores.map((s, i) => {
                 const ratio = s.max !== null && s.max > 0 ? s.score / s.max : null;
                 const tone = ratio !== null ? scoreTone(ratio) : null;
+                // 报告的评语按编号前缀对应到分项——`scores` 的 item 键带中文标题
+                // （如「A1工作流结构」），报告只给编号（「A1」），跟后端
+                // `_item_mismatch` 同一套匹配规则。
+                const comment = person.dimensionComments.find((c) => s.item.startsWith(c.item));
                 return (
                   <div
                     key={s.item}
                     data-testid={`score-${s.item}`}
                     className={cn(
-                      "flex items-center justify-between gap-3 px-2.5 py-1.5 font-sans text-[12px]",
+                      "flex flex-col gap-0.5 px-2.5 py-1.5 font-sans text-[12px]",
                       i % 2 ? "bg-surface-muted" : "bg-surface",
                     )}
                   >
-                    <span>{s.item}</span>
-                    <div className="flex items-center gap-2">
-                      {/* 没配满分的项不画条形图——没有比例可言。 */}
-                      {s.max !== null && (
-                        <span className="h-1 w-14 flex-none overflow-hidden rounded-full bg-surface-muted">
-                          <span
-                            data-testid={`score-bar-${s.item}`}
-                            className={cn("block h-full rounded-full", tone && TONE_BG[tone])}
-                            style={{ width: `${Math.round((ratio ?? 0) * 100)}%` }}
-                          />
+                    <div className="flex items-center justify-between gap-3">
+                      <span>{s.item}</span>
+                      <div className="flex items-center gap-2">
+                        {/* 没配满分的项不画条形图——没有比例可言。 */}
+                        {s.max !== null && (
+                          <span className="h-1 w-14 flex-none overflow-hidden rounded-full bg-surface-muted">
+                            <span
+                              data-testid={`score-bar-${s.item}`}
+                              className={cn("block h-full rounded-full", tone && TONE_BG[tone])}
+                              style={{ width: `${Math.round((ratio ?? 0) * 100)}%` }}
+                            />
+                          </span>
+                        )}
+                        <span
+                          data-testid={`score-text-${s.item}`}
+                          className={cn("font-mono", tone && TONE_TEXT[tone])}
+                        >
+                          {s.max !== null ? `${s.score} / ${s.max}` : s.score}
                         </span>
-                      )}
-                      <span
-                        data-testid={`score-text-${s.item}`}
-                        className={cn("font-mono", tone && TONE_TEXT[tone])}
-                      >
-                        {s.max !== null ? `${s.score} / ${s.max}` : s.score}
-                      </span>
+                      </div>
                     </div>
+                    {comment && (
+                      <span className="text-muted">{comment.comment}</span>
+                    )}
                   </div>
                 );
               })}
@@ -541,31 +558,6 @@ function DetailPanel({ person, courseName }: { person: HomeworkPerson; courseNam
           <Field label="改进建议" sourceBadge={person.highlightLocked}>
             {person.improve || "—"}
           </Field>
-          <Field label="回复状态">{person.replyStatus || "—"}</Field>
-
-          {/* 只在有报告导入过的分项评语时才出现——批改报告是可选的额外信息。 */}
-          {person.dimensionComments.length > 0 && (
-            <div className="flex flex-col gap-1">
-              <span className="font-mono text-[11px] tracking-wide text-muted-foreground">
-                逐分项评语
-              </span>
-              <div className="overflow-hidden rounded-token border border-border">
-                {person.dimensionComments.map((c, i) => (
-                  <div
-                    key={c.item}
-                    data-testid={`dimension-comment-${c.item}`}
-                    className={cn(
-                      "flex flex-col gap-0.5 px-2.5 py-1.5 font-sans text-[12px]",
-                      i % 2 ? "bg-surface-muted" : "bg-surface",
-                    )}
-                  >
-                    <span className="font-mono">{c.item}</span>
-                    <span className="text-muted">{c.comment}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
 
           {/* 独立于「回复状态」——那一列是源文件原文，这里是讲师自己的标记，
               重新导入不会把它冲掉。两者视觉上分开，不合并成一句话。 */}

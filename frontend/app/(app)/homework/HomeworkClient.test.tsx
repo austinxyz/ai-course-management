@@ -248,7 +248,7 @@ describe("回复状态", () => {
 });
 
 describe("详情面板", () => {
-  it("显示总分、本课排名、分项原始分、亮点、改进、回复状态与来源", async () => {
+  it("显示总分、本课排名、分项原始分、亮点、改进与来源", async () => {
     view([person()]);
     const user = userEvent.setup();
 
@@ -514,9 +514,10 @@ describe("批改报告上传", () => {
     expect(screen.getByText("分工清晰。")).toBeInTheDocument();
   });
 
-  it("显示逐分项评语块与来源徽章——当这条提交带着报告导入的数据时", async () => {
+  it("分项评语合并进「分项」块——按编号前缀对应到对应分项行下面，不再单独成块", async () => {
     view([
       person({
+        scores: [{ item: "A1工作流结构", score: 13, max: 15 }],
         dimensionComments: [{ item: "A1", comment: "报告评语。" }],
         highlightLocked: true,
       }),
@@ -524,18 +525,30 @@ describe("批改报告上传", () => {
     await userEvent.setup().click(screen.getByTestId("homework-alpha@example.com"));
 
     const panel = within(screen.getByTestId("homework-detail"));
-    expect(panel.getByTestId("dimension-comment-A1")).toBeInTheDocument();
-    expect(panel.getByText("报告评语。")).toBeInTheDocument();
+    // 挂在对应分项行下面，不是独立的一块。
+    const scoreRow = panel.getByTestId("score-A1工作流结构");
+    expect(within(scoreRow).getByText("报告评语。")).toBeInTheDocument();
+    expect(panel.queryByText("逐分项评语")).toBeNull();
     expect(panel.getAllByText("来自批改报告").length).toBeGreaterThan(0);
   });
 
-  it("未导入过报告时不显示逐分项评语块与来源徽章", async () => {
+  it("未导入过报告时不显示分项评语文字与来源徽章", async () => {
     view([person({ dimensionComments: [], highlightLocked: false })]);
     await userEvent.setup().click(screen.getByTestId("homework-alpha@example.com"));
 
     const panel = within(screen.getByTestId("homework-detail"));
     expect(panel.queryByText("逐分项评语")).toBeNull();
     expect(panel.queryByText("来自批改报告")).toBeNull();
+  });
+});
+
+describe("详情面板：回复状态字段已去掉", () => {
+  it("不再显示单独的「回复状态」字段——讲师标记区已经是更可信的信号", async () => {
+    view([person({ replyStatus: "草稿已创建" })]);
+    await userEvent.setup().click(screen.getByTestId("homework-alpha@example.com"));
+
+    const panel = within(screen.getByTestId("homework-detail"));
+    expect(panel.queryByText("回复状态")).toBeNull();
   });
 });
 
