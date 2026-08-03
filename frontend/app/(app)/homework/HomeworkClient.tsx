@@ -434,7 +434,7 @@ function DetailPanel({ person, courseName }: { person: HomeworkPerson; courseNam
   return (
     <aside
       data-testid="homework-detail"
-      className="flex w-[420px] flex-none flex-col gap-3 overflow-y-auto border-l border-border bg-surface p-[18px]"
+      className="flex w-[560px] flex-none flex-col gap-3 overflow-y-auto border-l border-border bg-surface p-[18px]"
     >
       <div className="flex flex-col gap-0.5">
         <span className="font-sans text-[15px] font-semibold">{person.name}</span>
