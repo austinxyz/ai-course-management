@@ -768,3 +768,65 @@ class TestRejections:
         written = db_session.exec(select(HomeworkSubmission)).all()
         assert written[0].highlight == "亮点内容"
         assert [s["item"] for s in written[0].scores] == ["A1工作流结构", "D2心得深度"]
+
+
+class TestReportLockedFieldsSurviveReimport:
+    """来自批改报告的 highlight/improve 一旦锁定，重新导入 grades.csv 不能碰
+    （homework-grading-report spec）。"""
+
+    def test_locked_fields_are_not_overwritten_by_reimport(self, client, db_session, seeded):
+        import base64
+
+        text = _csv(
+            S1_HEADER,
+            ["学员甲", "alpha@example.com", "2026-06-11", "77", "11", "7", "csv 亮点", "csv 改进", "待回复"],
+        )
+        _import(client, seeded, text, dry_run=False)
+        submission = db_session.exec(select(HomeworkSubmission)).one()
+
+        report_text = (
+            "### 总分：77 / 100 分\n\n"
+            "| 维度 | 得分 | 满分 | 评语 |\n"
+            "|------|------|------|------|\n"
+            "| A1 | 11 | 15 | 报告评语。 |\n\n"
+            "### 亮点\n报告亮点\n\n"
+            "### 改进建议\n报告改进建议\n"
+        )
+        client.post(
+            f"/api/homework/submissions/{submission.id}/report?dry_run=false",
+            json={
+                "content_base64": base64.b64encode(report_text.encode("utf-8")).decode("ascii"),
+                "accepted_items": ["A1"],
+            },
+        )
+
+        # 这门课重新导入，csv 这次的亮点/改进建议列跟报告不同。
+        text_v2 = _csv(
+            S1_HEADER,
+            ["学员甲", "alpha@example.com", "2026-06-12", "90", "13", "9", "csv 新亮点", "csv 新改进", "已回复"],
+        )
+        _import(client, seeded, text_v2, dry_run=False)
+
+        db_session.refresh(submission)
+        assert submission.highlight == "报告亮点"
+        assert submission.improve == "报告改进建议"
+        # 其余字段正常按整行覆盖更新。
+        assert submission.total == 90
+        assert submission.reply_status == "已回复"
+
+    def test_unlocked_submission_reimport_updates_highlight_as_usual(self, client, db_session, seeded):
+        text = _csv(
+            S1_HEADER,
+            ["学员甲", "alpha@example.com", "2026-06-11", "77", "11", "7", "旧亮点", "旧改进", "待回复"],
+        )
+        _import(client, seeded, text, dry_run=False)
+
+        text_v2 = _csv(
+            S1_HEADER,
+            ["学员甲", "alpha@example.com", "2026-06-12", "90", "13", "9", "新亮点", "新改进", "已回复"],
+        )
+        _import(client, seeded, text_v2, dry_run=False)
+
+        submission = db_session.exec(select(HomeworkSubmission)).one()
+        assert submission.highlight == "新亮点"
+        assert submission.improve == "新改进"

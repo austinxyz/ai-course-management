@@ -13,12 +13,16 @@ vi.mock("next/navigation", () => ({ usePathname: () => "/homework" }));
 // 留空实现即可。
 const markReplied = vi.fn();
 const markUnreplied = vi.fn();
+const previewReport = vi.fn();
+const applyReport = vi.fn();
 vi.mock("./actions", () => ({
   previewImport: vi.fn(),
   applyImport: vi.fn(),
   excludeEmailAction: vi.fn(),
   markReplied: (...args: unknown[]) => markReplied(...args),
   markUnreplied: (...args: unknown[]) => markUnreplied(...args),
+  previewReport: (...args: unknown[]) => previewReport(...args),
+  applyReport: (...args: unknown[]) => applyReport(...args),
 }));
 
 const COURSES: HomeworkCourse[] = [
@@ -48,6 +52,8 @@ function person(over: Partial<HomeworkPerson> = {}): HomeworkPerson {
     replied: false,
     repliedAt: null,
     totalMax: null,
+    dimensionComments: [],
+    highlightLocked: false,
     ...over,
   };
 }
@@ -450,6 +456,86 @@ describe("导入入口", () => {
     view([blank({ state: "missing" })]);
 
     expect(screen.queryByText(/homework-sync/)).toBeNull();
+  });
+});
+
+describe("批改报告上传", () => {
+  beforeEach(() => {
+    previewReport.mockReset().mockResolvedValue({
+      ok: true,
+      result: {
+        items: [{ code: "A1", score: 13, max: 15, comment: "分工清晰。", mismatch: false }],
+        highlight: "报告亮点",
+        improve: "报告改进建议",
+        totalMismatch: false,
+      },
+    });
+    applyReport.mockReset().mockResolvedValue({
+      ok: true,
+      result: {
+        items: [],
+        highlight: "报告亮点",
+        improve: "报告改进建议",
+        totalMismatch: false,
+      },
+    });
+  });
+
+  it("详情面板显示「上传批改报告」按钮", async () => {
+    view([person()]);
+    await userEvent.setup().click(screen.getByTestId("homework-alpha@example.com"));
+
+    expect(
+      within(screen.getByTestId("homework-detail")).getByText("上传批改报告"),
+    ).toBeInTheDocument();
+  });
+
+  it("没有提交的人不显示上传入口——无从上传", async () => {
+    view([blank({ state: "missing" })]);
+    await userEvent.setup().click(screen.getByTestId("homework-alpha@example.com"));
+
+    expect(
+      within(screen.getByTestId("homework-detail")).queryByText("上传批改报告"),
+    ).toBeNull();
+  });
+
+  it("选中文件后打开预览对话框，展示解析出的分项评语", async () => {
+    view([person()]);
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId("homework-alpha@example.com"));
+
+    const input = within(screen.getByTestId("homework-detail")).getByLabelText(
+      "上传批改报告",
+      { selector: "input" },
+    );
+    await user.upload(input, new File([new Uint8Array([1])], "report.md"));
+
+    expect(await screen.findByRole("dialog", { name: "上传批改报告" })).toBeInTheDocument();
+    expect(screen.getByText("分工清晰。")).toBeInTheDocument();
+  });
+
+  it("显示逐分项评语块与来源徽章——当这条提交带着报告导入的数据时", async () => {
+    view([
+      person({
+        dimensionComments: [{ item: "A1", comment: "报告评语。" }],
+        highlightLocked: true,
+      }),
+    ]);
+    await userEvent.setup().click(screen.getByTestId("homework-alpha@example.com"));
+
+    const panel = within(screen.getByTestId("homework-detail"));
+    expect(panel.getByTestId("dimension-comment-A1")).toBeInTheDocument();
+    expect(panel.getByText("报告评语。")).toBeInTheDocument();
+    expect(panel.getAllByText("来自批改报告").length).toBeGreaterThan(0);
+  });
+
+  it("未导入过报告时不显示逐分项评语块与来源徽章", async () => {
+    view([person({ dimensionComments: [], highlightLocked: false })]);
+    await userEvent.setup().click(screen.getByTestId("homework-alpha@example.com"));
+
+    const panel = within(screen.getByTestId("homework-detail"));
+    expect(panel.queryByText("逐分项评语")).toBeNull();
+    expect(panel.queryByText("来自批改报告")).toBeNull();
   });
 });
 

@@ -27,6 +27,7 @@ from app.homework_parsing import (
     decode_csv,
     parse,
 )
+from app.homework_report_parsing import BadReport, MalformedReportCell, parse_report
 from app.models import (
     Course,
     CourseAlias,
@@ -50,6 +51,9 @@ from app.schemas import (
     HomeworkPersonRead,
     HomeworkReplyMarkRead,
     ImportRow,
+    ReportDimensionRead,
+    ReportPreviewRead,
+    ReportUploadRequest,
     RubricItemRead,
     RubricSaveRequest,
     ScoreItem,
@@ -224,6 +228,8 @@ def list_homework(
                 replied=submission.replied if submission else False,
                 replied_at=submission.replied_at if submission else None,
                 total_max=total_max,
+                dimension_comments=submission.dimension_comments if submission else [],
+                highlight_locked=submission.highlight_locked if submission else False,
             )
         )
     # 按总分降序——先看到的是做得最好的人。没交的人没有总分，排在已交的人
@@ -482,7 +488,16 @@ def _classify(
             # 再 add 一条——唯一索引会挡，但那是 500，不是"更新了"。
             existing[email] = record
         else:
-            for key, value in fields.items():
+            # highlight/improve 一旦被批改报告导入锁定，grades.csv 的精简版
+            # 不能再冲掉更细致的版本（homework-grading-report spec）。
+            # 只在**更新既有记录**这条路径判断——新记录不可能已经被锁。
+            update_fields = fields
+            if found.highlight_locked:
+                update_fields = {
+                    key: value for key, value in fields.items()
+                    if key not in ("highlight", "improve")
+                }
+            for key, value in update_fields.items():
                 setattr(found, key, value)
             session.add(found)
 
@@ -703,3 +718,88 @@ def mark_unreplied(submission_id: uuid.UUID, session: Session = Depends(get_sess
     session.add(row)
     session.commit()
     return HomeworkReplyMarkRead(replied=row.replied, replied_at=row.replied_at)
+
+
+def _item_mismatch(existing_scores: dict[str, int], code: str, reported_score: int) -> bool:
+    """报告里某分项的得分，跟这条提交现有 `scores` 里对应分项是否不一致。
+
+    `scores` 的 item 键是「A1工作流结构」这种带中文标题的写法，报告表格只给
+    编号「A1」——按前缀匹配，不要求标题文字一致（design.md 决定 1）。
+    完全没有对应分项时（比如报告多出一项现有成绩里没有的）不算不一致——
+    没有可比对的数，谈不上"对不上"。
+    """
+    for item_key, existing_score in existing_scores.items():
+        if item_key.startswith(code):
+            return existing_score != reported_score
+    return False
+
+
+@router.post("/submissions/{submission_id}/report", response_model=ReportPreviewRead)
+def upload_report(
+    submission_id: uuid.UUID,
+    payload: ReportUploadRequest,
+    dry_run: bool = Query(default=False),
+    session: Session = Depends(get_session),
+) -> ReportPreviewRead:
+    """上传一份批改报告，解析出逐分项评语与整体评语。
+
+    预览（`dry_run=true`）与确认（`dry_run=false`）复用同一个请求体——确认时
+    前端把上传那份内容原样重新提交，服务端不依赖预览阶段留下的任何临时状态，
+    跟 `grades.csv` 导入的 `dry_run` 约定同一个模式。
+
+    只解析表格与「亮点」「改进建议」两段；「讲师回复草稿」「作业原文」不解析。
+    分项得分/总分与现有记录不一致时只在响应里标记，不阻止确认导入。
+    """
+    row = _load_submission(submission_id, session)
+
+    if len(payload.content_base64) * 3 // 4 > MAX_UPLOAD_BYTES:
+        raise _too_large()
+    try:
+        raw = base64.b64decode(payload.content_base64, validate=True)
+    except (binascii.Error, ValueError):
+        raise HTTPException(status_code=422, detail="上传内容不是合法的 base64")
+    if len(raw) > MAX_UPLOAD_BYTES:
+        raise _too_large()
+    try:
+        text, _encoding = decode_csv(raw)
+    except CannotDecode as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+    try:
+        parsed = parse_report(text)
+    except (BadReport, MalformedReportCell) as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+    existing_scores = {s["item"]: s["score"] for s in row.scores}
+    items = [
+        ReportDimensionRead(
+            code=it["code"],
+            score=it["score"],
+            max=it["max"],
+            comment=it["comment"],
+            mismatch=_item_mismatch(existing_scores, it["code"], it["score"]),
+        )
+        for it in parsed.items
+    ]
+    total_mismatch = parsed.total is not None and row.total != parsed.total
+
+    if not dry_run:
+        accepted = set(payload.accepted_items or [])
+        row.dimension_comments = [
+            {"item": it["code"], "comment": it["comment"]}
+            for it in parsed.items
+            if it["code"] in accepted
+        ]
+        # 亮点/改进建议不单独勾选——跟着这次确认动作整体覆盖、整体锁定。
+        row.highlight = parsed.highlight
+        row.improve = parsed.improve
+        row.highlight_locked = True
+        session.add(row)
+        session.commit()
+
+    return ReportPreviewRead(
+        items=items,
+        highlight=parsed.highlight,
+        improve=parsed.improve,
+        total_mismatch=total_mismatch,
+    )

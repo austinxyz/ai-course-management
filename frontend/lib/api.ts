@@ -7,6 +7,7 @@ import type {
   HomeworkPerson,
   ImportResult,
   LastImport,
+  ReportPreview,
 } from "@/app/(app)/homework/types";
 import type { Enrollment, Student } from "@/app/(app)/students/types";
 
@@ -502,6 +503,8 @@ interface ApiHomeworkPerson {
   replied: boolean;
   replied_at: string | null;
   total_max: number | null;
+  dimension_comments: { item: string; comment: string }[];
+  highlight_locked: boolean;
 }
 
 /**
@@ -626,6 +629,8 @@ export async function getHomework(courseId: string): Promise<HomeworkPerson[]> {
     replied: api.replied,
     repliedAt: api.replied_at,
     totalMax: api.total_max,
+    dimensionComments: api.dimension_comments,
+    highlightLocked: api.highlight_locked,
   }));
 }
 
@@ -660,4 +665,50 @@ export async function markHomeworkUnreplied(
       "POST",
     )) as ApiReplyMark,
   );
+}
+
+interface ApiReportDimension {
+  code: string;
+  score: number;
+  max: number;
+  comment: string;
+  mismatch: boolean;
+}
+
+interface ApiReportPreview {
+  items: ApiReportDimension[];
+  highlight: string;
+  improve: string;
+  total_mismatch: boolean;
+}
+
+/**
+ * 上传一份批改报告（`.md`），预览或确认写入某条提交。
+ *
+ * 复用 `grades.csv` 导入的 `dry_run` 约定：预览与确认发同一份 `contentBase64`，
+ * 服务端不依赖预览阶段留下的临时状态。`acceptedItems` 只在 `dryRun=false` 时
+ * 生效，决定哪些分项评语真的写入。
+ */
+export async function uploadHomeworkReport(input: {
+  submissionId: string;
+  contentBase64: string;
+  acceptedItems?: string[];
+  dryRun: boolean;
+}): Promise<ReportPreview> {
+  const data = (await backendWrite(
+    `/api/homework/submissions/${encodeURIComponent(input.submissionId)}/report?dry_run=${
+      input.dryRun ? "true" : "false"
+    }`,
+    "POST",
+    {
+      content_base64: input.contentBase64,
+      accepted_items: input.acceptedItems ?? null,
+    },
+  )) as ApiReportPreview;
+  return {
+    items: data.items,
+    highlight: data.highlight,
+    improve: data.improve,
+    totalMismatch: data.total_mismatch,
+  };
 }

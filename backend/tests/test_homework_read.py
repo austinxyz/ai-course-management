@@ -89,6 +89,8 @@ def _submit(session: Session, email: str, course: Course, total=77, **over):
         improve=over.pop("improve", "改进"),
         reply_status=over.pop("reply_status", "待回复"),
         source_ref=over.pop("source_ref", "session1/grades.csv:2"),
+        dimension_comments=over.pop("dimension_comments", []),
+        highlight_locked=over.pop("highlight_locked", False),
     )
     session.add(row)
     session.commit()
@@ -342,6 +344,27 @@ class TestPayload:
         # 原样，不归一化
         assert row["reply_status"] == "草稿已创建"
         assert row["source_ref"] == "session1/grades.csv:7"
+
+    def test_a_submitted_row_carries_dimension_comments_and_the_lock_flag(
+        self, client, db_session
+    ):
+        """批改报告导入写下的逐分项评语与锁标记，名单接口要带出来——
+        详情面板的「逐分项评语」块与来源徽章靠这两个字段渲染。"""
+        course = _course(db_session)
+        _student(db_session, "hw-alpha@example.com", "学员甲")
+        _enroll(db_session, "hw-alpha@example.com", course, None)
+        _submit(
+            db_session,
+            "hw-alpha@example.com",
+            course,
+            dimension_comments=[{"item": "A1", "comment": "评语文字"}],
+            highlight_locked=True,
+        )
+
+        row = _fetch(client, course)[0]
+
+        assert row["dimension_comments"] == [{"item": "A1", "comment": "评语文字"}]
+        assert row["highlight_locked"] is True
 
     def test_a_row_without_a_submission_is_empty_not_zero(self, client, db_session):
         """没交的人总分是 null，不是 0 —— 0 是一个真实的分数。"""

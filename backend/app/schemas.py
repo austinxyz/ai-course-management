@@ -598,6 +598,10 @@ class HomeworkPersonRead(BaseModel):
     total_max: int | None = None
     replied: bool = False
     replied_at: datetime | None = None
+    # 批改报告导入写下的逐分项评语（只含被勾选写入的那些），跟 `scores`
+    # 同一个形状。`highlight_locked` 真时详情面板给 highlight/improve 标来源徽章。
+    dimension_comments: list[dict] = []
+    highlight_locked: bool = False
 
 
 class RubricItemRead(BaseModel):
@@ -626,6 +630,39 @@ class HomeworkCountRead(BaseModel):
     `GET /api/homework` 那种按课程查的接口是两回事。"""
 
     total: int
+
+
+class ReportUploadRequest(BaseModel):
+    """预览与确认共用同一个请求体——确认时前端把上传那份内容原样带过来，
+    服务端重新解析一遍，不依赖预览阶段留下的任何临时状态。"""
+
+    content_base64: str
+    # 只在 `dry_run=false` 时读取：讲师在预览屏勾选保留的分项编号。
+    # `dry_run=true` 时忽略——预览要展示全部解析结果，不受勾选影响。
+    accepted_items: list[str] | None = None
+
+
+class ReportDimensionRead(BaseModel):
+    """预览屏/写入结果里的一条分项评语。"""
+
+    code: str
+    score: int
+    max: int
+    comment: str
+    # 这一项的得分与该提交现有 `scores` 中对应分项不一致——只是提示，
+    # 不影响是否写入（是否写入由 `accepted_items` 决定）。
+    mismatch: bool
+
+
+class ReportPreviewRead(BaseModel):
+    """上传批改报告后的预览/写入结果，两种情形返回体形状一致。"""
+
+    items: list[ReportDimensionRead]
+    highlight: str
+    improve: str
+    # 报告里解析出的总分与该提交现有 `total` 不一致时为 true；报告没写总分
+    # 那一行时为 false（没有可比对的数，不算不一致）。
+    total_mismatch: bool
 
 
 class HomeworkReplyMarkRead(BaseModel):

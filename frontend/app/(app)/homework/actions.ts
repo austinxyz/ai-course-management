@@ -9,10 +9,11 @@ import {
   importHomework,
   markHomeworkReplied,
   markHomeworkUnreplied,
+  uploadHomeworkReport,
 } from "@/lib/api";
 import { checkSitePassword } from "@/lib/site-password";
 
-import type { ImportResult } from "./types";
+import type { ImportResult, ReportPreview } from "./types";
 
 /**
  * 每个入口先过这里。
@@ -153,4 +154,55 @@ export async function markReplied(submissionId: string): Promise<ReplyMarkAction
 
 export async function markUnreplied(submissionId: string): Promise<ReplyMarkActionResult> {
   return toggleReply(submissionId, markHomeworkUnreplied);
+}
+
+/** 批改报告的预览/确认结果。**一行业务逻辑都不放**，预期内的失败用返回值表达。 */
+export type ReportActionResult =
+  | { ok: true; result: ReportPreview }
+  | { ok: false; message: string };
+
+async function submitReport(form: FormData, dryRun: boolean): Promise<ReportActionResult> {
+  await requireSitePassword();
+
+  const file = form.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false, message: "请先选择一份批改报告 .md 文件。" };
+  }
+  const submissionId = form.get("submissionId");
+  if (typeof submissionId !== "string" || !submissionId) {
+    return { ok: false, message: "没能确定这是哪条提交，请刷新页面重试。" };
+  }
+  const acceptedItemsRaw = form.get("acceptedItems");
+  const acceptedItems =
+    typeof acceptedItemsRaw === "string" && acceptedItemsRaw
+      ? (JSON.parse(acceptedItemsRaw) as string[])
+      : undefined;
+
+  let result: ReportPreview;
+  try {
+    result = await uploadHomeworkReport({
+      submissionId,
+      contentBase64: await readFileBytes(file),
+      acceptedItems,
+      dryRun,
+    });
+  } catch (error) {
+    return classify(error);
+  }
+
+  if (!dryRun) {
+    // 详情面板的逐分项评语块 + 亮点/改进建议来源徽章都要跟着变。
+    revalidatePath("/homework", "layout");
+  }
+  return { ok: true, result };
+}
+
+/** 算完解析结果但**一条都不写**。 */
+export async function previewReport(form: FormData): Promise<ReportActionResult> {
+  return submitReport(form, true);
+}
+
+/** 真的写入。讲师看过预览并勾选完之后才走到这里。 */
+export async function applyReport(form: FormData): Promise<ReportActionResult> {
+  return submitReport(form, false);
 }

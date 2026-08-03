@@ -127,6 +127,14 @@ class HomeworkSubmission(SQLModel, table=True):
     # 标记若共用同一份存储会被下一次导入悄悄冲掉。
     replied: bool = Field(default=False)
     replied_at: datetime | None = Field(default=None)
+    # 批改报告导入的逐分项评语，跟 `scores` 同一个形状。只存被讲师勾选写入的
+    # 那几项，不是整份报告的镜像。
+    dimension_comments: list[dict] = Field(
+        default_factory=list, sa_column=Column(JSONB, nullable=False)
+    )
+    # `highlight`/`improve` 一旦被报告导入覆盖过就设为真——重新导入 grades.csv
+    # 时 `_classify` 要跳过这两列，不然报告的细致版本会被 csv 的精简版冲掉。
+    highlight_locked: bool = Field(default=False)
     # synced_at / created_at 同 Course：DB 有 now() 默认值，应用不读不写，不映射。
 
 

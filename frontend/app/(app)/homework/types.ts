@@ -37,6 +37,33 @@ export interface HomeworkPerson {
   /** 这门课全部分项都配了满分时是各分项满分之和，否则为 `null`——
    * 满分总和少一项就等于分母算错了，宁可不显示也不显示一个基于错误分母的比例。 */
   totalMax: number | null;
+  /** 批改报告导入写下的逐分项评语，只含被勾选写入的那些。 */
+  dimensionComments: DimensionComment[];
+  /** 真表示 highlight/improve 来自批改报告导入，重新导入 grades.csv 不会再碰它们。 */
+  highlightLocked: boolean;
+}
+
+/** 批改报告导入写下的一条分项评语。跟 `scores` 同一个形状。 */
+export interface DimensionComment {
+  item: string;
+  comment: string;
+}
+
+/** 报告预览里的一个分项：编号 + 报告给出的得分/满分/评语 + 是否与现有分数不一致。 */
+export interface ReportDimension {
+  code: string;
+  score: number;
+  max: number;
+  comment: string;
+  mismatch: boolean;
+}
+
+/** 一次报告上传的解析结果。dry-run 与真跑同一个形状。 */
+export interface ReportPreview {
+  items: ReportDimension[];
+  highlight: string;
+  improve: string;
+  totalMismatch: boolean;
 }
 
 /** 课程 chips 用的最小形状。 */

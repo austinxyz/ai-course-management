@@ -4,8 +4,17 @@ import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
 
 import { cn } from "@/lib/cn";
-import { applyImport, excludeEmailAction, markReplied, markUnreplied, previewImport } from "./actions";
+import {
+  applyImport,
+  applyReport,
+  excludeEmailAction,
+  markReplied,
+  markUnreplied,
+  previewImport,
+  previewReport,
+} from "./actions";
 import { ImportDialog } from "./ImportDialog";
+import { ReportUploadDialog } from "./ReportUploadDialog";
 import type { HomeworkCourse, HomeworkPerson, LastImport } from "./types";
 
 /**
@@ -403,6 +412,10 @@ function DetailPanel({ person, courseName }: { person: HomeworkPerson; courseNam
   const meta = STATE[person.state as keyof typeof STATE];
   const [marking, setMarking] = useState(false);
   const [markError, setMarkError] = useState<string | null>(null);
+  // 同一个"读一次、确认时再读一次"的理由：预览与确认之间数据库可能变了，
+  // 服务端不存临时上传状态。
+  const [pickedReport, setPickedReport] = useState<File | null>(null);
+  const reportInput = useRef<HTMLInputElement>(null);
 
   async function toggleReplied() {
     if (!person.submissionId) return;
@@ -522,9 +535,37 @@ function DetailPanel({ person, courseName }: { person: HomeworkPerson; courseNam
             </div>
           </div>
 
-          <Field label="亮点">{person.highlight || "—"}</Field>
-          <Field label="改进建议">{person.improve || "—"}</Field>
+          <Field label="亮点" sourceBadge={person.highlightLocked}>
+            {person.highlight || "—"}
+          </Field>
+          <Field label="改进建议" sourceBadge={person.highlightLocked}>
+            {person.improve || "—"}
+          </Field>
           <Field label="回复状态">{person.replyStatus || "—"}</Field>
+
+          {/* 只在有报告导入过的分项评语时才出现——批改报告是可选的额外信息。 */}
+          {person.dimensionComments.length > 0 && (
+            <div className="flex flex-col gap-1">
+              <span className="font-mono text-[11px] tracking-wide text-muted-foreground">
+                逐分项评语
+              </span>
+              <div className="overflow-hidden rounded-token border border-border">
+                {person.dimensionComments.map((c, i) => (
+                  <div
+                    key={c.item}
+                    data-testid={`dimension-comment-${c.item}`}
+                    className={cn(
+                      "flex flex-col gap-0.5 px-2.5 py-1.5 font-sans text-[12px]",
+                      i % 2 ? "bg-surface-muted" : "bg-surface",
+                    )}
+                  >
+                    <span className="font-mono">{c.item}</span>
+                    <span className="text-muted">{c.comment}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* 独立于「回复状态」——那一列是源文件原文，这里是讲师自己的标记，
               重新导入不会把它冲掉。两者视觉上分开，不合并成一句话。 */}
@@ -568,6 +609,57 @@ function DetailPanel({ person, courseName }: { person: HomeworkPerson; courseNam
             </div>
           )}
 
+          {/* 批改工具产出的详细报告是可选的额外信息，跟「讲师标记」分开成
+              自己的一块——两者语义不同（一个是回复了没有，一个是评语来源）。 */}
+          {person.submissionId && (
+            <div className="flex flex-col gap-1">
+              <span className="font-mono text-[11px] tracking-wide text-muted-foreground">
+                批改报告
+              </span>
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-sans text-[12.5px] text-muted">
+                  {person.dimensionComments.length > 0 ? "已导入过" : "还没上传过"}
+                </span>
+                <label className="inline-flex h-[26px] cursor-pointer items-center whitespace-nowrap rounded-token border border-border bg-surface px-2.5 font-sans text-xs">
+                  上传批改报告
+                  <input
+                    ref={reportInput}
+                    type="file"
+                    accept=".md,text/markdown"
+                    className="hidden"
+                    onChange={(event) => {
+                      const chosen = event.target.files?.[0] ?? null;
+                      setPickedReport(chosen);
+                      event.target.value = "";
+                    }}
+                  />
+                </label>
+              </div>
+            </div>
+          )}
+
+          {pickedReport && person.submissionId && (
+            <ReportUploadDialog
+              file={pickedReport}
+              submissionId={person.submissionId}
+              personName={person.name}
+              onPreview={(file, submissionId) => {
+                const form = new FormData();
+                form.set("file", file);
+                form.set("submissionId", submissionId);
+                return previewReport(form);
+              }}
+              onApply={(file, submissionId, acceptedItems) => {
+                const form = new FormData();
+                form.set("file", file);
+                form.set("submissionId", submissionId);
+                form.set("acceptedItems", JSON.stringify(acceptedItems));
+                return applyReport(form);
+              }}
+              onClose={() => setPickedReport(null)}
+            />
+          )}
+
           {/* 来源单独成一个节点：出问题时要能整段复制回源仓库去核，
               跟提交日期拼在一起就复制不干净了。 */}
           <span className="font-mono text-[11px] text-muted-foreground">
@@ -584,11 +676,28 @@ function DetailPanel({ person, courseName }: { person: HomeworkPerson; courseNam
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  children,
+  sourceBadge,
+}: {
+  label: string;
+  children: React.ReactNode;
+  /** 真时说明这段文字来自批改报告导入，不是 grades.csv 的精简版。 */
+  sourceBadge?: boolean;
+}) {
   return (
     <div className="flex flex-col gap-0.5">
-      <span className="font-mono text-[11px] tracking-wide text-muted-foreground">
+      <span className="flex items-center gap-1.5 font-mono text-[11px] tracking-wide text-muted-foreground">
         {label}
+        {sourceBadge && (
+          <span
+            data-testid={`source-badge-${label}`}
+            className="inline-flex items-center gap-1 rounded-full border border-success/40 bg-success/10 px-1.5 py-0.5 font-sans text-[10px] normal-case tracking-normal text-success"
+          >
+            来自批改报告
+          </span>
+        )}
       </span>
       <span className="font-sans text-[12.5px] leading-relaxed">{children}</span>
     </div>
