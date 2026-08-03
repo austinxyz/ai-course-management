@@ -49,8 +49,7 @@ SHALL NOT 要求分项标题文字完全一致。
 
 ### Requirement: 来自批改报告的亮点与改进建议不受重新导入覆盖
 
-某条提交的 `highlight`、`improve` 一旦被批改报告导入覆盖过，之后重新导入这门课的
-`grades.csv` SHALL NOT 再覆盖这两个字段；`grades.csv` 里的其余字段（`total`、
+某条提交的 `highlight`、`improve` 一旦被批改报告导入覆盖过，系统 SHALL NOT 允许之后重新导入这门课的 `grades.csv` 再覆盖这两个字段；`grades.csv` 里的其余字段（`total`、
 `scores`、`reply_status`、`source_ref` 等）SHALL 正常按整行覆盖更新。
 
 没有上传过批改报告的提交不受影响，重新导入 `grades.csv` SHALL 照常更新其

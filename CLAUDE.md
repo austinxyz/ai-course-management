@@ -179,5 +179,7 @@
 
 - MODIFIED 按标题匹配，改标题会让 archive **回滚整次归档** —— 行为变了用 REMOVED + ADDED，propose 阶段就核
 - `openspec archive` 按 UTC 命名目录，本机在 PT，**PT 17:00 之后归档会命名成明天**
+- delta spec 的 Requirement 校验只读标题后**第一行**要不要 SHALL/MUST——句子在这一行被硬换行拆到第二行，校验照样报"缺关键词"，症状是报错引用的文本跟眼睛看到的整段不一样长
+- `openspec archive` 生成的归档目录是新文件，不在 git 索引里；改名要用 `mv` 不能用 `git mv`（后者会报 "source directory is empty"）
 - 设计稿是布局与语气，**不是取值域、不是数据、也不是待办**：示例值不能当约束、
   假数字比没数字糟、有意的偏离以「已知偏离」清单为准
