@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>homework-grading-report mocks</title>
+<!-- HAS_UI_SURFACE: yes -->
+<style>
+  :root {
+    --border: #e3e0da;
+    --surface: #ffffff;
+    --surface-muted: #f6f4f0;
+    --muted: #8a8478;
+    --ink: #1f1c17;
+    --rounded: 10px;
+    --success: #4c8a63;
+    --success-surface: #eaf3ee;
+    --warning: #b8860b;
+    --warning-surface: #fbf1de;
+    --danger: #b3261e;
+    --danger-surface: #fbf0ee;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    margin: 0;
+    padding: 24px;
+    background: #f6f4f0;
+    color: var(--ink);
+  }
+  section { margin-bottom: 56px; }
+  h1 { font-size: 20px; }
+  h2 { margin-top: 0; font-size: 16px; }
+  p.desc { color: var(--muted); font-size: 13px; max-width: 640px; }
+  .panel {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 420px;
+    max-width: 100%;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    border-radius: var(--rounded);
+    padding: 16px;
+  }
+  .panel.mobile { width: 320px; }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 28px;
+    padding: 0 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    font-size: 12.5px;
+    cursor: default;
+  }
+  .btn.primary { border-color: #9c3417; background: #9c3417; color: #fff; }
+  .field-label {
+    font-family: ui-monospace, monospace;
+    font-size: 11px;
+    letter-spacing: 0.02em;
+    color: var(--muted);
+  }
+  .dim-list { display: flex; flex-direction: column; gap: 1px; border: 1px solid var(--border); border-radius: var(--rounded); overflow: hidden; }
+  .dim-row { display: flex; flex-direction: column; gap: 3px; padding: 8px 10px; background: var(--surface); font-size: 12.5px; }
+  .dim-row:nth-child(even) { background: var(--surface-muted); }
+  .dim-row.mismatch { background: var(--warning-surface); }
+  .dim-row.unchecked { opacity: 0.45; }
+  .dim-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .dim-checkbox-row { display: flex; align-items: flex-start; gap: 8px; }
+  .dim-checkbox { margin-top: 2px; flex: none; }
+  .dim-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+  .dim-code { font-family: ui-monospace, monospace; color: #9c3417; font-size: 11px; }
+  .dim-score { font-family: ui-monospace, monospace; font-size: 12px; }
+  .dim-comment { color: var(--muted); font-size: 12px; line-height: 1.5; }
+  .warn-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10.5px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: var(--warning-surface);
+    color: var(--warning);
+    border: 1px solid #ecdcc6;
+  }
+  .banner {
+    border-radius: var(--rounded);
+    border: 1px solid #ecdcc6;
+    background: var(--warning-surface);
+    padding: 10px 12px;
+    font-size: 12.5px;
+    line-height: 1.6;
+  }
+  .before-after { display: flex; gap: 32px; flex-wrap: wrap; align-items: flex-start; }
+  .col-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .source-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: var(--success-surface);
+    color: var(--success);
+    border: 1px solid #d6e6dc;
+  }
+  .dialog-overlay {
+    display: flex;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(0,0,0,0.06);
+    border-radius: var(--rounded);
+  }
+</style>
+</head>
+<body>
+
+<section id="detail-panel-upload-button">
+  <h1>详情面板：上传批改报告按钮</h1>
+  <p class="desc">
+    紧跟在「讲师标记」下面，新增一个「上传批改报告」按钮，点了直接弹系统文件选择框
+    （不是自定义拖拽区）。选中 .md 文件后进入下面的预览屏。
+  </p>
+  <div class="panel">
+    <div class="field-label">讲师标记</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+      <span style="color:var(--muted);font-size:12.5px;">尚未标记</span>
+      <button class="btn">标记已回复</button>
+    </div>
+    <div class="field-label" style="margin-top:4px;">批改报告</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+      <span style="color:var(--muted);font-size:12.5px;">还没上传过</span>
+      <button class="btn">上传批改报告</button>
+    </div>
+  </div>
+</section>
+
+<section id="upload-preview-screen">
+  <h1>预览屏：解析结果 + 得分不一致警告</h1>
+  <p class="desc">
+    跟 grades.csv 导入的预览+确认是同一套思路。解析出的分项评语逐条列出，每条前面
+    一个勾选框，**默认全部勾选**——确认导入时只写入勾选了的那些，取消勾选的那几项
+    评语不会覆盖现有内容。得分不一致的行标黄并带警告徽章，但警告不代表默认不要，
+    照样默认勾选，由讲师自己决定要不要取消。亮点/改进建议不单独勾选，跟着"确认导入"
+    整体生效。
+  </p>
+  <div class="dialog-overlay">
+    <div class="panel" style="width:480px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div style="font-size:15px;font-weight:600;">上传批改报告 · Helen He</div>
+        <button class="btn">关闭</button>
+      </div>
+      <div class="banner">
+        <strong>2 项得分与现有记录不一致</strong><br>
+        A1（报告 13/15，现有 13/15 一致）、总分（报告 68，现有 77）——确认导入后
+        亮点/改进建议会用报告里的版本覆盖，分数本身不会被这次上传改变。
+      </div>
+      <div class="dim-list">
+        <div class="dim-row">
+          <div class="dim-checkbox-row">
+            <input type="checkbox" class="dim-checkbox" checked disabled>
+            <div class="dim-body">
+              <div class="dim-head">
+                <span><span class="dim-code">A1</span> 工作流结构</span>
+                <span class="dim-score">13 / 15</span>
+              </div>
+              <div class="dim-comment">两个 Agent 分工清晰——基本面研究 vs 股票估值，领域不重叠。因属标准顺序流水线、无并行/分支设计，未达满分。</div>
+            </div>
+          </div>
+        </div>
+        <div class="dim-row mismatch unchecked">
+          <div class="dim-checkbox-row">
+            <input type="checkbox" class="dim-checkbox" disabled>
+            <div class="dim-body">
+              <div class="dim-head">
+                <span><span class="dim-code">A2</span> 数据传递 <span class="warn-badge">⚠ 与现有 8 分不一致</span></span>
+                <span class="dim-score">6 / 10</span>
+              </div>
+              <div class="dim-comment">Agent 2 注明"需先完成 company_foundamental.md"，隐含文件传递，但未写明 OUTPUTS/ 路径。（讲师看到分数对不上，手动取消了这一项）</div>
+            </div>
+          </div>
+        </div>
+        <div class="dim-row">
+          <div class="dim-checkbox-row">
+            <input type="checkbox" class="dim-checkbox" checked disabled>
+            <div class="dim-body">
+              <div class="dim-head">
+                <span><span class="dim-code">D2</span> 心得深度</span>
+                <span class="dim-score">9 / 10</span>
+              </div>
+              <div class="dim-comment">5 条以上具体个人观察，且质量高，洞察深刻。</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="field-label">亮点（将覆盖现有内容）</div>
+      <p style="margin:0;font-size:12.5px;line-height:1.6;">投资研究场景选择专业，基本面 + 估值双层框架设计体现了真实业务思维……</p>
+      <div class="field-label">改进建议（将覆盖现有内容）</div>
+      <p style="margin:0;font-size:12.5px;line-height:1.6;">最高优先级：补全 OUTPUTS/ 路径……</p>
+      <div style="display:flex;justify-content:flex-end;gap:8px;">
+        <button class="btn">取消</button>
+        <button class="btn primary">确认导入</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="detail-panel-after-import">
+  <h2>详情面板：导入后 —— 亮点/改进建议标"来自报告"，新增逐分项评语块</h2>
+  <p class="desc">
+    亮点/改进建议旁边加一个小徽章说明来源；分项评语列表复用「分项」那块的视觉语言
+    （斑马纹行 + 编号 + 得分），只是这里展示的是评语文字而不是条形图。
+  </p>
+  <div class="panel">
+    <div class="field-label" style="display:flex;align-items:center;gap:6px;">
+      亮点 <span class="source-badge">来自批改报告</span>
+    </div>
+    <p style="margin:0;font-size:12.5px;line-height:1.6;">投资研究场景选择专业，基本面 + 估值双层框架设计体现了真实业务思维，是本批次领域纵深最强的提交之一。</p>
+
+    <div class="field-label" style="margin-top:6px;">逐分项评语</div>
+    <div class="dim-list">
+      <div class="dim-row">
+        <div class="dim-head">
+          <span><span class="dim-code">A1</span> 工作流结构</span>
+          <span class="dim-score">13 / 15</span>
+        </div>
+        <div class="dim-comment">两个 Agent 分工清晰——基本面研究 vs 股票估值，领域不重叠，设计逻辑扎实。</div>
+      </div>
+      <div class="dim-row">
+        <div class="dim-head">
+          <span><span class="dim-code">A2</span> 数据传递</span>
+          <span class="dim-score">6 / 10</span>
+        </div>
+        <div class="dim-comment">隐含文件传递，但提示词未写明 OUTPUTS/ 路径，也未描述传递数据的字段/格式。</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="mobile-equivalents">
+  <h2>移动端等效</h2>
+  <div class="before-after">
+    <div>
+      <div class="col-label">上传按钮 · 移动端</div>
+      <div class="panel mobile">
+        <div class="field-label">批改报告</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+          <span style="color:var(--muted);font-size:12.5px;">还没上传过</span>
+          <button class="btn">上传</button>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="col-label">预览屏 · 移动端（纵向堆叠，警告条不换行截断）</div>
+      <div class="panel mobile">
+        <div style="font-size:14px;font-weight:600;">上传批改报告</div>
+        <div class="banner" style="font-size:12px;">
+          <strong>1 项得分不一致</strong><br>总分：报告 68，现有 77
+        </div>
+        <div class="dim-row mismatch" style="border-radius:8px;">
+          <div class="dim-checkbox-row">
+            <input type="checkbox" class="dim-checkbox" checked disabled>
+            <div class="dim-body">
+              <div class="dim-head">
+                <span><span class="dim-code">A2</span> <span class="warn-badge">⚠</span></span>
+                <span class="dim-score">6 / 10</span>
+              </div>
+              <div class="dim-comment">隐含文件传递，但未写明路径。</div>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;">
+          <button class="btn">取消</button>
+          <button class="btn primary">确认</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</body>
+</html>
