@@ -34,6 +34,7 @@ from app.models import (
     Enrollment,
     HomeworkExcludedEmail,
     HomeworkImport,
+    HomeworkRubricItem,
     HomeworkSubmission,
     Student,
 )
@@ -48,6 +49,9 @@ from app.schemas import (
     HomeworkPersonRead,
     HomeworkReplyMarkRead,
     ImportRow,
+    RubricItemRead,
+    RubricSaveRequest,
+    ScoreItem,
     normalize_alias,
 )
 
@@ -136,9 +140,18 @@ def list_homework(
     已归档学员与已退课的报课不进名单。这里的计数直接导向"催谁"，
     催一个已归档或已退课的人是错的。**与报课页有意不同**：那边的已报人数
     是历史事实的统计，不排除已归档学员。
+
+    满分表通过一条**标量子查询**（聚合成 jsonb）嵌进这条 SQL，不新增
+    `session.exec` 调用——往返次数只按应用发出几次数据库调用算，子查询是
+    同一条语句的一部分。
     """
+    rubric_json = (
+        select(func.jsonb_object_agg(HomeworkRubricItem.item, HomeworkRubricItem.max_score))
+        .where(HomeworkRubricItem.course_id == course)
+        .scalar_subquery()
+    )
     rows = session.exec(
-        select(Enrollment, Student, CourseSession, HomeworkSubmission)
+        select(Enrollment, Student, CourseSession, HomeworkSubmission, rubric_json)
         .join(Student, Student.email == Enrollment.student_email)
         .outerjoin(CourseSession, CourseSession.id == Enrollment.session_id)
         .outerjoin(
@@ -152,11 +165,14 @@ def list_homework(
             Student.archived_at.is_(None),
         )
     ).all()
+    # 同一条课程，rubric map 对每一行都一样——取第一行的就够了；没有任何一行
+    # （比如这门课没有报课记录）时回退空 map。
+    rubric_max: dict[str, int] = (rows[0][4] or {}) if rows else {}
 
     # 按人去重（`enrollment` spec 的「作业按人计，不按报课记录计」）：
     # 重复来听是加深印象，不是重修——再催她交一遍作业是打扰。
     people: dict[str, dict] = {}
-    for enrollment, student, session_row, submission in rows:
+    for enrollment, student, session_row, submission, _rubric in rows:
         found = people.setdefault(
             student.email,
             {"student": student, "submission": submission, "states": []},
@@ -177,6 +193,17 @@ def list_homework(
     for email, found in people.items():
         student = found["student"]
         submission = found["submission"]
+        scores = []
+        total_max = None
+        if submission:
+            scores = [
+                ScoreItem(item=s["item"], score=s["score"], max=rubric_max.get(s["item"]))
+                for s in submission.scores
+            ]
+            # 全部分项都配了满分才有意义的总分母；少一项就回退成 None，
+            # 不显示一个基于错误分母的比例。
+            if scores and all(s.max is not None for s in scores):
+                total_max = sum(s.max for s in scores)
         result.append(
             HomeworkPersonRead(
                 student_email=email,
@@ -185,7 +212,7 @@ def list_homework(
                 state=merge_states(found["states"]),
                 submitted_at=submission.submitted_at if submission else None,
                 total=submission.total if submission else None,
-                scores=submission.scores if submission else [],
+                scores=scores,
                 highlight=submission.highlight if submission else "",
                 improve=submission.improve if submission else "",
                 reply_status=submission.reply_status if submission else "",
@@ -195,6 +222,7 @@ def list_homework(
                 submission_id=submission.id if submission else None,
                 replied=submission.replied if submission else False,
                 replied_at=submission.replied_at if submission else None,
+                total_max=total_max,
             )
         )
     # 名单本身也要有确定顺序：没有排序的话，编辑过的记录会跑到最后——
@@ -567,6 +595,60 @@ def add_excluded_email(
         session.commit()
         session.refresh(found)
     return ExcludedEmailRead(email=found.email, note=found.note)
+
+
+@router.get("/rubric", response_model=list[RubricItemRead])
+def get_rubric(
+    course: uuid.UUID = Query(),
+    session: Session = Depends(get_session),
+) -> list[RubricItemRead]:
+    """一门课的评分表：分项名字系统自动列出（去重自已导入的成绩），各自的满分。
+
+    分项名字**不是**讲师手打的——取自 `homework_submissions.scores` 实际出现过的
+    值，保证名字始终跟真实导入的数据一致，不会出现"配了但跟源文件列名对不上"。
+    """
+    submissions = session.exec(
+        select(HomeworkSubmission.scores).where(HomeworkSubmission.course_id == course)
+    ).all()
+    items = sorted({score["item"] for scores in submissions for score in scores})
+
+    configured = {
+        row.item: row.max_score
+        for row in session.exec(
+            select(HomeworkRubricItem).where(HomeworkRubricItem.course_id == course)
+        ).all()
+    }
+    return [RubricItemRead(item=item, max_score=configured.get(item)) for item in items]
+
+
+@router.put("/rubric", response_model=list[RubricItemRead])
+def save_rubric(payload: RubricSaveRequest, session: Session = Depends(get_session)) -> list[RubricItemRead]:
+    """整表覆盖式写入：`max_score` 有值的 upsert，`null` 的删除已有配置。
+
+    跟 `homework` 导入同一套哲学——写入语义是"以这次提交为准"，不是"只改我传的
+    那几个字段"。讲师在课程页的表单本来就会把所有分项（有的填了、有的留空）
+    一次提交上来。
+    """
+    for item in payload.items:
+        if item.max_score is not None and item.max_score <= 0:
+            raise HTTPException(status_code=422, detail=f"「{item.item}」的满分必须是正整数")
+
+    for item in payload.items:
+        existing = session.get(HomeworkRubricItem, (payload.course_id, item.item))
+        if item.max_score is None:
+            if existing is not None:
+                session.delete(existing)
+            continue
+        if existing is None:
+            session.add(
+                HomeworkRubricItem(course_id=payload.course_id, item=item.item, max_score=item.max_score)
+            )
+        else:
+            existing.max_score = item.max_score
+            session.add(existing)
+    session.commit()
+
+    return get_rubric(course=payload.course_id, session=session)
 
 
 def _load_submission(submission_id: uuid.UUID, session: Session) -> HomeworkSubmission:

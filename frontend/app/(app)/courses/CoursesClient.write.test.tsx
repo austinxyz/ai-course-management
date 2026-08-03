@@ -14,6 +14,10 @@ const actions = vi.hoisted(() => ({
   updateSessionAction: vi.fn(),
   followDateAction: vi.fn(),
   deleteSessionAction: vi.fn(),
+  // RubricEditor 挂在 CourseDetail 里，任何渲染出详情面板的用例都会调用它——
+  // 不给默认实现的话，未处理的 rejection 会让不相干的用例一起报错。
+  getRubricAction: vi.fn().mockResolvedValue([]),
+  saveRubricAction: vi.fn().mockResolvedValue({ ok: true }),
 }));
 vi.mock("./actions", () => actions);
 

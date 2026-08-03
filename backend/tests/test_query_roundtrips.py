@@ -14,7 +14,15 @@ from datetime import date, time
 import pytest
 from sqlalchemy import event
 
-from app.models import Course, CourseAlias, CourseSession, Enrollment, Student
+from app.models import (
+    Course,
+    CourseAlias,
+    CourseSession,
+    Enrollment,
+    HomeworkRubricItem,
+    HomeworkSubmission,
+    Student,
+)
 
 
 @pytest.fixture
@@ -97,6 +105,33 @@ def test_homework_read_is_a_single_round_trip(client, db_session, count_queries)
         f"GET /api/homework 发了 {count_queries['n']} 条查询。"
         "报课、学员、场次、作业能在一条 JOIN 里取全——每条报课至多对应一名学员、"
         "一场、一份作业，不会产生笛卡尔积。"
+    )
+
+
+def test_homework_read_with_rubric_data_stays_a_single_round_trip(client, db_session, count_queries):
+    """满分表加进来之后，这条约束还在——标量子查询是同一条 SQL 的一部分，
+    不是应用发出的第二次调用。"""
+    course = _seed(db_session)
+    course_id = str(course.id)
+    db_session.add(
+        HomeworkSubmission(
+            student_email="alpha@example.com",
+            course_id=course.id,
+            submitted_at=date(2026, 7, 15),
+            total=45,
+            scores=[{"item": "A1", "score": 45}],
+        )
+    )
+    db_session.add(HomeworkRubricItem(course_id=course.id, item="A1", max_score=50))
+    db_session.commit()
+    count_queries["n"] = 0
+
+    resp = client.get(f"/api/homework?course={course_id}")
+
+    assert resp.status_code == 200
+    assert count_queries["n"] == 1, (
+        f"GET /api/homework（含满分数据）发了 {count_queries['n']} 条查询——"
+        "满分表要用标量子查询嵌进主 SELECT，不能单独发一次 session.exec。"
     )
 
 

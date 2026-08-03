@@ -10,12 +10,15 @@ import {
   createCourseAction,
   deleteSessionAction,
   followDateAction,
+  getRubricAction,
   removeAliasAction,
+  saveRubricAction,
   updateCourseAction,
   updateSessionAction,
   type ActionResult,
 } from "./actions";
 import { BLANK_COURSE, CourseModal, formFrom, type CourseForm } from "./CourseModal";
+import { RubricEditor } from "./RubricEditor";
 import { SessionRows } from "./SessionRows";
 import type { Course } from "./types";
 
@@ -391,6 +394,8 @@ function CourseDetail({
           onAdd={onAddSession}
         />
       </Card>
+
+      <RubricEditor courseId={course.id} onLoad={getRubricAction} onSave={saveRubricAction} />
     </div>
   );
 }

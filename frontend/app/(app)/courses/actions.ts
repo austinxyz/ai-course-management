@@ -10,10 +10,13 @@ import {
   createCourse,
   deleteSession,
   followSessionDate,
+  getHomeworkRubric,
   removeAlias,
+  saveHomeworkRubric,
   updateCourse,
   updateSession,
   type CoursePatch,
+  type RubricItem,
   type SessionPatch,
 } from "@/lib/api";
 import { checkSitePassword } from "@/lib/site-password";
@@ -98,4 +101,18 @@ export async function deleteSessionAction(
   sessionId: string,
 ): Promise<ActionResult> {
   return run(() => deleteSession(id, sessionId));
+}
+
+/** 一门课的评分表。读也要过凭据——Server Function 是页面路由上的一个 POST 端点，
+ * 能发这个 POST 的人就能到这里，`proxy.ts` 盖住页面加载证明不了什么。 */
+export async function getRubricAction(courseId: string): Promise<RubricItem[]> {
+  await requireSitePassword();
+  return getHomeworkRubric(courseId);
+}
+
+export async function saveRubricAction(
+  courseId: string,
+  items: RubricItem[],
+): Promise<ActionResult> {
+  return run(() => saveHomeworkRubric(courseId, items));
 }

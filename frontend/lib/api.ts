@@ -288,6 +288,41 @@ export async function getTeachers(): Promise<string[]> {
 }
 
 
+/** 一门课评分表里的一行。后端形状原样透传，不做 snake→camel 映射。 */
+export interface RubricItem {
+  item: string;
+  max_score: number | null;
+}
+
+/**
+ * 一门课的评分表：分项名字系统自动列出，各自的满分（未配置为 `null`）。
+ *
+ * 分项名字不是讲师手打的——取自该课程已导入成绩里实际出现过的值，
+ * 保证名字始终跟真实数据一致。
+ */
+export async function getHomeworkRubric(courseId: string): Promise<RubricItem[]> {
+  const res = await fetch(
+    backendUrl(`/api/homework/rubric?course=${courseId}`),
+    backendRequestInit(),
+  );
+  if (!res.ok) throw new Error(`getHomeworkRubric failed: ${res.status}`);
+  return res.json();
+}
+
+/**
+ * 整表覆盖式写入——跟 `homework` 导入同一套哲学：写入语义是"以这次提交为准"，
+ * 不是"只改我传的那几个字段"。
+ */
+export async function saveHomeworkRubric(
+  courseId: string,
+  items: RubricItem[],
+): Promise<RubricItem[]> {
+  return backendWrite("/api/homework/rubric", "PUT", {
+    course_id: courseId,
+    items,
+  }) as Promise<RubricItem[]>;
+}
+
 export interface CoursePatch {
   name?: string;
   short?: string;
@@ -445,7 +480,7 @@ interface ApiHomeworkPerson {
   state: string;
   submitted_at: string | null;
   total: number | null;
-  scores: { item: string; score: number }[];
+  scores: { item: string; score: number; max: number | null }[];
   highlight: string;
   improve: string;
   reply_status: string;
@@ -455,6 +490,7 @@ interface ApiHomeworkPerson {
   submission_id: string | null;
   replied: boolean;
   replied_at: string | null;
+  total_max: number | null;
 }
 
 /**
@@ -578,6 +614,7 @@ export async function getHomework(courseId: string): Promise<HomeworkPerson[]> {
     submissionId: api.submission_id,
     replied: api.replied,
     repliedAt: api.replied_at,
+    totalMax: api.total_max,
   }));
 }
 

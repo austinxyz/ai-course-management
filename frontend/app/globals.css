@@ -30,6 +30,12 @@
   --color-success: #4c8a63;
   --color-success-fg: #ffffff;
 
+  /* Third tier for the homework-rubric 90/70 threshold coloring — between
+     success and danger. Not reused elsewhere yet; keep it named for what it
+     means (a mid-range score), not for one screen. */
+  --color-warning: #b8860b;
+  --color-warning-fg: #ffffff;
+
   /* Sidebar is a dark page-chrome panel, not a reusable component token —
      kept separate from the surface/bg tokens above. */
   --color-sidebar: #1c1b18;
@@ -77,6 +83,9 @@
 
   --color-success: var(--color-success);
   --color-success-foreground: var(--color-success-fg);
+
+  --color-warning: var(--color-warning);
+  --color-warning-foreground: var(--color-warning-fg);
 
   --color-sidebar: var(--color-sidebar);
   --color-sidebar-border: var(--color-sidebar-border);

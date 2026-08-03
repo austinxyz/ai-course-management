@@ -439,6 +439,9 @@ class ScoreItem(BaseModel):
 
     item: str
     score: int
+    # 该分项在这门课配的满分。未配置为 None——满分不在 grades.csv 里，
+    # 是应用内单独维护的课程级配置，多数分项默认没有这个数。
+    max: int | None = None
 
 
 class HomeworkRow(BaseModel):
@@ -590,8 +593,32 @@ class HomeworkPersonRead(BaseModel):
     # 没有提交的人这三项分别是 None / False / None——讲师标记只对已交的
     # 提交有意义，没交的人无从标记。
     submission_id: uuid.UUID | None = None
+    # 该课程全部分项都配了满分时，是各分项满分之和；否则为 None——满分总和
+    # 少一项就等于分母算错了，宁可不显示也不显示一个基于错误分母的比例。
+    total_max: int | None = None
     replied: bool = False
     replied_at: datetime | None = None
+
+
+class RubricItemRead(BaseModel):
+    """课程页评分表里的一行：一个分项名 + 它当前配的满分（未配置为 `null`）。"""
+
+    item: str
+    max_score: int | None
+
+
+class RubricItemWrite(BaseModel):
+    """讲师提交的一行：`max_score` 为 `null` 表示"不配置"（删除已有配置）。"""
+
+    item: str
+    max_score: int | None
+
+
+class RubricSaveRequest(BaseModel):
+    """整表覆盖式写入——跟 `homework` 导入同一套哲学，写入语义是"以这次提交为准"。"""
+
+    course_id: uuid.UUID
+    items: list[RubricItemWrite]
 
 
 class HomeworkReplyMarkRead(BaseModel):

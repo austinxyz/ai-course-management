@@ -1,7 +1,13 @@
-/** 一个分项：列名 + 原始分。没有满分——满分不在 `grades.csv` 里。 */
+/**
+ * 一个分项：列名 + 原始分 + 满分（`max`）。
+ *
+ * 满分不在 `grades.csv` 里，是应用内单独维护的课程级配置（见课程页的评分标准
+ * 维护入口），未配置时为 `null`——这种情况下只显示原始分，不显示比例条形图。
+ */
 export interface ScoreItem {
   item: string;
   score: number;
+  max: number | null;
 }
 
 /** 作业名单里的一个人。 */
@@ -28,6 +34,9 @@ export interface HomeworkPerson {
   /** 讲师手动标记，独立于 `replyStatus`，不受重新导入影响。「待回复」筛选看这个字段。 */
   replied: boolean;
   repliedAt: string | null;
+  /** 这门课全部分项都配了满分时是各分项满分之和，否则为 `null`——
+   * 满分总和少一项就等于分母算错了，宁可不显示也不显示一个基于错误分母的比例。 */
+  totalMax: number | null;
 }
 
 /** 课程 chips 用的最小形状。 */

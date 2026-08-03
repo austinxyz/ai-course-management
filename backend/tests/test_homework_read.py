@@ -20,6 +20,7 @@ from app.models import (
     Course,
     CourseSession,
     Enrollment,
+    HomeworkRubricItem,
     HomeworkSubmission,
     Student,
 )
@@ -335,7 +336,7 @@ class TestPayload:
         assert row["name"] == "学员甲"
         assert row["total"] == 77
         assert row["submitted_at"] == "2026-06-11"
-        assert row["scores"] == [{"item": "A1工作流结构", "score": 77}]
+        assert row["scores"] == [{"item": "A1工作流结构", "score": 77, "max": None}]
         assert row["highlight"] == "亮点"
         assert row["improve"] == "改进"
         # 原样，不归一化
@@ -409,3 +410,60 @@ def test_anonymous_callers_are_turned_away(anon_client, db_session):
     course = _course(db_session)
 
     assert anon_client.get(f"/api/homework?course={course.id}").status_code == 401
+
+
+class TestRubricInList:
+    """满分附着到 `GET /api/homework` 的响应上——分项的 `max`、总分的 `total_max`。
+
+    满分表独立存储，`GET /api/homework` 的单次往返约束不能被打破：这里只验证
+    最终响应体，不是往返次数本身（那条断言在 test_homework_rubric.py）。
+    """
+
+    def test_scores_carry_configured_max_and_total_carries_total_max(
+        self, client, db_session
+    ):
+        course = _course(db_session)
+        _student(db_session, "hw-alpha@example.com", "学员甲")
+        _enroll(db_session, "hw-alpha@example.com", course, None)
+        row = HomeworkSubmission(
+            student_email="hw-alpha@example.com",
+            course_id=course.id,
+            submitted_at=date(2026, 6, 11),
+            total=83,
+            scores=[{"item": "A1", "score": 45}, {"item": "D2", "score": 38}],
+        )
+        db_session.add(row)
+        db_session.add(HomeworkRubricItem(course_id=course.id, item="A1", max_score=50))
+        db_session.add(HomeworkRubricItem(course_id=course.id, item="D2", max_score=50))
+        db_session.commit()
+
+        person = _fetch(client, course)[0]
+
+        assert person["scores"] == [
+            {"item": "A1", "score": 45, "max": 50},
+            {"item": "D2", "score": 38, "max": 50},
+        ]
+        assert person["total_max"] == 100
+
+    def test_total_max_is_none_when_one_item_is_unconfigured(self, client, db_session):
+        course = _course(db_session)
+        _student(db_session, "hw-alpha@example.com", "学员甲")
+        _enroll(db_session, "hw-alpha@example.com", course, None)
+        row = HomeworkSubmission(
+            student_email="hw-alpha@example.com",
+            course_id=course.id,
+            submitted_at=date(2026, 6, 11),
+            total=83,
+            scores=[{"item": "A1", "score": 45}, {"item": "D2", "score": 38}],
+        )
+        db_session.add(row)
+        db_session.add(HomeworkRubricItem(course_id=course.id, item="A1", max_score=50))
+        # D2 没配满分。
+        db_session.commit()
+
+        person = _fetch(client, course)[0]
+
+        assert person["total_max"] is None
+        # 已配置的那一项仍然正确返回，不因为总分不完整就一起消失。
+        assert person["scores"][0] == {"item": "A1", "score": 45, "max": 50}
+        assert person["scores"][1] == {"item": "D2", "score": 38, "max": None}

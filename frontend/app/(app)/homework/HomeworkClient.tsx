@@ -50,6 +50,30 @@ const STATE = {
 type Filter = "all" | "submitted" | "missing" | "pending_reply";
 
 /**
+ * 分项/总分按比例落入的三档。阈值与颜色是详情面板、名单迷你竖条共用的
+ * 同一套语言——同一个比例在两处必须读出同一件事。
+ */
+type Tone = "success" | "warning" | "danger";
+
+function scoreTone(ratio: number): Tone {
+  if (ratio >= 0.9) return "success";
+  if (ratio >= 0.7) return "warning";
+  return "danger";
+}
+
+const TONE_TEXT: Record<Tone, string> = {
+  success: "text-success",
+  warning: "text-warning",
+  danger: "text-danger",
+};
+
+const TONE_BG: Record<Tone, string> = {
+  success: "bg-success",
+  warning: "bg-warning",
+  danger: "bg-danger",
+};
+
+/**
  * 待回复 = 已交，且讲师没有手动标记为已回复。
  *
  * 不看源文件的 `replyStatus`：那一列每次重新导入整列覆盖，讲师实际回复
@@ -259,6 +283,7 @@ export function HomeworkClient({
                       <Th>学员</Th>
                       <Th>提交时间</Th>
                       <Th>总分</Th>
+                      <Th>分项</Th>
                       <Th>回复</Th>
                     </tr>
                   </thead>
@@ -316,6 +341,32 @@ export function HomeworkClient({
                               {/* 没交的人是「—」，不是 0 —— 0 是一个真实的分数 */}
                               {p.total ?? "—"}
                             </span>
+                          </Td>
+                          <Td>
+                            {/* 迷你竖条：不点进详情就能看出这个人哪几项弱。
+                                只给配了满分的分项画柱子——没有满分就没有比例可言。 */}
+                            {p.scores.some((s) => s.max !== null) && (
+                              <div
+                                data-testid={`sparkline-${p.studentEmail}`}
+                                className="flex items-end gap-0.5"
+                                style={{ height: "20px" }}
+                              >
+                                {p.scores
+                                  .filter((s): s is typeof s & { max: number } => s.max !== null)
+                                  .map((s) => {
+                                    const ratio = s.max > 0 ? s.score / s.max : 0;
+                                    return (
+                                      <span
+                                        key={s.item}
+                                        data-testid={`spark-bar-${p.studentEmail}-${s.item}`}
+                                        title={`${s.item} ${s.score}/${s.max}`}
+                                        className={cn("w-1.5 flex-none rounded-sm", TONE_BG[scoreTone(ratio)])}
+                                        style={{ height: `${Math.max(4, Math.round(ratio * 20))}px` }}
+                                      />
+                                    );
+                                  })}
+                              </div>
+                            )}
                           </Td>
                           <Td>
                             {/* 讲师标记比源文件那列更可信——那一列每次导入整列
@@ -399,13 +450,33 @@ function DetailPanel({ person, courseName }: { person: HomeworkPerson; courseNam
         </div>
       ) : (
         <>
-          <div className="flex items-baseline gap-2.5">
-            <span className="font-mono text-[26px] leading-none">{person.total}</span>
-            {/* 只有名次，没有满分——满分不在 grades.csv 里 */}
-            {person.rank !== null && (
-              <span className="font-mono text-[11.5px] text-muted-foreground">
-                本课第 {person.rank} / {person.rankOf}
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-baseline gap-2.5">
+              <span
+                className={cn(
+                  "font-mono text-[26px] leading-none",
+                  person.totalMax !== null &&
+                    person.total !== null &&
+                    TONE_TEXT[scoreTone(person.total / person.totalMax)],
+                )}
+              >
+                {person.total}
               </span>
+              {/* 有名次；满分只有该课全部分项都配了才显示——少一项就等于分母算错了。 */}
+              {person.rank !== null && (
+                <span className="font-mono text-[11.5px] text-muted-foreground">
+                  本课第 {person.rank} / {person.rankOf}
+                </span>
+              )}
+            </div>
+            {person.totalMax !== null && person.total !== null && (
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-muted">
+                <div
+                  data-testid="total-progress-fill"
+                  className={cn("h-full rounded-full", TONE_BG[scoreTone(person.total / person.totalMax)])}
+                  style={{ width: `${Math.round((person.total / person.totalMax) * 100)}%` }}
+                />
+              </div>
             )}
           </div>
 
@@ -414,20 +485,40 @@ function DetailPanel({ person, courseName }: { person: HomeworkPerson; courseNam
               分项 {person.scores.length} 项 · 原始分
             </span>
             <div className="overflow-hidden rounded-token border border-border">
-              {person.scores.map((s, i) => (
-                <div
-                  key={s.item}
-                  data-testid={`score-${s.item}`}
-                  className={cn(
-                    "flex items-center justify-between px-2.5 py-1.5 font-sans text-[12px]",
-                    i % 2 ? "bg-surface-muted" : "bg-surface",
-                  )}
-                >
-                  <span>{s.item}</span>
-                  {/* 原始分，没有 `/满分`：满分不在源文件里 */}
-                  <span className="font-mono">{s.score}</span>
-                </div>
-              ))}
+              {person.scores.map((s, i) => {
+                const ratio = s.max !== null && s.max > 0 ? s.score / s.max : null;
+                const tone = ratio !== null ? scoreTone(ratio) : null;
+                return (
+                  <div
+                    key={s.item}
+                    data-testid={`score-${s.item}`}
+                    className={cn(
+                      "flex items-center justify-between gap-3 px-2.5 py-1.5 font-sans text-[12px]",
+                      i % 2 ? "bg-surface-muted" : "bg-surface",
+                    )}
+                  >
+                    <span>{s.item}</span>
+                    <div className="flex items-center gap-2">
+                      {/* 没配满分的项不画条形图——没有比例可言。 */}
+                      {s.max !== null && (
+                        <span className="h-1 w-14 flex-none overflow-hidden rounded-full bg-surface-muted">
+                          <span
+                            data-testid={`score-bar-${s.item}`}
+                            className={cn("block h-full rounded-full", tone && TONE_BG[tone])}
+                            style={{ width: `${Math.round((ratio ?? 0) * 100)}%` }}
+                          />
+                        </span>
+                      )}
+                      <span
+                        data-testid={`score-text-${s.item}`}
+                        className={cn("font-mono", tone && TONE_TEXT[tone])}
+                      >
+                        {s.max !== null ? `${s.score} / ${s.max}` : s.score}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
 

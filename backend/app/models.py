@@ -1,7 +1,7 @@
 import uuid
 from datetime import date, datetime, time, timezone
 
-from sqlalchemy import Column
+from sqlalchemy import CheckConstraint, Column
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, SQLModel
 
@@ -128,6 +128,24 @@ class HomeworkSubmission(SQLModel, table=True):
     replied: bool = Field(default=False)
     replied_at: datetime | None = Field(default=None)
     # synced_at / created_at 同 Course：DB 有 now() 默认值，应用不读不写，不映射。
+
+
+class HomeworkRubricItem(SQLModel, table=True):
+    """一门课某个分项的满分。讲师在课程页维护。
+
+    独立于 `HomeworkSubmission.scores`（那是 item+score 的 jsonb 数组）——满分是
+    课程级配置，不该跟着每条提交重复存，改满分不需要重写历史提交。
+
+    "未配置" 用**这一行不存在**表达，不用可空列 + 哨兵值：少一种"到底是没配还是
+    配了个空值"的歧义。
+    """
+
+    __tablename__ = "homework_rubric_items"
+    __table_args__ = (CheckConstraint("max_score > 0", name="max_score_positive"),)
+
+    course_id: uuid.UUID = Field(foreign_key="courses.id", primary_key=True)
+    item: str = Field(primary_key=True)
+    max_score: int
 
 
 class HomeworkExcludedEmail(SQLModel, table=True):

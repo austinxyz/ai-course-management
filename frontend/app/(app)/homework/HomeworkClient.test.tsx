@@ -35,8 +35,8 @@ function person(over: Partial<HomeworkPerson> = {}): HomeworkPerson {
     submittedAt: "2026-06-11",
     total: 77,
     scores: [
-      { item: "A1工作流结构", score: 11 },
-      { item: "A3Cowork特性", score: 0 },
+      { item: "A1工作流结构", score: 11, max: null },
+      { item: "A3Cowork特性", score: 0, max: null },
     ],
     highlight: "Agent1 提示词详细",
     improve: "补中间输出",
@@ -47,6 +47,7 @@ function person(over: Partial<HomeworkPerson> = {}): HomeworkPerson {
     submissionId: "sub-alpha",
     replied: false,
     repliedAt: null,
+    totalMax: null,
     ...over,
   };
 }
@@ -482,5 +483,114 @@ describe("表格不能被裁掉", () => {
     const frame = screen.getByTestId("homework-alpha@example.com").closest("table")
       ?.parentElement;
     expect(frame?.className).toContain("flex-none");
+  });
+});
+
+describe("分项满分：X / 满分 + 条形图三档染色", () => {
+  it("配了满分时显示比例并按≥90%染成绿色", async () => {
+    view([
+      person({
+        scores: [{ item: "A1", score: 48, max: 50 }],
+      }),
+    ]);
+    await userEvent.setup().click(screen.getByTestId("homework-alpha@example.com"));
+
+    expect(screen.getByTestId("score-text-A1")).toHaveTextContent("48 / 50");
+    expect(screen.getByTestId("score-text-A1").className).toContain("text-success");
+    expect(screen.getByTestId("score-bar-A1").className).toContain("bg-success");
+  });
+
+  it("70%-90% 之间染成黄色", async () => {
+    view([person({ scores: [{ item: "A1", score: 39, max: 50 }] })]); // 78%
+    await userEvent.setup().click(screen.getByTestId("homework-alpha@example.com"));
+
+    expect(screen.getByTestId("score-text-A1").className).toContain("text-warning");
+    expect(screen.getByTestId("score-bar-A1").className).toContain("bg-warning");
+  });
+
+  it("低于 70% 染成红色", async () => {
+    view([person({ scores: [{ item: "A1", score: 27, max: 50 }] })]); // 54%
+    await userEvent.setup().click(screen.getByTestId("homework-alpha@example.com"));
+
+    expect(screen.getByTestId("score-text-A1").className).toContain("text-danger");
+    expect(screen.getByTestId("score-bar-A1").className).toContain("bg-danger");
+  });
+
+  it("没有配满分时只显示原始分，不渲染条形图", async () => {
+    view([person({ scores: [{ item: "A1", score: 35, max: null }] })]);
+    await userEvent.setup().click(screen.getByTestId("homework-alpha@example.com"));
+
+    expect(screen.getByTestId("score-text-A1")).toHaveTextContent("35");
+    expect(screen.queryByTestId("score-bar-A1")).toBeNull();
+  });
+});
+
+describe("总分进度条：仅在该提交全部分项都配了满分时出现", () => {
+  it("全部配齐时显示按比例进度条与对应颜色", async () => {
+    view([
+      person({
+        total: 96,
+        totalMax: 100,
+        scores: [
+          { item: "A1", score: 48, max: 50 },
+          { item: "D2", score: 48, max: 50 },
+        ],
+      }),
+    ]);
+    await userEvent.setup().click(screen.getByTestId("homework-alpha@example.com"));
+
+    const bar = screen.getByTestId("total-progress-fill");
+    expect(bar.className).toContain("bg-success");
+    expect(bar.style.width).toBe("96%");
+  });
+
+  it("有分项未配满分时，总分只显示数字，不渲染进度条", async () => {
+    view([
+      person({
+        total: 73,
+        totalMax: null,
+        scores: [
+          { item: "A1", score: 38, max: 50 },
+          { item: "D2", score: 35, max: null },
+        ],
+      }),
+    ]);
+    await userEvent.setup().click(screen.getByTestId("homework-alpha@example.com"));
+
+    expect(screen.getAllByText("73").length).toBeGreaterThan(0);
+    expect(screen.queryByTestId("total-progress-fill")).toBeNull();
+  });
+});
+
+describe("名单表格：迷你竖条", () => {
+  it("配了满分的分项渲染出按比例染色的竖条", () => {
+    view([
+      person({
+        scores: [
+          { item: "A1", score: 48, max: 50 },
+          { item: "D2", score: 48, max: 50 },
+        ],
+      }),
+    ]);
+
+    const spark = screen.getByTestId("sparkline-alpha@example.com");
+    const bars = within(spark).getAllByTestId(/^spark-bar-/);
+    expect(bars).toHaveLength(2);
+    expect(bars[0].className).toContain("bg-success");
+  });
+
+  it("没配满分的分项不产生竖条", () => {
+    view([
+      person({
+        scores: [
+          { item: "A1", score: 48, max: 50 },
+          { item: "D2", score: 35, max: null },
+        ],
+      }),
+    ]);
+
+    const spark = screen.getByTestId("sparkline-alpha@example.com");
+    const bars = within(spark).getAllByTestId(/^spark-bar-/);
+    expect(bars).toHaveLength(1);
   });
 });
