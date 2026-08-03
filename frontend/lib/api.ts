@@ -425,6 +425,17 @@ function toEnrollment(api: ApiEnrollment): Enrollment {
   };
 }
 
+/**
+ * 全部课程合计的作业提交总数。侧边栏徽标用——跟按课程查的 `getHomework`
+ * 是两个不同的接口，这个不带 `course` 参数。
+ */
+export async function getHomeworkCount(): Promise<number> {
+  const res = await fetch(backendUrl("/api/homework/count"), backendRequestInit());
+  if (!res.ok) throw new Error(`getHomeworkCount failed: ${res.status}`);
+  const data: { total: number } = await res.json();
+  return data.total;
+}
+
 export async function getEnrollments(): Promise<Enrollment[]> {
   const res = await fetch(backendUrl("/api/enrollments"), backendRequestInit());
   if (!res.ok) throw new Error(`getEnrollments failed: ${res.status}`);

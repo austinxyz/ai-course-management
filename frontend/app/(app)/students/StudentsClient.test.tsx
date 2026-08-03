@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { StudentsClient } from "./StudentsClient";
 import type { Student } from "./types";
@@ -29,6 +29,23 @@ describe("StudentsClient", () => {
     // must carry the danger token.
     const badges = screen.getAllByText("未对齐微信");
     expect(badges.some((el) => el.className.match(/bg-danger/))).toBe(true);
+  });
+
+  it("按姓名排序展示，不把未对齐微信的人单独排到最前面", () => {
+    // 三人本来就按姓名传进来（后端已经排好序）：艾米（无微信）、鲍勃（有微信）、
+    // 陈晨（无微信）。以前的实现会先按"有没有微信"重排，鲍勃会被挤到最后——
+    // 名单的顺序因此跟"谁交流过微信"这件事绑在一起，而不是单纯的姓名序。
+    const students: Student[] = [
+      { ...unalignedStudent, name: "艾米", email: "amy@example.com", wechat: "" },
+      { ...unalignedStudent, name: "鲍勃", email: "bob@example.com", wechat: "wx_bob" },
+      { ...unalignedStudent, name: "陈晨", email: "chen@example.com", wechat: "" },
+    ];
+
+    render(<StudentsClient students={students} archivedStudents={[]} enrollments={[]} courses={[]} />);
+
+    const table = screen.getByRole("table");
+    const rows = within(table).getAllByText(/^(艾米|鲍勃|陈晨)$/);
+    expect(rows.map((el) => el.textContent)).toEqual(["艾米", "鲍勃", "陈晨"]);
   });
 
   it("does not show a synthesized 学员 ID", () => {

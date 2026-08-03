@@ -3,7 +3,10 @@ import { describe, expect, it, vi } from "vitest";
 import AppLayout from "./layout";
 
 const getStudents = vi.hoisted(() => vi.fn(async () => [{ email: "a@example.com" }]));
-vi.mock("@/lib/api", () => ({ getStudents }));
+const getCourses = vi.hoisted(() => vi.fn(async () => [{ id: "c-1" }]));
+const getEnrollments = vi.hoisted(() => vi.fn(async () => [{ id: "e-1" }, { id: "e-2" }]));
+const getHomeworkCount = vi.hoisted(() => vi.fn(async () => 5));
+vi.mock("@/lib/api", () => ({ getStudents, getCourses, getEnrollments, getHomeworkCount }));
 vi.mock("next/navigation", () => ({ usePathname: () => "/enroll" }));
 
 /**
@@ -40,12 +43,19 @@ describe("AppLayout", () => {
    * promise handed down must never reject; an unknown count is `undefined`,
    * which the sidebar already renders as `—`.
    */
-  it("hands down an unknown count rather than a rejection when the fetch fails", async () => {
+  it("hands down an unknown count for just the badge that failed, not the whole promise", async () => {
     getStudents.mockRejectedValueOnce(new Error("backend unreachable"));
 
     const element = AppLayout({ children: null }) as { props: { children: unknown[] } };
-    const suspense = element.props.children[0] as { props: { children: { props: { count: Promise<unknown> } } } };
+    const suspense = element.props.children[0] as {
+      props: { children: { props: { counts: Promise<Record<string, number | undefined>> } } };
+    };
 
-    await expect(suspense.props.children.props.count).resolves.toBeUndefined();
+    const counts = await suspense.props.children.props.counts;
+    // 学员这一项失败了，但课程/报课/作业照常拿到——一个坏了不该把其余三个也拖垮。
+    expect(counts.students).toBeUndefined();
+    expect(counts.courses).toBe(1);
+    expect(counts.enroll).toBe(2);
+    expect(counts.homework).toBe(5);
   });
 });

@@ -43,6 +43,7 @@ from app.schemas import (
     ExcludedEmailCreate,
     ExcludedEmailRead,
     HeaderMismatch,
+    HomeworkCountRead,
     HomeworkImportRead,
     HomeworkImportRequest,
     HomeworkImportResult,
@@ -225,10 +226,28 @@ def list_homework(
                 total_max=total_max,
             )
         )
-    # 名单本身也要有确定顺序：没有排序的话，编辑过的记录会跑到最后——
+    # 按总分降序——先看到的是做得最好的人。没交的人没有总分，排在已交的人
+    # 之后（`total is None` 排序时当成负无穷处理）；同分或都没交时按姓名、
+    # 邮箱兜底，保证确定顺序——没有兜底键的话，编辑过的记录会跑到最后，
     # 位置记的是最后一次写入时间，而不是数据本身的任何属性。
-    result.sort(key=lambda person: (person.name, person.student_email))
+    result.sort(
+        key=lambda person: (
+            0 if person.total is not None else 1,
+            -person.total if person.total is not None else 0,
+            person.name,
+            person.student_email,
+        )
+    )
     return result
+
+
+@router.get("/count", response_model=HomeworkCountRead)
+def count_homework(session: Session = Depends(get_session)) -> HomeworkCountRead:
+    """全部课程合计的提交总数。侧边栏徽标用——那里要的是"总共积了多少作业"，
+    不是某一门课的名单，所以不带 `course` 参数，直接数 `homework_submissions` 整张表。
+    """
+    total = session.exec(select(func.count()).select_from(HomeworkSubmission)).one()
+    return HomeworkCountRead(total=total)
 
 
 def _too_large() -> HTTPException:

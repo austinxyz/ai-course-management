@@ -5,14 +5,18 @@ import { usePathname } from "next/navigation";
 
 import { cn } from "@/lib/cn";
 import { NAV } from "./vocab";
+import type { NavKey } from "./types";
 
 interface SidebarProps {
   /**
-   * Omitted on pages that do not fetch the roster. The badge then shows `—`
-   * rather than 0 — a page that never counted must not claim there are none.
-   * The same `—` is what shows while the count is still in flight.
+   * Keyed by nav item — `students`/`courses`/`enroll`/`homework` all get a
+   * live total the same way. A key missing from the map (or the whole prop
+   * omitted) shows `—` rather than 0 — a page that never counted must not
+   * claim there are none. The same `—` is what shows while the count is
+   * still in flight. `nudge`/`interactions` are placeholder pages with no
+   * backing data yet, so they're never in this map and always show `—`.
    */
-  studentCount?: number;
+  counts?: Partial<Record<NavKey, number>>;
 }
 
 /**
@@ -23,7 +27,7 @@ interface SidebarProps {
  * from the URL after a back/forward. The route is the answer to "where am I",
  * so read it directly.
  */
-export function Sidebar({ studentCount }: SidebarProps) {
+export function Sidebar({ counts }: SidebarProps) {
   const pathname = usePathname();
   const activeKey = NAV.find((item) => pathname.startsWith(item.href))?.key;
 
@@ -46,12 +50,13 @@ export function Sidebar({ studentCount }: SidebarProps) {
       <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto p-2">
         {NAV.map((item) => {
           const active = activeKey === item.key;
-          const count =
-            item.key === "students" && studentCount !== undefined ? String(studentCount) : "—";
+          const itemCount = counts?.[item.key];
+          const count = itemCount !== undefined ? String(itemCount) : "—";
           return (
             <Link
               key={item.key}
               href={item.href}
+              data-testid={`nav-${item.key}`}
               aria-current={active ? "page" : undefined}
               className={cn(
                 "flex h-[34px] w-full items-center justify-between gap-2 rounded-token border-0 pr-2.5 text-left font-sans text-[13px]",

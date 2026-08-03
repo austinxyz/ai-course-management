@@ -126,7 +126,11 @@ export function StudentsClient({
       if (source && s.source !== source) return false;
       return true;
     });
-    return filtered.slice().sort((a, b) => (a.wechat ? 1 : 0) - (b.wechat ? 1 : 0));
+    // 按姓名排序由后端决定（`GET /api/students` 已经 `ORDER BY name, email`），
+    // 这里不重排。找未对齐微信的人走上面的 `align === "unaligned"` 筛选，
+    // 不该靠排序把他们顶到最前——排序顶到最前会让"名单顺序"这件事绑定在
+    // "谁交流过微信"上，而不是单纯的姓名序。
+    return filtered;
   }, [data, query, align, tag, source]);
 
   const isFiltered = !!query || align !== "all" || tag.length > 0 || !!source;

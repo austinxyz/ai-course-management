@@ -621,6 +621,13 @@ class RubricSaveRequest(BaseModel):
     items: list[RubricItemWrite]
 
 
+class HomeworkCountRead(BaseModel):
+    """作业提交总数（全部课程合计）。侧边栏徽标用——不带 `course`，跟
+    `GET /api/homework` 那种按课程查的接口是两回事。"""
+
+    total: int
+
+
 class HomeworkReplyMarkRead(BaseModel):
     """标记（或取消标记）已回复之后的响应。只报这一条提交需要的两个字段——
     调用方是详情面板上的一次按钮点击，不需要整条提交记录。"""

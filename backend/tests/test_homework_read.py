@@ -377,6 +377,26 @@ class TestPayload:
         # 源文件那列没被这次标记改写——两者独立。
         assert row["reply_status"] == "待回复"
 
+    def test_rows_are_ordered_by_total_score_descending(self, client, db_session):
+        """名单按总分降序——最先看到的是做得最好的人，不是按姓名字母序翻找。
+        没交的人没有总分，排在已交的人之后；同分或都没交时按姓名兜底，保证确定。
+        """
+        course = _course(db_session)
+        _student(db_session, "hw-mid@example.com", "学员中")
+        _enroll(db_session, "hw-mid@example.com", course, None)
+        _submit(db_session, "hw-mid@example.com", course, total=60)
+
+        _student(db_session, "hw-top@example.com", "学员高")
+        _enroll(db_session, "hw-top@example.com", course, None)
+        _submit(db_session, "hw-top@example.com", course, total=90)
+
+        _student(db_session, "hw-none@example.com", "学员无")
+        _enroll(db_session, "hw-none@example.com", course, None)
+
+        order = [r["student_email"] for r in _fetch(client, course)]
+
+        assert order == ["hw-top@example.com", "hw-mid@example.com", "hw-none@example.com"]
+
     def test_rows_are_ordered_deterministically(self, client, db_session):
         """名单本身也要有确定顺序——没有 ORDER BY 的话，编辑过的记录会跑到最后。"""
         course = _course(db_session)
@@ -467,3 +487,28 @@ class TestRubricInList:
         # 已配置的那一项仍然正确返回，不因为总分不完整就一起消失。
         assert person["scores"][0] == {"item": "A1", "score": 45, "max": 50}
         assert person["scores"][1] == {"item": "D2", "score": 38, "max": None}
+
+
+class TestHomeworkCount:
+    """`GET /api/homework/count`：全部课程合计的提交总数，供侧边栏徽标用。"""
+
+    def test_counts_submissions_across_all_courses(self, client, db_session):
+        course_a = _course(db_session, name="课程甲", short="S1")
+        course_b = _course(db_session, name="课程乙", short="S2")
+        _student(db_session, "hw-count-a@example.com", "学员甲")
+        _enroll(db_session, "hw-count-a@example.com", course_a, None)
+        _submit(db_session, "hw-count-a@example.com", course_a)
+        _student(db_session, "hw-count-b@example.com", "学员乙")
+        _enroll(db_session, "hw-count-b@example.com", course_b, None)
+        _submit(db_session, "hw-count-b@example.com", course_b)
+
+        response = client.get("/api/homework/count")
+
+        assert response.status_code == 200
+        assert response.json()["total"] == 2
+
+    def test_zero_when_nothing_submitted(self, client):
+        response = client.get("/api/homework/count")
+
+        assert response.status_code == 200
+        assert response.json()["total"] == 0

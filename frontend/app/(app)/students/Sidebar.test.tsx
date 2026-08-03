@@ -17,7 +17,7 @@ vi.mock("next/navigation", () => ({ usePathname: () => pathname.current }));
 describe("Sidebar", () => {
   it("renders each section as a link to its route", () => {
     pathname.current = "/students";
-    render(<Sidebar studentCount={10} />);
+    render(<Sidebar counts={{ students: 10 }} />);
 
     expect(screen.getByRole("link", { name: /学员/ })).toHaveAttribute("href", "/students");
     expect(screen.getByRole("link", { name: /课程/ })).toHaveAttribute("href", "/courses");
@@ -31,7 +31,7 @@ describe("Sidebar", () => {
    */
   it("marks the section matching the current route, with no prop passed", () => {
     pathname.current = "/courses";
-    render(<Sidebar studentCount={10} />);
+    render(<Sidebar counts={{ students: 10 }} />);
 
     expect(screen.getByRole("link", { name: /课程/ })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: /学员/ })).not.toHaveAttribute("aria-current");
@@ -54,9 +54,31 @@ describe("Sidebar", () => {
 
   it("follows the route when it changes", () => {
     pathname.current = "/enroll";
-    render(<Sidebar studentCount={10} />);
+    render(<Sidebar counts={{ students: 10 }} />);
 
     expect(screen.getByRole("link", { name: /报课/ })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: /课程/ })).not.toHaveAttribute("aria-current");
+  });
+
+  /**
+   * 课程/报课/作业三个徽标跟学员用同一套机制——数字来自各自的总数取数，
+   * 未取到时同样显示 `—`，不是只有学员那一个有徽标。
+   */
+  it("shows counts for courses, enroll and homework too", () => {
+    pathname.current = "/students";
+    render(<Sidebar counts={{ students: 10, courses: 4, enroll: 22, homework: 17 }} />);
+
+    expect(screen.getByRole("link", { name: /课程/ })).toHaveTextContent("4");
+    expect(screen.getByRole("link", { name: /报课/ })).toHaveTextContent("22");
+    expect(screen.getByTestId("nav-homework")).toHaveTextContent("17");
+  });
+
+  it("courses/enroll/homework show — when their count is missing, same as students", () => {
+    pathname.current = "/students";
+    render(<Sidebar counts={{ students: 10 }} />);
+
+    expect(screen.getByRole("link", { name: /课程/ })).toHaveTextContent("—");
+    expect(screen.getByRole("link", { name: /报课/ })).toHaveTextContent("—");
+    expect(screen.getByTestId("nav-homework")).toHaveTextContent("—");
   });
 });

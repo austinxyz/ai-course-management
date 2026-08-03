@@ -18,11 +18,11 @@ vi.mock("next/navigation", () => ({ usePathname: () => "/enroll" }));
  */
 describe("SidebarWithCount", () => {
   it("lets the shell render while the count is still in flight", () => {
-    const never = new Promise<number>(() => {});
+    const never = new Promise<Partial<Record<import("./students/types").NavKey, number>>>(() => {});
 
     render(
       <Suspense fallback={<div data-testid="shell">壳先出来了</div>}>
-        <SidebarWithCount count={never} />
+        <SidebarWithCount counts={never} />
       </Suspense>,
     );
 
@@ -35,7 +35,7 @@ describe("SidebarWithCount", () => {
     await act(async () => {
       render(
         <Suspense fallback={<div>…</div>}>
-          <SidebarWithCount count={Promise.resolve(19)} />
+          <SidebarWithCount counts={Promise.resolve({ students: 19 })} />
         </Suspense>,
       );
     });

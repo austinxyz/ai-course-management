@@ -1,8 +1,9 @@
 import { Suspense } from "react";
 
-import { getStudents } from "@/lib/api";
+import { getCourses, getEnrollments, getHomeworkCount, getStudents } from "@/lib/api";
 import { Sidebar } from "./students/Sidebar";
 import { SidebarWithCount } from "./SidebarWithCount";
+import type { NavKey } from "./students/types";
 
 /**
  * The shell every data page shares.
@@ -21,20 +22,34 @@ import { SidebarWithCount } from "./SidebarWithCount";
  * and an unknown count must not be rendered as 0.
  */
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  // The rejection is swallowed on purpose. This promise is consumed by a
-  // component the layout renders itself, and `(app)/error.tsx` does not wrap
-  // the layout of its own segment — so letting it throw takes down the whole
-  // shell and lands on the root error page with no sidebar, exactly when the
-  // backend is cold. A badge is not worth the shell: an unknown count renders
-  // as `—`, which is what it already means elsewhere.
-  const count = getStudents()
-    .then((students): number | undefined => students.length)
-    .catch(() => undefined);
+  // Each rejection is swallowed *per badge*, not for the whole promise. This
+  // promise is consumed by a component the layout renders itself, and
+  // `(app)/error.tsx` does not wrap the layout of its own segment — letting
+  // any one of these throw would take down the whole shell and land on the
+  // root error page with no sidebar, exactly when the backend is cold. A
+  // badge is not worth the shell: an unknown count renders as `—`, which is
+  // what it already means elsewhere. Catching per-fetch also means one slow
+  // or failing count (say, courses) doesn't blank out the others that did
+  // come back.
+  const toCount = <T,>(items: Promise<T[]>): Promise<number | undefined> =>
+    items.then((rows) => rows.length).catch(() => undefined);
+
+  const counts: Promise<Partial<Record<NavKey, number>>> = Promise.all([
+    toCount(getStudents()),
+    toCount(getCourses()),
+    toCount(getEnrollments()),
+    getHomeworkCount().catch(() => undefined),
+  ]).then(([students, courses, enroll, homework]) => ({
+    students,
+    courses,
+    enroll,
+    homework,
+  }));
 
   return (
     <div className="flex h-screen min-h-[640px] overflow-hidden bg-background">
       <Suspense fallback={<Sidebar />}>
-        <SidebarWithCount count={count} />
+        <SidebarWithCount counts={counts} />
       </Suspense>
       {children}
     </div>
