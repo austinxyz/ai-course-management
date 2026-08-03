@@ -79,6 +79,7 @@ function view(
   people: HomeworkPerson[],
   courseId = "c1",
   lastImport: LastImport | null = null,
+  initialSelectedEmail: string | null = null,
 ) {
   return render(
     <HomeworkClient
@@ -86,6 +87,7 @@ function view(
       courseId={courseId}
       people={people}
       lastImport={lastImport}
+      initialSelectedEmail={initialSelectedEmail}
     />,
   );
 }
@@ -549,6 +551,60 @@ describe("详情面板：回复状态字段已去掉", () => {
 
     const panel = within(screen.getByTestId("homework-detail"));
     expect(panel.queryByText("回复状态")).toBeNull();
+  });
+});
+
+describe("深链接自动选中学员", () => {
+  it("initialSelectedEmail 命中名单里的人时，详情面板加载即展开", () => {
+    view([person({ studentEmail: "alpha@example.com" })], "c1", null, "alpha@example.com");
+
+    expect(screen.getByTestId("homework-detail")).toBeInTheDocument();
+  });
+
+  it("initialSelectedEmail 不在当前课程名单里时，不自动展开，也不报错", () => {
+    view([person({ studentEmail: "alpha@example.com" })], "c1", null, "nobody@example.com");
+
+    expect(screen.queryByTestId("homework-detail")).toBeNull();
+  });
+
+  it("不传 initialSelectedEmail 时行为不变——不自动展开", () => {
+    view([person({ studentEmail: "alpha@example.com" })]);
+
+    expect(screen.queryByTestId("homework-detail")).toBeNull();
+  });
+
+  /**
+   * `useState` 的初始值只在挂载那一刻生效。Next.js 在同一个 `/homework` 路由内
+   * 切换 `?student=` 走客户端过渡，`HomeworkClient` 不会重新挂载——如果只靠
+   * `useState(initialSelectedEmail)`，第二次点击不同学员的深链接会显示上一个人。
+   */
+  it("initialSelectedEmail 换成另一个值时（同一实例重渲染），详情面板跟着切换", () => {
+    const people = [
+      person({ studentEmail: "alpha@example.com", name: "甲" }),
+      person({ studentEmail: "bravo@example.com", name: "乙" }),
+    ];
+    const { rerender } = render(
+      <HomeworkClient
+        courses={COURSES}
+        courseId="c1"
+        people={people}
+        lastImport={null}
+        initialSelectedEmail="alpha@example.com"
+      />,
+    );
+    expect(within(screen.getByTestId("homework-detail")).getByText("甲")).toBeInTheDocument();
+
+    rerender(
+      <HomeworkClient
+        courses={COURSES}
+        courseId="c1"
+        people={people}
+        lastImport={null}
+        initialSelectedEmail="bravo@example.com"
+      />,
+    );
+
+    expect(within(screen.getByTestId("homework-detail")).getByText("乙")).toBeInTheDocument();
   });
 });
 

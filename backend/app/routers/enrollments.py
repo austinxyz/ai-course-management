@@ -7,7 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from app.db import get_session
-from app.models import Course, CourseSession, Enrollment
+from app.models import Course, CourseSession, Enrollment, HomeworkSubmission
 from app.routers.courses import derive_session_state
 from app.schemas import EnrollmentCreate, EnrollmentRead, EnrollmentUpdate
 
@@ -37,6 +37,7 @@ def _to_read(
     row: Enrollment,
     course: Course,
     session_row: CourseSession | None,
+    submission: HomeworkSubmission | None,
 ) -> EnrollmentRead:
     return EnrollmentRead(
         id=row.id,
@@ -49,6 +50,7 @@ def _to_read(
         state=derive_enrollment_state(row, session_row),
         source=row.source,
         note=row.note,
+        homework_total=submission.total if submission else None,
     )
 
 
@@ -64,18 +66,27 @@ def list_enrollments(
     每次数据库往返实测 ≈ 64ms（Render → Supabase），而页面的时长被最慢的接口卡住——
     三查变一查直接省掉约 128ms。这里能安全 JOIN 是因为每条报课**至多**对应一门课、
     一场，不会产生笛卡尔积；课程是内连接（外键非空），场次是外连接（可空 = 未定场次）。
+
+    第四张表 `HomeworkSubmission` 同理安全：`(student_email, course_id)` 是它的
+    唯一键，每条报课至多匹配一行——带出作业总分给学员详情页用，不额外增加往返
+    （student-homework-summary spec）。
     """
     statement = (
-        select(Enrollment, Course, CourseSession)
+        select(Enrollment, Course, CourseSession, HomeworkSubmission)
         .join(Course, Course.id == Enrollment.course_id)
         .outerjoin(CourseSession, CourseSession.id == Enrollment.session_id)
+        .outerjoin(
+            HomeworkSubmission,
+            (HomeworkSubmission.student_email == Enrollment.student_email)
+            & (HomeworkSubmission.course_id == Enrollment.course_id),
+        )
     )
     if student is not None:
         statement = statement.where(Enrollment.student_email == student)
 
     return [
-        _to_read(row, course, session_row)
-        for row, course, session_row in session.exec(statement).all()
+        _to_read(row, course, session_row, submission)
+        for row, course, session_row, submission in session.exec(statement).all()
     ]
 
 
@@ -111,7 +122,13 @@ def _read_one(row: Enrollment, session: Session) -> EnrollmentRead:
     course = session.get(Course, row.course_id)
     session_row = session.get(CourseSession, row.session_id) if row.session_id else None
     assert course is not None  # 外键保证
-    return _to_read(row, course, session_row)
+    submission = session.exec(
+        select(HomeworkSubmission).where(
+            HomeworkSubmission.student_email == row.student_email,
+            HomeworkSubmission.course_id == row.course_id,
+        )
+    ).first()
+    return _to_read(row, course, session_row, submission)
 
 
 @router.post("", response_model=EnrollmentRead, status_code=201)

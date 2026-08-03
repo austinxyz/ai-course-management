@@ -22,6 +22,7 @@ function row(over: Partial<Enrollment> = {}): Enrollment {
     state: "enrolled",
     source: "derived",
     note: "",
+    homeworkTotal: null,
     ...over,
   };
 }

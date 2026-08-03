@@ -83,4 +83,6 @@ export interface Enrollment {
   state: string;
   source: string;
   note: string;
+  /** 该学员在这门课的作业提交总分；没有提交为 null。 */
+  homeworkTotal: number | null;
 }

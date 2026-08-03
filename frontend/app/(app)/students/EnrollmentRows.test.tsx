@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { EnrollmentRows } from "./EnrollmentRows";
@@ -16,6 +16,7 @@ function row(over: Partial<Enrollment> = {}): Enrollment {
     state: "completed",
     source: "manual",
     note: "",
+    homeworkTotal: null,
     ...over,
   };
 }
@@ -75,5 +76,57 @@ describe("EnrollmentRows", () => {
     // 场次日期早已过去，但服务端说「报名」（例如那一场被取消了）——就显示报名
     expect(screen.getByText("报名")).toBeInTheDocument();
     expect(screen.queryByText("已完成")).toBeNull();
+  });
+});
+
+describe("作业情况概要", () => {
+  it("有提交时显示已交与总分，链接跳转到对应课程与学员", () => {
+    render(
+      <EnrollmentRows
+        enrollments={[row({ homeworkTotal: 77 })]}
+        onAdd={vi.fn()}
+        sessionsByCourse={{}}
+        onChangeSession={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    const link = screen.getByRole("link", { name: /已交.*77 分/ });
+    expect(link).toHaveAttribute("href", "/homework?course=c1&student=alpha%40example.com");
+  });
+
+  it("没有提交时显示未交，同样可点击跳转", () => {
+    render(
+      <EnrollmentRows
+        enrollments={[row({ homeworkTotal: null })]}
+        onAdd={vi.fn()}
+        sessionsByCourse={{}}
+        onChangeSession={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    const link = screen.getByRole("link", { name: "未交" });
+    expect(link).toHaveAttribute("href", "/homework?course=c1&student=alpha%40example.com");
+  });
+
+  it("每条报课记录各自显示自己那门课的作业情况", () => {
+    render(
+      <EnrollmentRows
+        enrollments={[
+          row({ id: "e1", courseId: "c1", homeworkTotal: 77 }),
+          row({ id: "e2", courseId: "c2", courseName: "先造枪", homeworkTotal: null }),
+        ]}
+        onAdd={vi.fn()}
+        sessionsByCourse={{}}
+        onChangeSession={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    const first = within(screen.getByTestId("enrollment-e1"));
+    const second = within(screen.getByTestId("enrollment-e2"));
+    expect(first.getByRole("link", { name: /已交/ })).toBeInTheDocument();
+    expect(second.getByRole("link", { name: "未交" })).toBeInTheDocument();
   });
 });

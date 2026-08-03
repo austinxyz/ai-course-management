@@ -10,7 +10,7 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import select
 
-from app.models import Course, CourseSession, Enrollment, Student
+from app.models import Course, CourseSession, Enrollment, HomeworkSubmission, Student
 
 
 def seed_student(db_session, email="alpha@example.com", name="学员甲") -> Student:
@@ -386,6 +386,63 @@ def test_derived_source_is_stored_as_given(client, db_session):
 
     assert resp.status_code == 201
     assert resp.json()["source"] == "derived"
+
+
+# --- 作业总分概要 -----------------------------------------------------------
+#
+# 学员详情页的报课记录要顺带展示这门课的作业情况——同一条 JOIN 里带出
+# `homework_submissions.total`，不新增数据库往返（student-homework-summary spec）。
+
+
+def submit_homework(db_session, student, course, total=77) -> HomeworkSubmission:
+    row = HomeworkSubmission(
+        student_email=student.email,
+        course_id=course.id,
+        submitted_at=date(2026, 6, 11),
+        total=total,
+        scores=[{"item": "A1", "score": total}],
+        source_ref="session1/grades.csv:2",
+    )
+    db_session.add(row)
+    db_session.commit()
+    return row
+
+
+def read_totals(client, email):
+    resp = client.get("/api/enrollments", params={"student": email})
+    assert resp.status_code == 200
+    return [row["homework_total"] for row in resp.json()]
+
+
+def test_homework_total_is_present_when_a_submission_exists(client, db_session):
+    student = seed_student(db_session)
+    course = seed_course(db_session)
+    enroll(db_session, student, course, None)
+    submit_homework(db_session, student, course, total=77)
+
+    assert read_totals(client, student.email) == [77]
+
+
+def test_homework_total_is_null_when_there_is_no_submission(client, db_session):
+    student = seed_student(db_session)
+    course = seed_course(db_session)
+    enroll(db_session, student, course, None)
+
+    assert read_totals(client, student.email) == [None]
+
+
+def test_repeated_enrollment_rows_carry_the_same_homework_total(client, db_session):
+    """重复报名同一门课，两条记录都该显示同一份作业总分——
+    作业挂在「学员+课程」上，不挂在某一条具体的报课记录上。"""
+    student = seed_student(db_session)
+    course = seed_course(db_session)
+    june = seed_session(db_session, course, "2026-06-14")
+    august = seed_session(db_session, course, "2026-08-22")
+    enroll(db_session, student, course, june)
+    enroll(db_session, student, course, august)
+    submit_homework(db_session, student, course, total=88)
+
+    assert read_totals(client, student.email) == [88, 88]
 
 
 def test_an_unknown_source_is_refused(client, db_session):

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { cn } from "@/lib/cn";
 import {
@@ -106,6 +106,8 @@ interface HomeworkClientProps {
   people: HomeworkPerson[];
   /** 还没导过就是 null——"还没有"是正常状态，不占一行说空话。 */
   lastImport: LastImport | null;
+  /** 学员详情页跳转过来时带的深链接目标。不在当前课程名单里就不展开，不报错。 */
+  initialSelectedEmail?: string | null;
 }
 
 /** `2026-07-31T22:47:00Z` → `2026-07-31 15:47`（美西）。 */
@@ -127,9 +129,16 @@ export function HomeworkClient({
   courseId,
   people,
   lastImport,
+  initialSelectedEmail = null,
 }: HomeworkClientProps) {
   const [filter, setFilter] = useState<Filter>("all");
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(initialSelectedEmail);
+  // `useState` 的初始值只在挂载那一刻生效。同一路由内把 `?student=` 换成
+  // 另一个人时是客户端过渡，这个组件不会重新挂载——不跟着同步的话，
+  // 第二次点的深链接会显示上一个人的详情面板。
+  useEffect(() => {
+    if (initialSelectedEmail) setSelected(initialSelectedEmail);
+  }, [initialSelectedEmail]);
   // 浏览器留着这个 File，确认时再读一次、再送一次。服务端不存临时上传：
   // 那要多一张表、要过期清理、还要处理"确认时那份临时数据已被清掉"，
   // 而文件只有几 KB。

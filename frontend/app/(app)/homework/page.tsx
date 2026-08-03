@@ -11,9 +11,9 @@ import { pickCourse } from "./pickCourse";
 export default async function HomeworkPage({
   searchParams,
 }: {
-  searchParams: Promise<{ course?: string }>;
+  searchParams: Promise<{ course?: string; student?: string }>;
 }) {
-  const { course } = await searchParams;
+  const { course, student } = await searchParams;
   const courses = await getCourses();
 
   // 默认落在第一门**有人报课**的课上，不是列表第一门——课程列表按最近开课倒序，
@@ -42,6 +42,7 @@ export default async function HomeworkPage({
       courseId={courseId ?? ""}
       people={people}
       lastImport={lastImport}
+      initialSelectedEmail={student ?? null}
     />
   );
 }

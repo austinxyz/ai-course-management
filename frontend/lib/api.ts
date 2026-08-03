@@ -409,6 +409,7 @@ interface ApiEnrollment {
   state: string;
   source: string;
   note: string;
+  homework_total: number | null;
 }
 
 function toEnrollment(api: ApiEnrollment): Enrollment {
@@ -423,6 +424,7 @@ function toEnrollment(api: ApiEnrollment): Enrollment {
     state: api.state,
     source: api.source,
     note: api.note,
+    homeworkTotal: api.homework_total,
   };
 }
 

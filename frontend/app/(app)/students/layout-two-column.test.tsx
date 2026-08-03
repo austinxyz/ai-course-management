@@ -130,6 +130,7 @@ describe("报课记录的课程名", () => {
       state: "enrolled",
       source: "derived",
       note: "",
+      homeworkTotal: null,
     };
     render(
       <EnrollmentRows

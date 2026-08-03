@@ -366,6 +366,9 @@ class EnrollmentRead(BaseModel):
     state: str
     source: str
     note: str
+    # 该学员在这门课的作业提交总分；没有提交为 None。跟同一条 JOIN 里取，
+    # 不是逐条二次查询（student-homework-summary spec）。
+    homework_total: int | None = None
 
 
 EnrollmentSource = Literal["manual", "platform", "derived"]

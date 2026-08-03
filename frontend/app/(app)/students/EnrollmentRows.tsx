@@ -151,6 +151,16 @@ function EnrollmentRow({
             {" · "}
             <span>{SOURCE_LABEL[row.source] ?? row.source}</span>
           </span>
+          {/* 详情看 /homework 页——这里只给一句概要 + 跳转，不展开分项/亮点/改进建议。 */}
+          <span className="font-mono text-[11px] text-muted-foreground">
+            作业{" "}
+            <a
+              href={`/homework?course=${row.courseId}&student=${encodeURIComponent(row.studentEmail)}`}
+              className={row.homeworkTotal !== null ? "text-primary" : undefined}
+            >
+              {row.homeworkTotal !== null ? `已交 · ${row.homeworkTotal} 分` : "未交"}
+            </a>
+          </span>
         </span>
         <span className="flex flex-none items-center gap-1.5">
           <span

@@ -13,10 +13,10 @@ const COURSES = [
 ];
 const PEOPLE = [{ studentEmail: "alpha@example.com", name: "学员甲" }];
 
-async function renderPage() {
+async function renderPage(searchParams: { course?: string; student?: string } = {}) {
   const { default: HomeworkPage } = await import("./page");
   // Server Component 就是个 async 函数，直接调用、看它交给客户端组件的 props。
-  return (await HomeworkPage({ searchParams: Promise.resolve({}) })) as {
+  return (await HomeworkPage({ searchParams: Promise.resolve(searchParams) })) as {
     props: Record<string, unknown>;
   };
 }
@@ -62,5 +62,26 @@ describe("作业页取数", () => {
     api.getHomework.mockRejectedValue(new Error("homework 500"));
 
     await expect(renderPage()).rejects.toThrow(/homework 500/);
+  });
+});
+
+describe("深链接自动选中学员", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    api.getCourses.mockResolvedValue(COURSES);
+    api.getHomework.mockResolvedValue(PEOPLE);
+    api.getLastImport.mockResolvedValue(null);
+  });
+
+  it("searchParams 带 student 时，透传给 HomeworkClient 的 initialSelectedEmail", async () => {
+    const element = await renderPage({ course: "c1", student: "alpha@example.com" });
+
+    expect(element.props.initialSelectedEmail).toBe("alpha@example.com");
+  });
+
+  it("searchParams 不带 student 时，initialSelectedEmail 是 null", async () => {
+    const element = await renderPage({ course: "c1" });
+
+    expect(element.props.initialSelectedEmail).toBeNull();
   });
 });
