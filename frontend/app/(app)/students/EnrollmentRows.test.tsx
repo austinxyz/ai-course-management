@@ -93,6 +93,8 @@ describe("作业情况概要", () => {
 
     const link = screen.getByRole("link", { name: /已交.*77 分/ });
     expect(link).toHaveAttribute("href", "/homework?course=c1&student=alpha%40example.com");
+    // 已交要醒目——用成功语气的绿色，不是普通链接蓝。
+    expect(link.className).toContain("text-success");
   });
 
   it("没有提交时显示未交，同样可点击跳转", () => {
@@ -108,6 +110,8 @@ describe("作业情况概要", () => {
 
     const link = screen.getByRole("link", { name: "未交" });
     expect(link).toHaveAttribute("href", "/homework?course=c1&student=alpha%40example.com");
+    // 未交要醒目——danger 红，不是灰掉的次要信息。
+    expect(link.className).toContain("text-danger");
   });
 
   it("每条报课记录各自显示自己那门课的作业情况", () => {

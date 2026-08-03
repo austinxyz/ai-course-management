@@ -156,7 +156,10 @@ function EnrollmentRow({
             作业{" "}
             <a
               href={`/homework?course=${row.courseId}&student=${encodeURIComponent(row.studentEmail)}`}
-              className={row.homeworkTotal !== null ? "text-primary" : undefined}
+              className={cn(
+                "font-medium",
+                row.homeworkTotal !== null ? "text-success" : "text-danger",
+              )}
             >
               {row.homeworkTotal !== null ? `已交 · ${row.homeworkTotal} 分` : "未交"}
             </a>

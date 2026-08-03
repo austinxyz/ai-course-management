@@ -396,10 +396,10 @@ export function DetailPanel(props: DetailPanelProps) {
             <Badge variant="muted">待设计</Badge>
           </div>
           {/* 报课记录已经是真的了，从占位块里移除——它就在下面，说的是同一个学员。
-              另外两项的数字（4 / 6、最近 7 天 1 条）是设计稿的示例值：这两个能力
-              还不存在，写个数字在这儿等于凭空造事实。留标题，不留数。 */}
+              作业提交也移除：它现在就挂在下面每条报课记录上（student-homework-summary），
+              这里再放一块同名占位就是两处各说各话。互动记录这个能力还不存在，留标题不留数
+              ——设计稿的示例值是凭空造事实。 */}
           {[
-            { title: "作业提交", meta: "还没做" },
             { title: "互动记录", meta: "还没做" },
           ].map((sk) => (
             <div key={sk.title} className="flex flex-col gap-1.5 rounded-token border border-dashed border-border bg-surface-muted/60 px-3 py-2.5">
