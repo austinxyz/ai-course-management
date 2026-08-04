@@ -342,6 +342,15 @@ Playwright e2e 首次跑通前反复卡死）。水合完成前选中的文件�
 变成真实数据。要排除就写成**显式**的排除名单，并与"待补建的人"分开列：
 前者是"本来就不该算"，后者是"补建后要补上"，处置相反。
 
+**Supabase 项目默认给每张表开了 PostgREST 自动 API，跟本仓库代码有没有用 RLS/`supabase-js`
+完全无关**（2026-08-04 生产 Advisor 报 `enrollments` 表"无 RLS 保护"）。仓库里从没出现过
+`supabase-js`、anon key、`NEXT_PUBLIC_SUPABASE_*`——浏览器只跟 Next.js 通信、Next.js 只跟
+FastAPI 通信，FastAPI 直连 Postgres，从不经过这条自动 API。但这条自动 API 本身**默认是开着的**，
+拿到 anon key 的人一样能直接打 `https://<project>.supabase.co/rest/v1/<table>`，跟应用代码
+写没写、用没用它无关。`CLAUDE.md` 早就声明"不使用 RLS、不使用其自动生成的 REST API"，
+但只在代码里不用不等于关掉了它——真正的关法是 Supabase Dashboard → Settings → Data API
+把它整个关掉，不是在应用层加 RLS 策略绕这件事。
+
 ---
 
 ## 性能测量
