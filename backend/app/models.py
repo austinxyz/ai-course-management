@@ -170,6 +170,27 @@ class HomeworkExcludedEmail(SQLModel, table=True):
     # created_at 同 Course：DB 有 now() 默认值，应用不读不写，不映射。
 
 
+class NudgeEvent(SQLModel, table=True):
+    """催作业产生的一条互动事件：已催或跳过。
+
+    不外键到 `enrollments`——报课记录可能被改场次、删除，但催促历史要独立于
+    报课记录的生命周期长期保留，与 `homework_submissions` 不外键到
+    `enrollments` 同一个理由。`event_type` 不用 `Literal`：只读响应上的枚举
+    值落在集合外会让整个列表接口 500，且给未来扩展第三类事件留口子（见
+    `nudge` 能力 design.md）。
+    """
+
+    __tablename__ = "nudge_events"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    student_email: str = Field(foreign_key="students.email")
+    course_id: uuid.UUID = Field(foreign_key="courses.id")
+    event_type: str
+    channel: str | None = Field(default=None)
+    note: str = Field(default="")
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
 class HomeworkImport(SQLModel, table=True):
     """一次**实际写入**的导入。dry-run 不产生记录。
 

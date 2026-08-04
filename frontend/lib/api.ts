@@ -9,6 +9,7 @@ import type {
   LastImport,
   ReportPreview,
 } from "@/app/(app)/homework/types";
+import type { NudgeEvent, NudgePerson } from "@/app/(app)/nudge/types";
 import type { Enrollment, Student } from "@/app/(app)/students/types";
 
 interface ApiStudent {
@@ -713,4 +714,58 @@ export async function uploadHomeworkReport(input: {
     improve: data.improve,
     totalMismatch: data.total_mismatch,
   };
+}
+
+interface ApiNudgeEvent {
+  type: string;
+  channel: string | null;
+  note: string;
+  at: string;
+}
+
+interface ApiNudgePerson {
+  student_email: string;
+  name: string;
+  wechat: string;
+  course_id: string;
+  overdue_days: number;
+  history: ApiNudgeEvent[];
+}
+
+function toNudgeEvent(api: ApiNudgeEvent): NudgeEvent {
+  return { type: api.type, channel: api.channel, note: api.note, at: api.at };
+}
+
+/** 一门课的催作业名单：只含"未交"状态的人，逾期天数 + 完整催促历史一次带出。 */
+export async function getNudgeList(courseId: string): Promise<NudgePerson[]> {
+  const res = await fetch(
+    backendUrl(`/api/nudge?course=${encodeURIComponent(courseId)}`),
+    backendRequestInit(),
+  );
+  if (!res.ok) throw new Error(`getNudgeList failed: ${res.status}`);
+  const data: ApiNudgePerson[] = await res.json();
+  return data.map((api) => ({
+    studentEmail: api.student_email,
+    name: api.name,
+    wechat: api.wechat,
+    courseId: api.course_id,
+    overdueDays: api.overdue_days,
+    history: api.history.map(toNudgeEvent),
+  }));
+}
+
+/** 讲师标记已催或跳过。渠道由服务端按微信是否对齐判定，这里不传。 */
+export async function createNudgeEvent(input: {
+  studentEmail: string;
+  courseId: string;
+  eventType: "nudged" | "skipped";
+  note?: string;
+}): Promise<NudgeEvent> {
+  const data = (await backendWrite("/api/nudge/events", "POST", {
+    student_email: input.studentEmail,
+    course_id: input.courseId,
+    event_type: input.eventType,
+    note: input.note ?? "",
+  })) as ApiNudgeEvent;
+  return toNudgeEvent(data);
 }

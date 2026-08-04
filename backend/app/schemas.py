@@ -674,3 +674,35 @@ class HomeworkReplyMarkRead(BaseModel):
 
     replied: bool
     replied_at: datetime | None
+
+
+class NudgeEventRead(BaseModel):
+    """催促历史里的一条：已催或跳过。`type` 是 `str` 不是 `Literal`——
+    只读响应，理由同 `HomeworkPersonRead.state`。"""
+
+    type: str
+    channel: str | None
+    note: str
+    at: datetime
+
+
+class NudgePersonRead(BaseModel):
+    """催作业名单里的一个人：这门课处于"未交"状态，逾期天数 + 完整催促历史
+    一次带出，选中他不需要再发一次请求。"""
+
+    student_email: str
+    name: str
+    wechat: str
+    course_id: uuid.UUID
+    overdue_days: int
+    history: list[NudgeEventRead]
+
+
+class NudgeEventCreate(BaseModel):
+    """讲师标记已催或跳过。渠道由服务端按微信是否对齐判定，这里不接受调用方传入。"""
+
+    student_email: str
+    course_id: uuid.UUID
+    # nudged | skipped
+    event_type: str
+    note: str = ""
