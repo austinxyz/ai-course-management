@@ -6,7 +6,14 @@ const getStudents = vi.hoisted(() => vi.fn(async () => [{ email: "a@example.com"
 const getCourses = vi.hoisted(() => vi.fn(async () => [{ id: "c-1" }]));
 const getEnrollments = vi.hoisted(() => vi.fn(async () => [{ id: "e-1" }, { id: "e-2" }]));
 const getHomeworkCount = vi.hoisted(() => vi.fn(async () => 5));
-vi.mock("@/lib/api", () => ({ getStudents, getCourses, getEnrollments, getHomeworkCount }));
+const getNudgeCount = vi.hoisted(() => vi.fn(async () => 3));
+vi.mock("@/lib/api", () => ({
+  getStudents,
+  getCourses,
+  getEnrollments,
+  getHomeworkCount,
+  getNudgeCount,
+}));
 vi.mock("next/navigation", () => ({ usePathname: () => "/enroll" }));
 
 /**
@@ -57,5 +64,6 @@ describe("AppLayout", () => {
     expect(counts.courses).toBe(1);
     expect(counts.enroll).toBe(2);
     expect(counts.homework).toBe(5);
+    expect(counts.nudge).toBe(3);
   });
 });

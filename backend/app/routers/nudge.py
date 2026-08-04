@@ -14,7 +14,7 @@ from sqlmodel import Session, select
 from app.db import get_session
 from app.models import Course, CourseSession, Enrollment, HomeworkSubmission, NudgeEvent, Student
 from app.routers.homework import MISSING, SUBMITTED, merge_states, state_of
-from app.schemas import NudgeEventCreate, NudgeEventRead, NudgePersonRead
+from app.schemas import NudgeCountRead, NudgeEventCreate, NudgeEventRead, NudgePersonRead
 
 router = APIRouter(prefix="/api/nudge", tags=["nudge"])
 
@@ -96,6 +96,40 @@ def list_nudge(
 
     result.sort(key=lambda p: (-p.overdue_days, p.name, p.student_email))
     return result
+
+
+@router.get("/count", response_model=NudgeCountRead)
+def count_nudge(session: Session = Depends(get_session)) -> NudgeCountRead:
+    """全部课程合计的催作业名单人数。侧边栏徽标用——不带 `course`，跟按课程查的
+    `list_nudge` 是两个不同的接口，同 `homework.count_homework` 的先例。
+
+    不逐课程调 `list_nudge` 再相加——那是 N 次数据库往返。同一条 JOIN 去掉
+    `course` 过滤，按（学员, 课程）分组各自判定，与 `list_nudge` 同一套逻辑。
+    """
+    statement = (
+        select(Enrollment, Student, CourseSession, HomeworkSubmission)
+        .join(Student, Student.email == Enrollment.student_email)
+        .outerjoin(CourseSession, CourseSession.id == Enrollment.session_id)
+        .outerjoin(
+            HomeworkSubmission,
+            (HomeworkSubmission.student_email == Enrollment.student_email)
+            & (HomeworkSubmission.course_id == Enrollment.course_id),
+        )
+        .where(
+            Enrollment.status != "withdrawn",
+            Student.archived_at.is_(None),
+            _SKIPPED_EXISTS,
+        )
+    )
+
+    pairs: dict[tuple[str, uuid.UUID], list[str]] = {}
+    for enrollment, _student, session_row, submission in session.exec(statement).all():
+        key = (enrollment.student_email, enrollment.course_id)
+        state = SUBMITTED if submission is not None else state_of(session_row)
+        pairs.setdefault(key, []).append(state)
+
+    total = sum(1 for states in pairs.values() if merge_states(states) == MISSING)
+    return NudgeCountRead(total=total)
 
 
 def _channel_for(student: Student) -> str:

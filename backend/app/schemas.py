@@ -698,6 +698,13 @@ class NudgePersonRead(BaseModel):
     history: list[NudgeEventRead]
 
 
+class NudgeCountRead(BaseModel):
+    """全部课程合计的催作业名单人数。侧边栏徽标用——跟按课程查的 `list_nudge`
+    是两个不同的接口，这个不带 `course` 参数。"""
+
+    total: int
+
+
 class NudgeEventCreate(BaseModel):
     """讲师标记已催或跳过。渠道由服务端按微信是否对齐判定，这里不接受调用方传入。"""
 

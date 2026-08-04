@@ -60,6 +60,12 @@ def _submit(session: Session, email: str, course: Course) -> HomeworkSubmission:
     return row
 
 
+def _count(client) -> int:
+    resp = client.get("/api/nudge/count")
+    assert resp.status_code == 200, resp.text
+    return resp.json()["total"]
+
+
 def _fetch(client, course: Course) -> list[dict]:
     resp = client.get(f"/api/nudge?course={course.id}")
     assert resp.status_code == 200, resp.text
@@ -209,6 +215,36 @@ class TestMarkNudged:
 
         assert with_wechat.json()["channel"] == "wechat"
         assert without_wechat.json()["channel"] == "email"
+
+
+class TestCount:
+    def test_counts_missing_students_across_all_courses(self, client, db_session):
+        alpha_course = _course(db_session, "课程甲")
+        bravo_course = _course(db_session, "课程乙")
+        _student(db_session, "nudge-lima@example.com", "学员寅")
+        _student(db_session, "nudge-mike@example.com", "学员卯")
+        past_a = _session_row(db_session, alpha_course, date.today() - timedelta(days=9))
+        past_b = _session_row(db_session, bravo_course, date.today() - timedelta(days=3))
+        _enroll(db_session, "nudge-lima@example.com", alpha_course, past_a)
+        _enroll(db_session, "nudge-mike@example.com", bravo_course, past_b)
+
+        assert _count(client) == 2
+
+    def test_skipped_pairs_are_not_counted(self, client, db_session):
+        course = _course(db_session)
+        _student(db_session, "nudge-november@example.com", "学员辰")
+        past = _session_row(db_session, course, date.today() - timedelta(days=9))
+        _enroll(db_session, "nudge-november@example.com", course, past)
+        client.post(
+            "/api/nudge/events",
+            json={
+                "student_email": "nudge-november@example.com",
+                "course_id": str(course.id),
+                "event_type": "skipped",
+            },
+        )
+
+        assert _count(client) == 0
 
 
 class TestSkip:

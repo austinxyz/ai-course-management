@@ -13,9 +13,9 @@ interface SidebarProps {
    * live total the same way. A key missing from the map (or the whole prop
    * omitted) shows `—` rather than 0 — a page that never counted must not
    * claim there are none. The same `—` is what shows while the count is
-   * still in flight. `nudge` has a real page now but no count wired up yet;
-   * `interactions` is still a placeholder page with no backing data. Neither
-   * is ever in this map, so both always show `—`.
+   * still in flight. `students`/`courses`/`enroll`/`homework`/`nudge` all get
+   * a live total the same way. `interactions` is still a placeholder page
+   * with no backing data, so it's never in this map and always shows `—`.
    */
   counts?: Partial<Record<NavKey, number>>;
 }

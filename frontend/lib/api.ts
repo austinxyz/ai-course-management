@@ -736,6 +736,15 @@ function toNudgeEvent(api: ApiNudgeEvent): NudgeEvent {
   return { type: api.type, channel: api.channel, note: api.note, at: api.at };
 }
 
+/** 全部课程合计的催作业名单人数。侧边栏徽标用——跟按课程查的 `getNudgeList`
+ * 是两个不同的接口，这个不带 `course` 参数。 */
+export async function getNudgeCount(): Promise<number> {
+  const res = await fetch(backendUrl("/api/nudge/count"), backendRequestInit());
+  if (!res.ok) throw new Error(`getNudgeCount failed: ${res.status}`);
+  const data: { total: number } = await res.json();
+  return data.total;
+}
+
 /** 一门课的催作业名单：只含"未交"状态的人，逾期天数 + 完整催促历史一次带出。 */
 export async function getNudgeList(courseId: string): Promise<NudgePerson[]> {
   const res = await fetch(
