@@ -64,7 +64,7 @@ class NudgeListRead(BaseModel):
     skipped_count: int  # = sum(p.skipped for p in items)，不查库
 ```
 
-`skipped` 从 `history` 算：history 已按时间倒序返回，取其中类型属于 `{skipped, unskipped}` 的最新一条，是 `skipped` 则为 True，是 `unskipped` 或没有则为 False。`list_nudge` 的 `WHERE` 去掉 `_SKIPPED_EXISTS`——一个人只要处于"未交"状态就出现在 `items` 里，不再区分是否被跳过；`count_nudge`（侧边栏徽标）保留 `_SKIPPED_EXISTS`，跳过的人不计入"需要处理"的总数，这条语义不变。
+`skipped` 从 `history` 算：history 已按时间倒序返回，取其中类型属于 `{skipped, unskipped}` 的最新一条，是 `skipped` 则为 True，是 `unskipped` 或没有则为 False。`list_nudge` 的 `WHERE` 去掉 `_SKIPPED_EXISTS`——一个人只要处于"未交"状态就出现在 `items` 里，不再区分是否被跳过；`count_nudge`（侧边栏徽标）保留"跳过的人不计入需要处理总数"这条语义，但判断本身要跟着改——`_SKIPPED_EXISTS` 判的是"曾经出现过 skipped 事件"，不是"当前是否跳过"，取消跳过之后这个人会被它永久漏计（group-4 code review 发现）。改用 `_NOT_CURRENTLY_SKIPPED`：取最新一条 skipped/unskipped 事件判断，跟 `list_nudge` 的 `_is_currently_skipped` 是同一套逻辑的 SQL 版本。
 
 **5. 取消跳过是新事件类型 `unskipped`，不是删除已有的 `skipped` 事件行——`nudge_events` 是仅追加的操作日志，删除会破坏"催促历史"的可审计性。**
 

@@ -374,6 +374,22 @@ class TestSkippedVisibility:
 
         assert _count(client) == 0
 
+    def test_count_nudge_includes_person_again_after_unskip(self, client, db_session):
+        course = _course(db_session)
+        _student(db_session, "nudge-yankee@example.com", "学员十一")
+        past = _session_row(db_session, course, date.today() - timedelta(days=9))
+        _enroll(db_session, "nudge-yankee@example.com", course, past)
+        client.post(
+            "/api/nudge/events",
+            json={"student_email": "nudge-yankee@example.com", "course_id": str(course.id), "event_type": "skipped"},
+        )
+        client.post(
+            "/api/nudge/events",
+            json={"student_email": "nudge-yankee@example.com", "course_id": str(course.id), "event_type": "unskipped"},
+        )
+
+        assert _count(client) == 1
+
 
 class TestSkip:
     def test_skipping_marks_skipped_without_touching_other_tables(

@@ -724,6 +724,6 @@ class NudgeEventCreate(BaseModel):
 
     student_email: str
     course_id: uuid.UUID
-    # nudged | skipped
+    # nudged | skipped | unskipped
     event_type: str
     note: str = ""

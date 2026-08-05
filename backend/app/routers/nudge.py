@@ -18,15 +18,21 @@ from app.schemas import NudgeCountRead, NudgeEventCreate, NudgeEventRead, NudgeL
 
 router = APIRouter(prefix="/api/nudge", tags=["nudge"])
 
-# 已跳过的（学员, 课程）在名单查询里直接排除——通过存在一条 skipped 事件判定，
-# 不追加复杂的"之后又变化"状态机（design.md 决定 4，已知的边界简化）。
-_SKIPPED_EXISTS = text(
-    """NOT EXISTS (
-        SELECT 1 FROM nudge_events ne
-        WHERE ne.student_email = enrollments.student_email
-          AND ne.course_id = enrollments.course_id
-          AND ne.event_type = 'skipped'
-    )"""
+# `count_nudge`（侧边栏徽标，全课程合计）用——按"最新一条 skipped/unskipped
+# 事件决定当前是否跳过"，不是"曾经出现过 skipped"：后者会让取消跳过之后
+# 这个人永久从徽标消失，讨论见 group-4 code review。跟 list_nudge 里
+# `_is_currently_skipped` 是同一套判断，这里是 SQL 版本因为 count_nudge
+# 不取整份 history。
+_NOT_CURRENTLY_SKIPPED = text(
+    """COALESCE(
+        (SELECT ne.event_type FROM nudge_events ne
+         WHERE ne.student_email = enrollments.student_email
+           AND ne.course_id = enrollments.course_id
+           AND ne.event_type IN ('skipped', 'unskipped')
+         ORDER BY ne.created_at DESC
+         LIMIT 1),
+        'none'
+    ) != 'skipped'"""
 )
 
 # 每人的完整催促历史，按时间倒序，一次带出——选中某人不再发一次请求。
@@ -132,7 +138,7 @@ def count_nudge(session: Session = Depends(get_session)) -> NudgeCountRead:
         .where(
             Enrollment.status != "withdrawn",
             Student.archived_at.is_(None),
-            _SKIPPED_EXISTS,
+            _NOT_CURRENTLY_SKIPPED,
         )
     )
 

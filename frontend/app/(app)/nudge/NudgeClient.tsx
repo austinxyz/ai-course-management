@@ -134,7 +134,10 @@ export function NudgeClient({ courses, courseId, people, skippedCount }: NudgeCl
             </span>
           </div>
           {people.length > 0 && (
-            <Button variant="secondary" onClick={() => downloadCsv(people)}>
+            <Button
+              variant="secondary"
+              onClick={() => downloadCsv(people.filter((p) => !p.skipped))}
+            >
               导出名单
             </Button>
           )}

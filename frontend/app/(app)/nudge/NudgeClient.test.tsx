@@ -119,6 +119,21 @@ describe("头部统计与进度指示", () => {
     expect(screen.getByText(/已跳过 0 人/)).toBeInTheDocument();
   });
 
+  it("未交人数只算未跳过的行，跳过的人不重复计入", () => {
+    view(
+      [
+        person({ studentEmail: "alpha@example.com" }),
+        person({ studentEmail: "bravo@example.com", skipped: true }),
+        person({ studentEmail: "charlie@example.com", skipped: true }),
+      ],
+      "c1",
+      2,
+    );
+
+    expect(screen.getByText(/1 人未交/)).toBeInTheDocument();
+    expect(screen.getByText(/已跳过 2 人/)).toBeInTheDocument();
+  });
+
   it("不再展示进度指示——静态高亮观感误导，group-4 移除", () => {
     view([person()]);
 
@@ -174,6 +189,30 @@ describe("导出名单", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
 
     fetchSpy.mockRestore();
+    vi.unstubAllGlobals();
+  });
+
+  it("导出内容不包含已跳过的人——行数要跟头部未交人数对上", async () => {
+    const createObjectURL = vi.fn().mockReturnValue("blob:mock");
+    vi.stubGlobal("URL", { ...globalThis.URL, createObjectURL, revokeObjectURL: vi.fn() });
+    const blobSpy = vi.spyOn(globalThis, "Blob");
+
+    view(
+      [
+        person({ studentEmail: "alpha@example.com", name: "甲" }),
+        person({ studentEmail: "bravo@example.com", name: "乙", skipped: true }),
+      ],
+      "c1",
+      1,
+    );
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "导出名单" }));
+
+    const csvContent = (blobSpy.mock.calls[0][0] as string[])[0];
+    expect(csvContent).toContain("甲");
+    expect(csvContent).not.toContain("乙");
+
+    blobSpy.mockRestore();
     vi.unstubAllGlobals();
   });
 });
