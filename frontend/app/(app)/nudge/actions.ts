@@ -26,7 +26,7 @@ function classify(error: unknown): { ok: false; message: string } {
 async function record(
   studentEmail: string,
   courseId: string,
-  eventType: "nudged" | "skipped",
+  eventType: "nudged" | "skipped" | "unskipped",
 ): Promise<NudgeActionResult> {
   await requireSitePassword();
   try {
@@ -44,7 +44,12 @@ export async function markNudged(studentEmail: string, courseId: string): Promis
   return record(studentEmail, courseId, "nudged");
 }
 
-/** 讲师跳过这条未交，直到重新出现未交状态才会再进名单。 */
+/** 讲师跳过这条未交——仍在名单里，灰显+带"已跳过"标签，不是消失。 */
 export async function skipNudge(studentEmail: string, courseId: string): Promise<NudgeActionResult> {
   return record(studentEmail, courseId, "skipped");
+}
+
+/** 讲师撤销跳过，该学员重新按真实作业状态参与"未交"判定。 */
+export async function unskipNudge(studentEmail: string, courseId: string): Promise<NudgeActionResult> {
+  return record(studentEmail, courseId, "unskipped");
 }

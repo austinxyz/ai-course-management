@@ -268,7 +268,8 @@ class TestSkippedCount:
 
         body = _fetch_full(client, course)
 
-        assert len(body["items"]) == 1
+        # group-4 修订：跳过的人不再从 items 里排除，仍可见（skipped=True）。
+        assert len(body["items"]) == 2
         assert body["skipped_count"] == 1
 
     def test_skipped_count_is_zero_when_nobody_skipped(self, client, db_session):
@@ -298,10 +299,88 @@ class TestSkippedCount:
         assert _fetch_full(client, bravo)["skipped_count"] == 0
 
 
+class TestSkippedVisibility:
+    def test_skipped_person_still_appears_in_items_marked_skipped(self, client, db_session):
+        course = _course(db_session)
+        _student(db_session, "nudge-sierra@example.com", "学员五")
+        past = _session_row(db_session, course, date.today() - timedelta(days=9))
+        _enroll(db_session, "nudge-sierra@example.com", course, past)
+        client.post(
+            "/api/nudge/events",
+            json={"student_email": "nudge-sierra@example.com", "course_id": str(course.id), "event_type": "skipped"},
+        )
+
+        body = _fetch_full(client, course)
+        rows = _by_email(body["items"])
+
+        assert "nudge-sierra@example.com" in rows
+        assert rows["nudge-sierra@example.com"]["skipped"] is True
+
+    def test_non_skipped_person_has_skipped_false(self, client, db_session):
+        course = _course(db_session)
+        _student(db_session, "nudge-tango@example.com", "学员六")
+        past = _session_row(db_session, course, date.today() - timedelta(days=9))
+        _enroll(db_session, "nudge-tango@example.com", course, past)
+
+        rows = _by_email(_fetch(client, course))
+
+        assert rows["nudge-tango@example.com"]["skipped"] is False
+
+    def test_skipped_count_matches_skipped_items_no_extra_query_needed(self, client, db_session):
+        course = _course(db_session)
+        _student(db_session, "nudge-uniform@example.com", "学员七")
+        _student(db_session, "nudge-victor@example.com", "学员八")
+        past = _session_row(db_session, course, date.today() - timedelta(days=9))
+        _enroll(db_session, "nudge-uniform@example.com", course, past)
+        _enroll(db_session, "nudge-victor@example.com", course, past)
+        client.post(
+            "/api/nudge/events",
+            json={"student_email": "nudge-uniform@example.com", "course_id": str(course.id), "event_type": "skipped"},
+        )
+
+        body = _fetch_full(client, course)
+
+        assert len(body["items"]) == 2
+        assert body["skipped_count"] == 1
+
+    def test_unskipping_restores_skipped_false(self, client, db_session):
+        course = _course(db_session)
+        _student(db_session, "nudge-whiskey@example.com", "学员九")
+        past = _session_row(db_session, course, date.today() - timedelta(days=9))
+        _enroll(db_session, "nudge-whiskey@example.com", course, past)
+        client.post(
+            "/api/nudge/events",
+            json={"student_email": "nudge-whiskey@example.com", "course_id": str(course.id), "event_type": "skipped"},
+        )
+
+        resp = client.post(
+            "/api/nudge/events",
+            json={"student_email": "nudge-whiskey@example.com", "course_id": str(course.id), "event_type": "unskipped"},
+        )
+
+        assert resp.status_code == 201, resp.text
+        rows = _by_email(_fetch(client, course))
+        assert rows["nudge-whiskey@example.com"]["skipped"] is False
+
+    def test_count_nudge_still_excludes_skipped_people(self, client, db_session):
+        course = _course(db_session)
+        _student(db_session, "nudge-xray@example.com", "学员十")
+        past = _session_row(db_session, course, date.today() - timedelta(days=9))
+        _enroll(db_session, "nudge-xray@example.com", course, past)
+        client.post(
+            "/api/nudge/events",
+            json={"student_email": "nudge-xray@example.com", "course_id": str(course.id), "event_type": "skipped"},
+        )
+
+        assert _count(client) == 0
+
+
 class TestSkip:
-    def test_skipping_removes_the_student_from_the_list_without_touching_other_tables(
+    def test_skipping_marks_skipped_without_touching_other_tables(
         self, client, db_session
     ):
+        # 跳过不是从名单里移除——讲师需要仍能看到、能反悔（group-4 修订）。
+        # 唯一的既有断言仍然成立：不改动报课记录。
         course = _course(db_session)
         _student(db_session, "nudge-kilo@example.com", "学员子")
         past = _session_row(db_session, course, date.today() - timedelta(days=9))
@@ -314,7 +393,10 @@ class TestSkip:
 
         assert resp.status_code == 201, resp.text
         rows = _by_email(_fetch(client, course))
-        assert "nudge-kilo@example.com" not in rows
+        assert rows["nudge-kilo@example.com"]["skipped"] is True
+
+        db_session.refresh(enrollment)
+        assert enrollment.status == "enrolled"
 
         db_session.refresh(enrollment)
         assert enrollment.status == "enrolled"

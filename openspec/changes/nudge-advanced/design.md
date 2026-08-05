@@ -47,31 +47,32 @@ function toCsv(people: NudgePerson[]): string {
 
 用 `Blob` + `URL.createObjectURL` + 隐藏 `<a download>` 触发下载，跟"复制文案"一样是纯客户端动作。字段含逗号/换行的情况（姓名理论上可能带逗号）用简单的双引号包裹处理，不引入额外依赖。
 
-**3. 进度指示是静态三步 JSX，不依赖任何新数据——"起草文案"永远是当前态，"标记/跳过"永远是待办态，"算名单"永远是已完成态。**
+**3.（撤销，见下）进度指示上线后实测不达标——静态高亮"起草文案"给人"卡住了"的观感，而不是进度。group-4 里直接移除这块 UI，不再保留。**
 
-不做成会变化的向导（比如某人标记完就跳到下一步高亮）——探索阶段没有要求这个交互深度，做成静态说明性元素即可，避免过度设计。
+**4. `GET /api/nudge?course=` 的响应形状从裸数组改成 `{items, skipped_count}`；`items` 现在同时包含未交名单与已跳过的人（`skipped: bool` 逐行标出），`skipped_count` 由 `items` 直接算出，不再需要额外查询。**
 
-**4. `GET /api/nudge?course=` 的响应形状从裸数组改成 `{items, skipped_count}`，`skipped_count` 用一次额外的轻量 `COUNT(DISTINCT student_email)` 查询获得，不是零额外往返。**
+group-4 上线前的观察：跳过的人被 `_SKIPPED_EXISTS` 整个排除在结果集之外——讲师点了"跳过"之后就再也看不到这个人，无从确认、也无从反悔。这直接暴露了 group-1 决定 4 里"零额外往返 vs 额外一次 COUNT"这个二选一本身问的不是对问题：真正该问的是"跳过的人到底要不要出现在结果行里"——答案是要，一旦出现在行里，`skipped_count` 自然可以从 `items` 里数出来，不需要任何查询，`nudge_events_course_type_idx` 索引与那次额外 COUNT 查询一起作废（迁移文件保留，不影响正确性，只是不再被这条路径使用）。
 
 ```python
+class NudgePersonRead(BaseModel):
+    ...
+    skipped: bool  # 新增
+
+
 class NudgeListRead(BaseModel):
     items: list[NudgePersonRead]
-    skipped_count: int
+    skipped_count: int  # = sum(p.skipped for p in items)，不查库
 ```
 
-```python
-skipped_count = session.exec(
-    select(func.count(func.distinct(NudgeEvent.student_email))).where(
-        NudgeEvent.course_id == course, NudgeEvent.event_type == "skipped",
-    )
-).one()
-```
+`skipped` 从 `history` 算：history 已按时间倒序返回，取其中类型属于 `{skipped, unskipped}` 的最新一条，是 `skipped` 则为 True，是 `unskipped` 或没有则为 False。`list_nudge` 的 `WHERE` 去掉 `_SKIPPED_EXISTS`——一个人只要处于"未交"状态就出现在 `items` 里，不再区分是否被跳过；`count_nudge`（侧边栏徽标）保留 `_SKIPPED_EXISTS`，跳过的人不计入"需要处理"的总数，这条语义不变。
 
-**这是对 requirements.md 里"不能为了这一个数字新增一次数据库往返"这句话的一处已知偏离**，在这里明确说明原因：已跳过的人完全不出现在主查询的结果行里（`WHERE NOT EXISTS` 把他们整个过滤掉了），要在同一条 SQL 里把"过滤掉的人数"当成结果集的一部分带出来，只有两种办法——(a) 把 `WHERE NOT EXISTS` 改写成 `LEFT JOIN` 保留这些行、在应用层再分组算跳过数，这会让主查询逻辑显著复杂化且违反"跳过是查询时排除"这条已有设计原则（`nudge` 能力 design.md 决定 4）；(b) 用一次独立、轻量、走索引的 `COUNT` 查询。选 (b)：这一次额外查询不是 per-row 也不是 per-person，是**课程级别的常数次**，跟 `homework.import_homework` 接受"三次成批查询"、`homework.list_homework` 用子查询嵌入满分表是同一个量级的判断——真正要守住的是"不随名单人数增长"，不是"字面意义上恰好一条 SQL"。`nudge_events` 已有的 `nudge_events_student_course_idx (student_email, course_id, created_at desc)` 领头列是 `student_email`，覆盖不到这次按 `(course_id, event_type)` 过滤的查询——发现于 group-1 评审。已新增 `nudge_events_course_type_idx (course_id, event_type)`（`supabase/migrations/20260805000000_nudge_events_course_skipped_idx.sql`），领头列匹配这次查询的过滤条件。
+**5. 取消跳过是新事件类型 `unskipped`，不是删除已有的 `skipped` 事件行——`nudge_events` 是仅追加的操作日志，删除会破坏"催促历史"的可审计性。**
 
-**5. `NudgeClient.tsx` 从 `people` prop 改成解构 `{people, skippedCount}`，`page.tsx` 相应改用新的响应形状。**
+`NudgeEventCreate.event_type` 从 `nudged | skipped` 扩到 `nudged | skipped | unskipped`。`unskipped` 跟 `skipped` 一样没有 `channel`。
 
-`lib/api.ts::getNudgeList` 返回类型从 `NudgePerson[]` 改成 `{people: NudgePerson[], skippedCount: number}`。
+**6. `NudgeClient.tsx` 从 `people` prop 改成解构 `{people, skippedCount}`，`page.tsx` 相应改用新的响应形状。已跳过的行原地灰显 + "已跳过"标签，不单独分区；详情面板按 `person.skipped` 切换"跳过"/"取消跳过"按钮。**
+
+`lib/api.ts::getNudgeList` 返回类型从 `NudgePerson[]` 改成 `{people: NudgePerson[], skippedCount: number}`；`people` 现在包含跳过的行，`skippedCount` 供头部摘要行使用（不需要前端自己再算一遍）。移除 `NudgeSteps` 组件与其在头部的渲染位置——决定 3。
 
 ## Risks / Trade-offs
 
@@ -81,8 +82,8 @@ skipped_count = session.exec(
 
 ## Migration Plan
 
-无数据库结构变更——`skipped_count` 是查询时算出的字段，不新增列。部署即生效。
+无数据库结构变更——`skipped` 与 `skipped_count` 都是查询/内存算出的字段，不新增列。部署即生效。`nudge_events_course_type_idx` 索引（group-1 加的）不再被这条路径使用，但留着无害，不回滚。
 
 ## Open Questions
 
-（无——探索与本文档已定：三档固定模板+自动推荐、CSV 前端生成、进度指示静态三步、跳过人数用一次额外的课程级 COUNT 查询，且已明确记录为对 requirements 原文措辞的一次披露性偏离）
+（无——group-4 在实测反馈后修订：进度指示移除；已跳过的人改为在 `items` 里可见（`skipped` 标记）+ 可撤销，`skipped_count` 从 `items` 算出，group-1 的额外 COUNT 查询作废）

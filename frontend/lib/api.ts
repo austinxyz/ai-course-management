@@ -730,6 +730,7 @@ interface ApiNudgePerson {
   course_id: string;
   overdue_days: number;
   history: ApiNudgeEvent[];
+  skipped: boolean;
 }
 
 function toNudgeEvent(api: ApiNudgeEvent): NudgeEvent {
@@ -758,6 +759,7 @@ function toNudgePerson(api: ApiNudgePerson): NudgePerson {
     courseId: api.course_id,
     overdueDays: api.overdue_days,
     history: api.history.map(toNudgeEvent),
+    skipped: api.skipped,
   };
 }
 
@@ -777,7 +779,7 @@ export async function getNudgeList(courseId: string): Promise<NudgeList> {
 export async function createNudgeEvent(input: {
   studentEmail: string;
   courseId: string;
-  eventType: "nudged" | "skipped";
+  eventType: "nudged" | "skipped" | "unskipped";
   note?: string;
 }): Promise<NudgeEvent> {
   const data = (await backendWrite("/api/nudge/events", "POST", {

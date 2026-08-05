@@ -31,3 +31,13 @@
     - "spec: CSV export entry point, generation from page data without network request, three-step progress indicator (no email step), header stats showing both uncollected and skipped counts all implemented exactly per SHALL"
     - "runtime: 41/41 tests pass including 4 new test files (NudgeClient, page, api.test); coverage: CSV content+no-fetch, progress-steps, template-tabs all scenarios (0/1/≥2 nudges, edited draft protection), header stats with zero skipped"
     - "code: toCsv()/downloadCsv() logic sound (Blob+URL+link); csvField() handles comma/newline/quote escaping; NudgeList interface added; page.tsx/api.ts adapted to new response shape; no security issues; immutability preserved; accessible markup (role=tab, aria-selected); edge cases documented in design.md"
+
+- group: 4
+  attempt: 1
+  scores: {spec: 100, runtime: 100, code: 95}
+  total: 99
+  status: PASS
+  findings:
+    - "spec: Skipped people remain visible with grey styling + '已跳过' badge; unskip button available; progress indicator completely removed from header; all SHALL requirements verified"
+    - "runtime: 42/42 tests pass (20 backend + 22 frontend); coverage includes: skipped person visibility, unskipped event handling, skipped_count computation from items, sidebar badge excludes skipped people, progress indicator absence"
+    - "code: NudgePersonRead adds skipped field; _is_currently_skipped() helper correctly computes state from history; list_nudge removes _SKIPPED_EXISTS while count_nudge retains it; skipped_count uses sum() not extra query; NudgeSteps component removed; conditional button rendering; immutability preserved; no type errors"

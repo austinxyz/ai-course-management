@@ -9,7 +9,7 @@ from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import text
-from sqlmodel import Session, func, select
+from sqlmodel import Session, select
 
 from app.db import get_session
 from app.models import Course, CourseSession, Enrollment, HomeworkSubmission, NudgeEvent, Student
@@ -42,6 +42,15 @@ _HISTORY_JSON = text(
 )
 
 
+def _is_currently_skipped(history: list[dict]) -> bool:
+    """`history` 已按时间倒序——第一条属于 skipped/unskipped 的事件决定当前状态。
+    没有这类事件，或最新一条是 unskipped，都不算跳过。"""
+    for item in history:
+        if item["type"] in ("skipped", "unskipped"):
+            return item["type"] == "skipped"
+    return False
+
+
 @router.get("", response_model=NudgeListRead)
 def list_nudge(
     course: uuid.UUID = Query(),
@@ -61,7 +70,6 @@ def list_nudge(
             Enrollment.course_id == course,
             Enrollment.status != "withdrawn",
             Student.archived_at.is_(None),
-            _SKIPPED_EXISTS,
         )
     )
 
@@ -91,20 +99,15 @@ def list_nudge(
                 course_id=course,
                 overdue_days=overdue_days,
                 history=[NudgeEventRead(**item) for item in found["history"]],
+                skipped=_is_currently_skipped(found["history"]),
             )
         )
 
     result.sort(key=lambda p: (-p.overdue_days, p.name, p.student_email))
 
-    # 已跳过的人被 _SKIPPED_EXISTS 整个排除在上面的查询之外，items 里推不出
-    # 这个数——只能单独查。课程级别常数次，不随名单人数增长（design.md 决定 4，
-    # 对 requirements 原文"零额外往返"的已披露偏离）。
-    skipped_count = session.exec(
-        select(func.count(func.distinct(NudgeEvent.student_email))).where(
-            NudgeEvent.course_id == course,
-            NudgeEvent.event_type == "skipped",
-        )
-    ).one()
+    # 已跳过的人现在就在 result 里（design.md 决定 4 修订）——不再需要单独
+    # 查库，直接数。
+    skipped_count = sum(1 for p in result if p.skipped)
 
     return NudgeListRead(items=result, skipped_count=skipped_count)
 
@@ -161,8 +164,8 @@ def create_nudge_event(
     course = session.get(Course, payload.course_id)
     if course is None:
         raise HTTPException(status_code=404, detail="没有这门课")
-    if payload.event_type not in ("nudged", "skipped"):
-        raise HTTPException(status_code=422, detail="event_type 只能是 nudged 或 skipped")
+    if payload.event_type not in ("nudged", "skipped", "unskipped"):
+        raise HTTPException(status_code=422, detail="event_type 只能是 nudged、skipped 或 unskipped")
 
     channel = _channel_for(student) if payload.event_type == "nudged" else None
     row = NudgeEvent(

@@ -688,7 +688,10 @@ class NudgeEventRead(BaseModel):
 
 class NudgePersonRead(BaseModel):
     """催作业名单里的一个人：这门课处于"未交"状态，逾期天数 + 完整催促历史
-    一次带出，选中他不需要再发一次请求。"""
+    一次带出，选中他不需要再发一次请求。
+
+    `skipped` 为真时，这个人仍在"未交"状态里，只是讲师主动跳过——不再从
+    `items` 里整个排除（group-4 修订），否则讲师看不到跳过的是谁、也无法反悔。"""
 
     student_email: str
     name: str
@@ -696,6 +699,7 @@ class NudgePersonRead(BaseModel):
     course_id: uuid.UUID
     overdue_days: int
     history: list[NudgeEventRead]
+    skipped: bool
 
 
 class NudgeListRead(BaseModel):

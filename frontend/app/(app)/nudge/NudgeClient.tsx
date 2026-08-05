@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 
 import { Badge, Button } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import { markNudged, skipNudge } from "./actions";
+import { markNudged, skipNudge, unskipNudge } from "./actions";
 import type { NudgeCourse, NudgePerson } from "./types";
 
 /**
@@ -114,6 +114,7 @@ export function NudgeClient({ courses, courseId, people, skippedCount }: NudgeCl
 
   const course = courses.find((c) => c.id === courseId);
   const current = people.find((p) => p.studentEmail === selected) ?? null;
+  const activeCount = people.filter((p) => !p.skipped).length;
 
   const sorted = useMemo(
     () => [...people].sort((a, b) => b.overdueDays - a.overdueDays),
@@ -124,16 +125,13 @@ export function NudgeClient({ courses, courseId, people, skippedCount }: NudgeCl
     <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
       <header className="flex flex-none flex-col gap-2.5 border-b border-border bg-surface px-[22px] pb-[13px] pt-4">
         <div className="flex items-start justify-between gap-2.5">
-          <div className="flex flex-col gap-1">
-            <div className="flex items-baseline gap-2.5">
-              <h1 className="m-0 font-sans text-[19px] font-semibold tracking-tight">催作业</h1>
-              <span className="font-mono text-xs text-muted">
-                {courses.length === 0
-                  ? "还没有课程"
-                  : `${people.length} 人未交 · 已跳过 ${skippedCount} 人`}
-              </span>
-            </div>
-            <NudgeSteps />
+          <div className="flex items-baseline gap-2.5">
+            <h1 className="m-0 font-sans text-[19px] font-semibold tracking-tight">催作业</h1>
+            <span className="font-mono text-xs text-muted">
+              {courses.length === 0
+                ? "还没有课程"
+                : `${activeCount} 人未交 · 已跳过 ${skippedCount} 人`}
+            </span>
           </div>
           {people.length > 0 && (
             <Button variant="secondary" onClick={() => downloadCsv(people)}>
@@ -187,12 +185,16 @@ export function NudgeClient({ courses, courseId, people, skippedCount }: NudgeCl
                       onClick={() => setSelected(p.studentEmail)}
                       className={cn(
                         "cursor-pointer border-b border-border last:border-b-0 bg-surface",
+                        p.skipped && "opacity-50",
                         p.studentEmail === selected &&
                           "shadow-[inset_2px_0_0_var(--color-primary)]",
                       )}
                     >
                       <Td>
-                        <span className="font-medium">{p.name}</span>
+                        <span className="flex items-center gap-1.5">
+                          <span className="font-medium">{p.name}</span>
+                          {p.skipped && <Badge variant="default">已跳过</Badge>}
+                        </span>
                       </Td>
                       <Td>
                         {p.wechat ? (
@@ -290,6 +292,14 @@ function DetailPanel({
     if (!outcome.ok) setError(outcome.message);
   }
 
+  async function handleUnskip() {
+    setBusy(true);
+    setError(null);
+    const outcome = await unskipNudge(person.studentEmail, person.courseId);
+    setBusy(false);
+    if (!outcome.ok) setError(outcome.message);
+  }
+
   return (
     <aside
       data-testid="nudge-detail"
@@ -357,9 +367,15 @@ function DetailPanel({
           标记已催
         </Button>
       </div>
-      <Button variant="ghost" size="sm" disabled={busy} onClick={handleSkip}>
-        跳过
-      </Button>
+      {person.skipped ? (
+        <Button variant="ghost" size="sm" disabled={busy} onClick={handleUnskip}>
+          取消跳过
+        </Button>
+      ) : (
+        <Button variant="ghost" size="sm" disabled={busy} onClick={handleSkip}>
+          跳过
+        </Button>
+      )}
 
       {error && (
         <p role="alert" className="m-0 font-sans text-[11.5px] text-danger">
@@ -386,7 +402,11 @@ function DetailPanel({
               >
                 <span className="font-mono">{formatAt(h.at)}</span>
                 <span className="text-muted-foreground">
-                  {h.type === "nudged" ? channelLabel(h.channel) : "跳过"}
+                  {h.type === "nudged"
+                    ? channelLabel(h.channel)
+                    : h.type === "unskipped"
+                      ? "取消跳过"
+                      : "跳过"}
                   {h.note ? ` · ${h.note}` : ""}
                 </span>
               </div>
@@ -405,20 +425,6 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: "da
         {value}
       </span>
       <span className="font-mono text-[11px] text-muted-foreground">{label}</span>
-    </div>
-  );
-}
-
-/** 静态三步说明，不依赖任何新数据——"起草文案"永远是当前态，"标记/跳过"永远
- * 是待办态，"算名单"永远是已完成态。不做成会变化的向导（design.md 决定 3）。 */
-function NudgeSteps() {
-  return (
-    <div className="flex items-center gap-2 font-mono text-[10.5px] text-muted-foreground">
-      <span>算名单</span>
-      <span aria-hidden>→</span>
-      <span className="font-medium text-foreground">起草文案</span>
-      <span aria-hidden>→</span>
-      <span>标记 / 跳过</span>
     </div>
   );
 }

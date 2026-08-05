@@ -9,9 +9,11 @@ vi.mock("next/navigation", () => ({ usePathname: () => "/nudge" }));
 
 const markNudged = vi.fn();
 const skipNudge = vi.fn();
+const unskipNudge = vi.fn().mockResolvedValue({ ok: true });
 vi.mock("./actions", () => ({
   markNudged: (...args: unknown[]) => markNudged(...args),
   skipNudge: (...args: unknown[]) => skipNudge(...args),
+  unskipNudge: (...args: unknown[]) => unskipNudge(...args),
 }));
 
 const COURSES: NudgeCourse[] = [
@@ -27,6 +29,7 @@ function person(over: Partial<NudgePerson> = {}): NudgePerson {
     courseId: "c1",
     overdueDays: 9,
     history: [],
+    skipped: false,
     ...over,
   };
 }
@@ -116,13 +119,43 @@ describe("头部统计与进度指示", () => {
     expect(screen.getByText(/已跳过 0 人/)).toBeInTheDocument();
   });
 
-  it("头部只显示 3 步进度指示，不出现发送邮件", () => {
+  it("不再展示进度指示——静态高亮观感误导，group-4 移除", () => {
     view([person()]);
 
-    expect(screen.getByText("算名单")).toBeInTheDocument();
-    expect(screen.getByText("起草文案")).toBeInTheDocument();
-    expect(screen.getByText(/标记.*跳过/)).toBeInTheDocument();
-    expect(screen.queryByText("发送邮件")).not.toBeInTheDocument();
+    expect(screen.queryByText("算名单")).not.toBeInTheDocument();
+    expect(screen.queryByText("起草文案")).not.toBeInTheDocument();
+    expect(screen.queryByText(/标记.*跳过/)).not.toBeInTheDocument();
+  });
+});
+
+describe("已跳过的人", () => {
+  it("跳过的人仍出现在表格里，带已跳过标签", () => {
+    view([person({ skipped: true })]);
+
+    expect(screen.getByTestId("nudge-alpha@example.com")).toBeInTheDocument();
+    expect(screen.getByText("已跳过")).toBeInTheDocument();
+  });
+
+  it("详情面板对已跳过的人显示取消跳过而不是跳过", async () => {
+    view([person({ skipped: true })]);
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId("nudge-alpha@example.com"));
+
+    const panel = within(screen.getByTestId("nudge-detail"));
+    expect(panel.getByRole("button", { name: "取消跳过" })).toBeInTheDocument();
+    expect(panel.queryByRole("button", { name: "跳过" })).not.toBeInTheDocument();
+  });
+
+  it("点取消跳过调用 unskipNudge", async () => {
+    view([person({ skipped: true })]);
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId("nudge-alpha@example.com"));
+
+    await user.click(
+      within(screen.getByTestId("nudge-detail")).getByRole("button", { name: "取消跳过" }),
+    );
+
+    expect(unskipNudge).toHaveBeenCalledWith("alpha@example.com", "c1");
   });
 });
 

@@ -17,6 +17,8 @@ export interface NudgePerson {
   overdueDays: number;
   /** 按时间倒序，服务端已经排好序。 */
   history: NudgeEvent[];
+  /** 讲师主动跳过——仍在名单里，只是灰显+带标签，不是从名单消失。 */
+  skipped: boolean;
 }
 
 /** 课程 tab 用的最小形状。 */
