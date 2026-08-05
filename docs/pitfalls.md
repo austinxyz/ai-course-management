@@ -214,6 +214,18 @@ group 6，evaluator RETRY 后又 BLOCK 一次才补齐）。同一个缺陷从�
 优先显示新信号**（已标记就显示"已回复"，不再显示原始快照），旧信号退到只在需要溯源时
 才展示的地方（这里是详情面板）。
 
+**`useState(prop)` 的初始值只在挂载那一刻生效——同一路由内换参数是客户端过渡，组件不会
+重新挂载**（student-homework-summary group 3，evaluator BLOCK 才发现）。`/homework?student=`
+深链接选中态最初写成 `useState(initialSelectedEmail)`：从别的页面跳过来能选中，但同一个
+`/homework` 页面内把 `?student=` 换成另一个人（比如学员详情页两条不同报课记录的链接连续点）
+不会更新选中项，因为组件实例没变、`useState` 的初始值早就用过了。修法是加 `useEffect` 在
+prop 变化时同步 `setSelected`。**反过来**——如果想要的行为是"换成另一项时天然重置某段状态"，
+正确做法是把状态放进**会随 `key` 换掉而重新挂载的子组件**里（nudge group 4 就是这个反例：
+草稿编辑状态原本提到父组件存成 `Record<email, text>`，导致换人再换回来还看得到上次编辑的
+文字，跟"编辑只影响当次展示"这条 spec 冲突；挪进按 `key={studentEmail}` 挂载的子组件后，
+状态天然复位，不需要手写重置逻辑）。**同一个"prop 换了但组件没重新挂载"的现象，
+两个方向都能中招**：想同步就手写 `useEffect`，想重置就把状态放对组件层级，别都堆在父组件。
+
 ---
 
 ## 测试与验证
