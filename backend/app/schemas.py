@@ -698,6 +698,16 @@ class NudgePersonRead(BaseModel):
     history: list[NudgeEventRead]
 
 
+class NudgeListRead(BaseModel):
+    """`GET /api/nudge?course=` 的整份响应：未交名单 + 已跳过人数一次带出。
+
+    `skipped_count` 不能从 `items` 推出——已跳过的人被查询整个排除在外，
+    根本不在 `items` 里（design.md 决定 4）。"""
+
+    items: list[NudgePersonRead]
+    skipped_count: int
+
+
 class NudgeCountRead(BaseModel):
     """全部课程合计的催作业名单人数。侧边栏徽标用——跟按课程查的 `list_nudge`
     是两个不同的接口，这个不带 `course` 参数。"""

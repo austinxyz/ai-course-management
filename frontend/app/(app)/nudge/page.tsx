@@ -15,13 +15,16 @@ export default async function NudgePage({
   const courses = await getCourses();
   const courseId = pickCourse(courses, course);
 
-  const people = courseId ? await getNudgeList(courseId) : [];
+  const { people, skippedCount } = courseId
+    ? await getNudgeList(courseId)
+    : { people: [], skippedCount: 0 };
 
   return (
     <NudgeClient
       courses={courses.map((c) => ({ id: c.id, name: c.name }))}
       courseId={courseId ?? ""}
       people={people}
+      skippedCount={skippedCount}
     />
   );
 }

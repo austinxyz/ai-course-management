@@ -24,3 +24,9 @@ export interface NudgeCourse {
   id: string;
   name: string;
 }
+
+/** `GET /api/nudge?course=` 的整份响应：未交名单 + 已跳过人数一次带出。 */
+export interface NudgeList {
+  people: NudgePerson[];
+  skippedCount: number;
+}

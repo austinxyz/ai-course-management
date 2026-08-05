@@ -67,7 +67,7 @@ skipped_count = session.exec(
 ).one()
 ```
 
-**这是对 requirements.md 里"不能为了这一个数字新增一次数据库往返"这句话的一处已知偏离**，在这里明确说明原因：已跳过的人完全不出现在主查询的结果行里（`WHERE NOT EXISTS` 把他们整个过滤掉了），要在同一条 SQL 里把"过滤掉的人数"当成结果集的一部分带出来，只有两种办法——(a) 把 `WHERE NOT EXISTS` 改写成 `LEFT JOIN` 保留这些行、在应用层再分组算跳过数，这会让主查询逻辑显著复杂化且违反"跳过是查询时排除"这条已有设计原则（`nudge` 能力 design.md 决定 4）；(b) 用一次独立、轻量、走索引的 `COUNT` 查询。选 (b)：这一次额外查询不是 per-row 也不是 per-person，是**课程级别的常数次**，跟 `homework.import_homework` 接受"三次成批查询"、`homework.list_homework` 用子查询嵌入满分表是同一个量级的判断——真正要守住的是"不随名单人数增长"，不是"字面意义上恰好一条 SQL"。`nudge_events (student_email, course_id, created_at desc)` 已有的复合索引能覆盖这次查询的前两列过滤条件。
+**这是对 requirements.md 里"不能为了这一个数字新增一次数据库往返"这句话的一处已知偏离**，在这里明确说明原因：已跳过的人完全不出现在主查询的结果行里（`WHERE NOT EXISTS` 把他们整个过滤掉了），要在同一条 SQL 里把"过滤掉的人数"当成结果集的一部分带出来，只有两种办法——(a) 把 `WHERE NOT EXISTS` 改写成 `LEFT JOIN` 保留这些行、在应用层再分组算跳过数，这会让主查询逻辑显著复杂化且违反"跳过是查询时排除"这条已有设计原则（`nudge` 能力 design.md 决定 4）；(b) 用一次独立、轻量、走索引的 `COUNT` 查询。选 (b)：这一次额外查询不是 per-row 也不是 per-person，是**课程级别的常数次**，跟 `homework.import_homework` 接受"三次成批查询"、`homework.list_homework` 用子查询嵌入满分表是同一个量级的判断——真正要守住的是"不随名单人数增长"，不是"字面意义上恰好一条 SQL"。`nudge_events` 已有的 `nudge_events_student_course_idx (student_email, course_id, created_at desc)` 领头列是 `student_email`，覆盖不到这次按 `(course_id, event_type)` 过滤的查询——发现于 group-1 评审。已新增 `nudge_events_course_type_idx (course_id, event_type)`（`supabase/migrations/20260805000000_nudge_events_course_skipped_idx.sql`），领头列匹配这次查询的过滤条件。
 
 **5. `NudgeClient.tsx` 从 `people` prop 改成解构 `{people, skippedCount}`，`page.tsx` 相应改用新的响应形状。**
 

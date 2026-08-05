@@ -31,8 +31,10 @@ function person(over: Partial<NudgePerson> = {}): NudgePerson {
   };
 }
 
-function view(people: NudgePerson[], courseId = "c1") {
-  return render(<NudgeClient courses={COURSES} courseId={courseId} people={people} />);
+function view(people: NudgePerson[], courseId = "c1", skippedCount = 0) {
+  return render(
+    <NudgeClient courses={COURSES} courseId={courseId} people={people} skippedCount={skippedCount} />,
+  );
 }
 
 describe("名单", () => {
@@ -97,6 +99,118 @@ describe("详情面板", () => {
     expect(
       within(screen.getByTestId("nudge-detail")).getByText("还没催过这个人。"),
     ).toBeInTheDocument();
+  });
+});
+
+describe("头部统计与进度指示", () => {
+  it("同时显示未交人数与已跳过人数", () => {
+    view([person(), person({ studentEmail: "bravo@example.com" })], "c1", 3);
+
+    expect(screen.getByText(/2 人未交/)).toBeInTheDocument();
+    expect(screen.getByText(/已跳过 3 人/)).toBeInTheDocument();
+  });
+
+  it("没有人被跳过时显示已跳过 0 人，不是隐藏这一项", () => {
+    view([person()], "c1", 0);
+
+    expect(screen.getByText(/已跳过 0 人/)).toBeInTheDocument();
+  });
+
+  it("头部只显示 3 步进度指示，不出现发送邮件", () => {
+    view([person()]);
+
+    expect(screen.getByText("算名单")).toBeInTheDocument();
+    expect(screen.getByText("起草文案")).toBeInTheDocument();
+    expect(screen.getByText(/标记.*跳过/)).toBeInTheDocument();
+    expect(screen.queryByText("发送邮件")).not.toBeInTheDocument();
+  });
+});
+
+describe("导出名单", () => {
+  it("点击导出名单不发起网络请求，触发下载", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    const createObjectURL = vi.fn().mockReturnValue("blob:mock");
+    const revokeObjectURL = vi.fn();
+    vi.stubGlobal("URL", { ...globalThis.URL, createObjectURL, revokeObjectURL });
+
+    view([person()]);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "导出名单" }));
+
+    expect(createObjectURL).toHaveBeenCalled();
+    expect(fetchSpy).not.toHaveBeenCalled();
+
+    fetchSpy.mockRestore();
+    vi.unstubAllGlobals();
+  });
+});
+
+describe("文案模板 tab", () => {
+  it("已催 0 次默认选中第一次提醒", async () => {
+    view([person({ history: [] })]);
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId("nudge-alpha@example.com"));
+
+    const panel = within(screen.getByTestId("nudge-detail"));
+    expect(panel.getByRole("tab", { name: "第一次提醒", selected: true })).toBeInTheDocument();
+  });
+
+  it("已催 1 次默认选中第二次提醒", async () => {
+    view([
+      person({
+        history: [{ type: "nudged", channel: "email", note: "", at: "2026-08-01T00:00:00Z" }],
+      }),
+    ]);
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId("nudge-alpha@example.com"));
+
+    const panel = within(screen.getByTestId("nudge-detail"));
+    expect(panel.getByRole("tab", { name: "第二次提醒", selected: true })).toBeInTheDocument();
+  });
+
+  it("已催 2 次及以上默认选中最后一次", async () => {
+    view([
+      person({
+        history: [
+          { type: "nudged", channel: "email", note: "", at: "2026-08-01T00:00:00Z" },
+          { type: "nudged", channel: "email", note: "", at: "2026-07-28T00:00:00Z" },
+        ],
+      }),
+    ]);
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId("nudge-alpha@example.com"));
+
+    const panel = within(screen.getByTestId("nudge-detail"));
+    expect(panel.getByRole("tab", { name: "最后一次", selected: true })).toBeInTheDocument();
+  });
+
+  it("手动点击另一档且草稿未编辑过时，草稿替换为新档位默认文案", async () => {
+    view([person({ history: [] })]);
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId("nudge-alpha@example.com"));
+
+    const panel = within(screen.getByTestId("nudge-detail"));
+    const draftBefore = (panel.getByRole("textbox") as HTMLTextAreaElement).value;
+    await user.click(panel.getByRole("tab", { name: "最后一次" }));
+
+    const draftAfter = (panel.getByRole("textbox") as HTMLTextAreaElement).value;
+    expect(draftAfter).not.toBe(draftBefore);
+    expect(panel.getByRole("tab", { name: "最后一次", selected: true })).toBeInTheDocument();
+  });
+
+  it("草稿已编辑过时，点击另一档不覆盖草稿", async () => {
+    view([person({ history: [] })]);
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId("nudge-alpha@example.com"));
+
+    const panel = within(screen.getByTestId("nudge-detail"));
+    const draft = panel.getByRole("textbox") as HTMLTextAreaElement;
+    await user.clear(draft);
+    await user.type(draft, "我手写的内容");
+
+    await user.click(panel.getByRole("tab", { name: "最后一次" }));
+
+    expect(draft.value).toBe("我手写的内容");
   });
 });
 

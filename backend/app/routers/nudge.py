@@ -9,12 +9,12 @@ from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import text
-from sqlmodel import Session, select
+from sqlmodel import Session, func, select
 
 from app.db import get_session
 from app.models import Course, CourseSession, Enrollment, HomeworkSubmission, NudgeEvent, Student
 from app.routers.homework import MISSING, SUBMITTED, merge_states, state_of
-from app.schemas import NudgeCountRead, NudgeEventCreate, NudgeEventRead, NudgePersonRead
+from app.schemas import NudgeCountRead, NudgeEventCreate, NudgeEventRead, NudgeListRead, NudgePersonRead
 
 router = APIRouter(prefix="/api/nudge", tags=["nudge"])
 
@@ -42,11 +42,11 @@ _HISTORY_JSON = text(
 )
 
 
-@router.get("", response_model=list[NudgePersonRead])
+@router.get("", response_model=NudgeListRead)
 def list_nudge(
     course: uuid.UUID = Query(),
     session: Session = Depends(get_session),
-) -> list[NudgePersonRead]:
+) -> NudgeListRead:
     """一门课的催作业名单：只含"未交"状态的人，逾期天数 + 完整催促历史一次带出。"""
     statement = (
         select(Enrollment, Student, CourseSession, HomeworkSubmission, _HISTORY_JSON)
@@ -95,7 +95,18 @@ def list_nudge(
         )
 
     result.sort(key=lambda p: (-p.overdue_days, p.name, p.student_email))
-    return result
+
+    # 已跳过的人被 _SKIPPED_EXISTS 整个排除在上面的查询之外，items 里推不出
+    # 这个数——只能单独查。课程级别常数次，不随名单人数增长（design.md 决定 4，
+    # 对 requirements 原文"零额外往返"的已披露偏离）。
+    skipped_count = session.exec(
+        select(func.count(func.distinct(NudgeEvent.student_email))).where(
+            NudgeEvent.course_id == course,
+            NudgeEvent.event_type == "skipped",
+        )
+    ).one()
+
+    return NudgeListRead(items=result, skipped_count=skipped_count)
 
 
 @router.get("/count", response_model=NudgeCountRead)

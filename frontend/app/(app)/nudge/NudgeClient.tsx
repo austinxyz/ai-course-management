@@ -34,22 +34,82 @@ function channelLabel(channel: string | null): string {
   return channel === "wechat" ? "微信" : "邮件";
 }
 
-/** 固定模板，套姓名/课程/逾期天数。讲师可在详情面板改这一次的文本。 */
-function draftFor(person: NudgePerson, courseName: string): string {
-  return `${person.name}，你好！
+/** 三档固定文案模板——文案内容是固定文本，不接受配置（design.md Non-Goals）。 */
+const TEMPLATES = {
+  first: (person: NudgePerson, courseName: string) => `${person.name}，你好！
 
 注意到你报名的《${courseName}》已经上完 ${person.overdueDays} 天了，还没看到你的作业提交。
 
-有空的话欢迎尽快补交，卡在哪一步都可以随时找我。`;
+有空的话欢迎尽快补交，卡在哪一步都可以随时找我。`,
+  second: (person: NudgePerson, courseName: string) => `${person.name}，你好：
+
+《${courseName}》的作业已经催过一次了，还是没收到你的提交。方便的话，卡在哪一步了跟我说一声？`,
+  final: (person: NudgePerson, courseName: string) => `${person.name}，你好，
+
+这是关于《${courseName}》作业的最后一次提醒了，已经逾期 ${person.overdueDays} 天。如果有困难请务必告诉我，不然这门课的作业会一直挂在未交状态。`,
+} as const;
+
+type TemplateKey = keyof typeof TEMPLATES;
+
+const TEMPLATE_TABS: { key: TemplateKey; label: string }[] = [
+  { key: "first", label: "第一次提醒" },
+  { key: "second", label: "第二次提醒" },
+  { key: "final", label: "最后一次" },
+];
+
+/** 按已催次数选默认档位：0 次→第一档，1 次→第二档，≥2 次→第三档。 */
+function defaultTemplateKey(nudgedCount: number): TemplateKey {
+  if (nudgedCount === 0) return "first";
+  if (nudgedCount === 1) return "second";
+  return "final";
+}
+
+function draftFor(person: NudgePerson, courseName: string, key: TemplateKey = defaultTemplateKey(0)): string {
+  return TEMPLATES[key](person, courseName);
+}
+
+/** 姓名/邮箱/微信理论上可能带逗号——简单双引号包裹处理，不为这个低概率场景
+ * 引入 CSV 生成库（design.md 决定 2 / Risks）。 */
+function csvField(value: string | number): string {
+  const text = String(value);
+  return /[,"\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+/** 用页面已加载的 `people` 数据拼字符串——不为导出这个动作单独发起网络请求。 */
+function toCsv(people: NudgePerson[]): string {
+  const header = ["姓名", "邮箱", "微信", "逾期天数", "已催次数"].join(",");
+  const rows = people.map((p) =>
+    [
+      p.name,
+      p.studentEmail,
+      p.wechat,
+      p.overdueDays,
+      p.history.filter((h) => h.type === "nudged").length,
+    ]
+      .map(csvField)
+      .join(","),
+  );
+  return [header, ...rows].join("\n");
+}
+
+function downloadCsv(people: NudgePerson[]) {
+  const blob = new Blob([toCsv(people)], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "未交名单.csv";
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
 interface NudgeClientProps {
   courses: NudgeCourse[];
   courseId: string;
   people: NudgePerson[];
+  skippedCount: number;
 }
 
-export function NudgeClient({ courses, courseId, people }: NudgeClientProps) {
+export function NudgeClient({ courses, courseId, people, skippedCount }: NudgeClientProps) {
   const [selected, setSelected] = useState<string | null>(null);
 
   const course = courses.find((c) => c.id === courseId);
@@ -63,11 +123,23 @@ export function NudgeClient({ courses, courseId, people }: NudgeClientProps) {
   return (
     <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
       <header className="flex flex-none flex-col gap-2.5 border-b border-border bg-surface px-[22px] pb-[13px] pt-4">
-        <div className="flex items-baseline gap-2.5">
-          <h1 className="m-0 font-sans text-[19px] font-semibold tracking-tight">催作业</h1>
-          <span className="font-mono text-xs text-muted">
-            {courses.length === 0 ? "还没有课程" : `${people.length} 人未交`}
-          </span>
+        <div className="flex items-start justify-between gap-2.5">
+          <div className="flex flex-col gap-1">
+            <div className="flex items-baseline gap-2.5">
+              <h1 className="m-0 font-sans text-[19px] font-semibold tracking-tight">催作业</h1>
+              <span className="font-mono text-xs text-muted">
+                {courses.length === 0
+                  ? "还没有课程"
+                  : `${people.length} 人未交 · 已跳过 ${skippedCount} 人`}
+              </span>
+            </div>
+            <NudgeSteps />
+          </div>
+          {people.length > 0 && (
+            <Button variant="secondary" onClick={() => downloadCsv(people)}>
+              导出名单
+            </Button>
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
           {courses.map((c) => (
@@ -176,11 +248,23 @@ function DetailPanel({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const nudgedCount = person.history.filter((h) => h.type === "nudged").length;
+  // 换人靠父组件的 `key={studentEmail}` 整个组件重新挂载复位，同 draft 的既有机制。
+  const [templateKey, setTemplateKey] = useState<TemplateKey>(() => defaultTemplateKey(nudgedCount));
   // 编辑只影响当次展示——挂在这个组件实例上，靠父组件的 `key={studentEmail}`
   // 换人时整个组件重新挂载，天然回到 draftFor() 生成的默认值，不需要额外的
   // "重置"分支（student-homework-summary 那次的深链接同步 bug 是反面教材：
   // 状态挂在错误的地方，prop 变了但没跟着换）。
-  const [draft, setDraft] = useState(() => draftFor(person, courseName));
+  const [draft, setDraft] = useState(() => draftFor(person, courseName, templateKey));
+
+  function handleTemplateSwitch(key: TemplateKey) {
+    // 只有当前草稿仍等于当前档位的默认文案（未被编辑过）才替换——已编辑过的
+    // 草稿切 tab 不动，避免手滑点了个 tab 把讲师刚写的话冲掉。
+    if (draft === TEMPLATES[templateKey](person, courseName)) {
+      setDraft(TEMPLATES[key](person, courseName));
+    }
+    setTemplateKey(key);
+  }
 
   async function copyDraft() {
     try {
@@ -226,6 +310,31 @@ function DetailPanel({
           label="已催次数"
           value={String(person.history.filter((h) => h.type === "nudged").length)}
         />
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <div role="tablist" className="flex gap-1">
+          {TEMPLATE_TABS.map((tab) => (
+            <button
+              key={tab.key}
+              role="tab"
+              type="button"
+              aria-selected={tab.key === templateKey}
+              onClick={() => handleTemplateSwitch(tab.key)}
+              className={cn(
+                "rounded-token border px-2 py-1 font-sans text-[11.5px]",
+                tab.key === templateKey
+                  ? "border-primary bg-primary font-medium text-primary-foreground"
+                  : "border-border bg-surface text-foreground",
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        <span className="font-mono text-[10.5px] text-muted-foreground">
+          按已催次数自动推荐档位，可手动切换
+        </span>
       </div>
 
       <div className="flex flex-col gap-1.5">
@@ -296,6 +405,20 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: "da
         {value}
       </span>
       <span className="font-mono text-[11px] text-muted-foreground">{label}</span>
+    </div>
+  );
+}
+
+/** 静态三步说明，不依赖任何新数据——"起草文案"永远是当前态，"标记/跳过"永远
+ * 是待办态，"算名单"永远是已完成态。不做成会变化的向导（design.md 决定 3）。 */
+function NudgeSteps() {
+  return (
+    <div className="flex items-center gap-2 font-mono text-[10.5px] text-muted-foreground">
+      <span>算名单</span>
+      <span aria-hidden>→</span>
+      <span className="font-medium text-foreground">起草文案</span>
+      <span aria-hidden>→</span>
+      <span>标记 / 跳过</span>
     </div>
   );
 }

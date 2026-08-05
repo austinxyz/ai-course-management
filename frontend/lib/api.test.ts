@@ -263,6 +263,50 @@ describe("a 422 from the backend", () => {
 
 });
 
+describe("getNudgeList", () => {
+  const originalBackendUrl = process.env.BACKEND_URL;
+
+  beforeEach(() => {
+    process.env.BACKEND_URL = "http://backend.internal:8000";
+  });
+
+  afterEach(() => {
+    process.env.BACKEND_URL = originalBackendUrl;
+    vi.unstubAllGlobals();
+    vi.resetModules();
+  });
+
+  it("把后端的 {items, skipped_count} 收成 {people, skippedCount}", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            items: [
+              {
+                student_email: "alpha@example.com",
+                name: "学员甲",
+                wechat: "",
+                course_id: "c1",
+                overdue_days: 3,
+                history: [],
+              },
+            ],
+            skipped_count: 2,
+          }),
+      }),
+    );
+    const { getNudgeList } = await import("./api");
+
+    const result = await getNudgeList("c1");
+
+    expect(result.people).toHaveLength(1);
+    expect(result.people[0].studentEmail).toBe("alpha@example.com");
+    expect(result.skippedCount).toBe(2);
+  });
+});
+
 describe("导入相关的字段映射", () => {
   const originalBackendUrl = process.env.BACKEND_URL;
 

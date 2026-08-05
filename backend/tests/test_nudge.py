@@ -69,6 +69,12 @@ def _count(client) -> int:
 def _fetch(client, course: Course) -> list[dict]:
     resp = client.get(f"/api/nudge?course={course.id}")
     assert resp.status_code == 200, resp.text
+    return resp.json()["items"]
+
+
+def _fetch_full(client, course: Course) -> dict:
+    resp = client.get(f"/api/nudge?course={course.id}")
+    assert resp.status_code == 200, resp.text
     return resp.json()
 
 
@@ -245,6 +251,51 @@ class TestCount:
         )
 
         assert _count(client) == 0
+
+
+class TestSkippedCount:
+    def test_response_wraps_items_and_reports_skipped_count(self, client, db_session):
+        course = _course(db_session)
+        _student(db_session, "nudge-oscar@example.com", "学员一")
+        _student(db_session, "nudge-papa@example.com", "学员二")
+        past = _session_row(db_session, course, date.today() - timedelta(days=9))
+        _enroll(db_session, "nudge-oscar@example.com", course, past)
+        _enroll(db_session, "nudge-papa@example.com", course, past)
+        client.post(
+            "/api/nudge/events",
+            json={"student_email": "nudge-papa@example.com", "course_id": str(course.id), "event_type": "skipped"},
+        )
+
+        body = _fetch_full(client, course)
+
+        assert len(body["items"]) == 1
+        assert body["skipped_count"] == 1
+
+    def test_skipped_count_is_zero_when_nobody_skipped(self, client, db_session):
+        course = _course(db_session)
+        _student(db_session, "nudge-quebec@example.com", "学员三")
+        past = _session_row(db_session, course, date.today() - timedelta(days=9))
+        _enroll(db_session, "nudge-quebec@example.com", course, past)
+
+        body = _fetch_full(client, course)
+
+        assert body["skipped_count"] == 0
+
+    def test_skipped_count_is_scoped_per_course(self, client, db_session):
+        alpha = _course(db_session, "课程甲")
+        bravo = _course(db_session, "课程乙")
+        _student(db_session, "nudge-romeo@example.com", "学员四")
+        past_a = _session_row(db_session, alpha, date.today() - timedelta(days=9))
+        past_b = _session_row(db_session, bravo, date.today() - timedelta(days=9))
+        _enroll(db_session, "nudge-romeo@example.com", alpha, past_a)
+        _enroll(db_session, "nudge-romeo@example.com", bravo, past_b)
+        client.post(
+            "/api/nudge/events",
+            json={"student_email": "nudge-romeo@example.com", "course_id": str(alpha.id), "event_type": "skipped"},
+        )
+
+        assert _fetch_full(client, alpha)["skipped_count"] == 1
+        assert _fetch_full(client, bravo)["skipped_count"] == 0
 
 
 class TestSkip:

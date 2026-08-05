@@ -9,7 +9,7 @@ import type {
   LastImport,
   ReportPreview,
 } from "@/app/(app)/homework/types";
-import type { NudgeEvent, NudgePerson } from "@/app/(app)/nudge/types";
+import type { NudgeEvent, NudgeList, NudgePerson } from "@/app/(app)/nudge/types";
 import type { Enrollment, Student } from "@/app/(app)/students/types";
 
 interface ApiStudent {
@@ -745,22 +745,32 @@ export async function getNudgeCount(): Promise<number> {
   return data.total;
 }
 
-/** 一门课的催作业名单：只含"未交"状态的人，逾期天数 + 完整催促历史一次带出。 */
-export async function getNudgeList(courseId: string): Promise<NudgePerson[]> {
-  const res = await fetch(
-    backendUrl(`/api/nudge?course=${encodeURIComponent(courseId)}`),
-    backendRequestInit(),
-  );
-  if (!res.ok) throw new Error(`getNudgeList failed: ${res.status}`);
-  const data: ApiNudgePerson[] = await res.json();
-  return data.map((api) => ({
+interface ApiNudgeList {
+  items: ApiNudgePerson[];
+  skipped_count: number;
+}
+
+function toNudgePerson(api: ApiNudgePerson): NudgePerson {
+  return {
     studentEmail: api.student_email,
     name: api.name,
     wechat: api.wechat,
     courseId: api.course_id,
     overdueDays: api.overdue_days,
     history: api.history.map(toNudgeEvent),
-  }));
+  };
+}
+
+/** 一门课的催作业名单：只含"未交"状态的人，逾期天数 + 完整催促历史一次带出，
+ * 外加已跳过人数——后端在同一次响应里给出（design.md 决定 4）。 */
+export async function getNudgeList(courseId: string): Promise<NudgeList> {
+  const res = await fetch(
+    backendUrl(`/api/nudge?course=${encodeURIComponent(courseId)}`),
+    backendRequestInit(),
+  );
+  if (!res.ok) throw new Error(`getNudgeList failed: ${res.status}`);
+  const data: ApiNudgeList = await res.json();
+  return { people: data.items.map(toNudgePerson), skippedCount: data.skipped_count };
 }
 
 /** 讲师标记已催或跳过。渠道由服务端按微信是否对齐判定，这里不传。 */
