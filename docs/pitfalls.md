@@ -363,6 +363,23 @@ FastAPI 通信，FastAPI 直连 Postgres，从不经过这条自动 API。但这
 但只在代码里不用不等于关掉了它——真正的关法是 Supabase Dashboard → Settings → Data API
 把它整个关掉，不是在应用层加 RLS 策略绕这件事。
 
+**PowerShell 用 `Get-Content -Raw` + `Set-Content -Encoding utf8` 批量改一个已经是 UTF-8 的文件，
+会把中文改成乱码**（nudge-advanced group-4，批量勾选 `tasks.md` 的 checkbox）。文件读进来时已经
+按 UTF-8 正确解码，但 `Set-Content -Encoding utf8` 在某些 PowerShell 5.1 环境下会按系统 ANSI
+代码页重新解释字符串再编码，相当于转了两次码；症状是文件肉眼看是天书，但 `diff`/`git status`
+一切正常、脚本本身不报错，直到下次打开文件或 `git show` 才看见。批量文本替换改用 Node/Python
+脚本（显式 `encoding: 'utf8'` / `encoding="utf-8"`）或 `sed`，不要用 PowerShell 的
+`Get-Content`/`Set-Content` 组合处理含非 ASCII 字符的文件。
+
+**给一个只有"发生过"语义的判据（`EXISTS(事件类型 = X)`）加一个撤销动作后，所有沿用旧判据的
+读取点都要重新审计，不能默认它们还成立**（nudge-advanced group-4，独立 code review 抓到）。
+"跳过"原本用 `WHERE NOT EXISTS(skipped 事件)` 从名单里整个排除，这是单调的（一旦跳过永远跳过），
+判"曾经出现过"等价于判"当前状态"。加了"取消跳过"（`unskipped` 事件）之后这个等价关系不成立了，
+但只改了主列表查询用"最新一条事件"重新判断，侧边栏徽标的 `count_nudge` 和前端 CSV 导出两处
+还在用旧的"存在即排除/包含"逻辑——前者导致取消跳过的人永久从徽标漏计，后者导致导出内容混入
+已跳过的人，都不报错、都是读第一眼看不出的语义漂移。加新状态或新转换时，**搜一遍这个字段/事件
+类型在代码库里所有的读取点**，不能只改写入路径附近那一处。
+
 ---
 
 ## 性能测量
