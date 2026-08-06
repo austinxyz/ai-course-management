@@ -40,9 +40,32 @@
 - [x] 2.8 GREEN — 发送失败时 `setError(outcome.message)`，复用既有错误展示 UI
 - [x] 2.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-2.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
 
-## 3. 验证与收尾
+## 3. 修订：SMTP 换成 Resend（Render 免费档封锁出站 SMTP）
 
-- [x] 3.1 Run backend test suite — ensure no regressions (`cd backend && pytest`)
-- [x] 3.2 Run frontend test suite — ensure no regressions (`cd frontend && npm run test`)
-- [x] 3.3 Run e2e suite if applicable — 无配置（`project.e2e_command` 为空），跳过
-- [x] 3.4 Run superpowers:verification-before-completion（运行 `openspec/config.yaml` 里的 `project.test_commands`；`grep -rn 'console.log' frontend/app frontend/lib`；`project.custom_verification_checks` 两条环境变量泄漏检查；额外确认 `grep -rn 'SMTP_PASSWORD\|SMTP_USER' frontend/` 无匹配——凭证不该出现在前端代码里）
+上线后生产实测：`send_email()` 连 `smtp.gmail.com:587` 直接 `[Errno 101] Network is unreachable`——Render 免费档对出站 SMTP 端口平台级封锁，换账号/换密码都没用。改用 Resend（HTTPS API 邮件服务），不走 SMTP 端口。design.md 决定 2 已修订。
+
+### Contract
+- **Spec**: `send_email(to, subject, body)` 的对外行为不变——失败统一抛 `EmailSendError`，成功无返回值；`nudge.py` 端点逻辑完全不需要改动（只换了 `email_client.py` 内部实现）。测试必须验证不发起真实网络请求。（`specs/nudge/spec.md` 原有要求，实现细节改变不改变 spec）
+- **Runtime**: `cd backend && pytest tests/test_email_client.py tests/test_nudge.py` → expected: 全部通过，覆盖 Resend 成功/`RESEND_API_KEY` 未配置/Resend 返回错误状态码/超时参数存在
+- **Code**: `email_client.py` 改用 `httpx.post(RESEND_API_URL, ...)`（design.md 决定 2 修订）；`httpx` 从 dev 依赖组提到主依赖（`pyproject.toml`）；测试用 `unittest.mock` 打 `httpx.post`（或 `respx`/`monkeypatch`），不发真实网络请求；`nudge.py`/`schemas.py` 不需要改动——`send_email` 签名没变
+- **Threshold**: 80
+
+- [x] 3.0 CONTRACT — write openspec/changes/nudge-email-send/contracts/group-3.md with the ### Contract block above
+- [x] 3.1 RED — `backend/tests/test_email_client.py`：改写现有用例，mock `httpx.post` 返回成功（`raise_for_status` 不抛），断言 `send_email()` 正常返回且请求发到 `https://api.resend.com/emails`，`Authorization` header 带 `Bearer <RESEND_API_KEY>`；此时实现还是 smtplib，测试应失败
+- [x] 3.2 GREEN — 重写 `email_client.py`：`send_email()` 改用 `httpx.post`，读 `RESEND_API_KEY`，`FROM_ADDRESS = "noreply@austinxyz.ai"`
+- [x] 3.3 RED — 改写用例：`RESEND_API_KEY` 未设置时抛 `EmailSendError`（沿用原有测试，断言内容不变，只是内部实现变了）
+- [x] 3.4 GREEN — 确认未配置时立刻抛错，不发请求（多数情况下 3.2 已经覆盖，这一步用于确认边界）
+- [x] 3.5 RED — 改写用例：mock `httpx.post` 返回 4xx/5xx（`raise_for_status` 抛 `httpx.HTTPStatusError`），断言 `send_email()` 捕获后抛 `EmailSendError`
+- [x] 3.6 GREEN — `send_email()` 里 `except httpx.HTTPError as exc: raise EmailSendError(str(exc)) from exc`
+- [x] 3.7 RED — 改写用例：mock `httpx.post` 正常返回，断言调用时传了 `timeout=10`
+- [x] 3.8 GREEN — 确认 `httpx.post(..., timeout=10)`（多数情况下 3.2 已经覆盖，这一步用于确认边界）
+- [x] 3.9 GREEN — `pyproject.toml`：把 `httpx` 从 `[dependency-groups].dev` 移到 `[project].dependencies`；`uv sync` 确认锁文件更新
+- [x] 3.10 GREEN — 运行 `pytest tests/test_nudge.py`（不改动，确认端点层完全不受影响，回归保护）
+- [x] 3.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-3.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 80 → PASS; < 80 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
+
+## 4. 验证与收尾
+
+- [x] 4.1 Run backend test suite — ensure no regressions (`cd backend && pytest`)
+- [x] 4.2 Run frontend test suite — ensure no regressions (`cd frontend && npm run test`)
+- [x] 4.3 Run e2e suite if applicable — 无配置（`project.e2e_command` 为空），跳过
+- [x] 4.4 Run superpowers:verification-before-completion（运行 `openspec/config.yaml` 里的 `project.test_commands`；`grep -rn 'console.log' frontend/app frontend/lib`；`project.custom_verification_checks` 两条环境变量泄漏检查；额外确认 `grep -rn 'RESEND_API_KEY' frontend/` 无匹配——凭证不该出现在前端代码里）
