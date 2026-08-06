@@ -12,9 +12,17 @@ from sqlalchemy import text
 from sqlmodel import Session, select
 
 from app.db import get_session
+from app.email_client import EmailSendError, send_email
 from app.models import Course, CourseSession, Enrollment, HomeworkSubmission, NudgeEvent, Student
 from app.routers.homework import MISSING, SUBMITTED, merge_states, state_of
-from app.schemas import NudgeCountRead, NudgeEventCreate, NudgeEventRead, NudgeListRead, NudgePersonRead
+from app.schemas import (
+    NudgeCountRead,
+    NudgeEventCreate,
+    NudgeEventRead,
+    NudgeListRead,
+    NudgePersonRead,
+    NudgeSendEmailRequest,
+)
 
 router = APIRouter(prefix="/api/nudge", tags=["nudge"])
 
@@ -180,6 +188,43 @@ def create_nudge_event(
         event_type=payload.event_type,
         channel=channel,
         note=payload.note,
+    )
+    session.add(row)
+    session.commit()
+    session.refresh(row)
+    return NudgeEventRead(type=row.event_type, channel=row.channel, note=row.note, at=row.created_at)
+
+
+@router.post("/send-email", response_model=NudgeEventRead, status_code=201)
+def send_nudge_email(
+    payload: NudgeSendEmailRequest,
+    session: Session = Depends(get_session),
+) -> NudgeEventRead:
+    """真实发送一封催促邮件，成功后记一条 `channel=email` 的已催事件。
+
+    渠道硬编码为 `"email"`——不走 `_channel_for()`：那个函数判的是"这个人平时
+    该走哪个渠道"，跟"这次实际走了哪个渠道"是两件事（`nudge-email-send`
+    design.md 决定 1/3）。发送失败时不落库，顺序是先发送、发送成功才写 DB。
+    """
+    student = session.get(Student, payload.student_email)
+    if student is None:
+        raise HTTPException(status_code=404, detail="没有这个学员")
+    course = session.get(Course, payload.course_id)
+    if course is None:
+        raise HTTPException(status_code=404, detail="没有这门课")
+
+    subject = f"《{course.name}》作业提醒"
+    try:
+        send_email(to=payload.student_email, subject=subject, body=payload.body)
+    except EmailSendError as exc:
+        raise HTTPException(status_code=502, detail=f"发送失败：{exc}") from exc
+
+    row = NudgeEvent(
+        student_email=payload.student_email,
+        course_id=payload.course_id,
+        event_type="nudged",
+        channel="email",
+        note="",
     )
     session.add(row)
     session.commit()

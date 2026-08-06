@@ -391,6 +391,75 @@ class TestSkippedVisibility:
         assert _count(client) == 1
 
 
+class TestSendEmail:
+    def test_sending_writes_a_nudged_event_with_email_channel(self, client, db_session, monkeypatch):
+        course = _course(db_session)
+        _student(db_session, "nudge-zulu@example.com", "学员十二")
+        past = _session_row(db_session, course, date.today() - timedelta(days=9))
+        _enroll(db_session, "nudge-zulu@example.com", course, past)
+        monkeypatch.setattr("app.routers.nudge.send_email", lambda **kwargs: None)
+
+        resp = client.post(
+            "/api/nudge/send-email",
+            json={
+                "student_email": "nudge-zulu@example.com",
+                "course_id": str(course.id),
+                "body": "草稿正文",
+            },
+        )
+
+        assert resp.status_code == 201, resp.text
+        rows = _by_email(_fetch(client, course))
+        assert len(rows["nudge-zulu@example.com"]["history"]) == 1
+        assert rows["nudge-zulu@example.com"]["history"][0]["type"] == "nudged"
+        assert rows["nudge-zulu@example.com"]["history"][0]["channel"] == "email"
+
+    def test_channel_is_email_even_when_wechat_is_aligned(self, client, db_session, monkeypatch):
+        course = _course(db_session)
+        _student(db_session, "nudge-alpha2@example.com", "学员十三", wechat="对齐过的昵称")
+        past = _session_row(db_session, course, date.today() - timedelta(days=9))
+        _enroll(db_session, "nudge-alpha2@example.com", course, past)
+        monkeypatch.setattr("app.routers.nudge.send_email", lambda **kwargs: None)
+
+        resp = client.post(
+            "/api/nudge/send-email",
+            json={
+                "student_email": "nudge-alpha2@example.com",
+                "course_id": str(course.id),
+                "body": "草稿正文",
+            },
+        )
+
+        assert resp.status_code == 201, resp.text
+        assert resp.json()["channel"] == "email"
+
+    def test_send_failure_does_not_write_any_event(self, client, db_session, monkeypatch):
+        from app.email_client import EmailSendError
+
+        course = _course(db_session)
+        _student(db_session, "nudge-bravo2@example.com", "学员十四")
+        past = _session_row(db_session, course, date.today() - timedelta(days=9))
+        _enroll(db_session, "nudge-bravo2@example.com", course, past)
+
+        def _boom(**kwargs):
+            raise EmailSendError("SMTP 挂了")
+
+        monkeypatch.setattr("app.routers.nudge.send_email", _boom)
+
+        resp = client.post(
+            "/api/nudge/send-email",
+            json={
+                "student_email": "nudge-bravo2@example.com",
+                "course_id": str(course.id),
+                "body": "草稿正文",
+            },
+        )
+
+        assert resp.status_code == 502, resp.text
+        rows = _by_email(_fetch(client, course))
+        assert rows["nudge-bravo2@example.com"]["history"] == []
+
+
 class TestSkip:
     def test_skipping_marks_skipped_without_touching_other_tables(
         self, client, db_session

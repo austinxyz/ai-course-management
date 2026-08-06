@@ -727,3 +727,13 @@ class NudgeEventCreate(BaseModel):
     # nudged | skipped | unskipped
     event_type: str
     note: str = ""
+
+
+class NudgeSendEmailRequest(BaseModel):
+    """真实发送一封催促邮件。`body` 是详情面板当前草稿的原文——服务端不重新
+    生成文案，草稿可能已经被讲师编辑过。主题由服务端按课程名固定格式生成，
+    这里不接受调用方传入（`nudge-email-send` design.md 决定 1）。"""
+
+    student_email: str
+    course_id: uuid.UUID
+    body: str

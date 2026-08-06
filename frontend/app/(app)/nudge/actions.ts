@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 
-import { BackendError, createNudgeEvent } from "@/lib/api";
+import { BackendError, createNudgeEvent, sendNudgeEmailApi } from "@/lib/api";
 import { checkSitePassword } from "@/lib/site-password";
 
 /** 每个入口先过这里。理由同 `homework/actions.ts` 的 `requireSitePassword`。 */
@@ -52,4 +52,20 @@ export async function skipNudge(studentEmail: string, courseId: string): Promise
 /** 讲师撤销跳过，该学员重新按真实作业状态参与"未交"判定。 */
 export async function unskipNudge(studentEmail: string, courseId: string): Promise<NudgeActionResult> {
   return record(studentEmail, courseId, "unskipped");
+}
+
+/** 真实发送一封催促邮件（固定 SMTP 账号）。`body` 是详情面板当前草稿的原文。 */
+export async function sendNudgeEmail(
+  studentEmail: string,
+  courseId: string,
+  body: string,
+): Promise<NudgeActionResult> {
+  await requireSitePassword();
+  try {
+    await sendNudgeEmailApi({ studentEmail, courseId, body });
+  } catch (error) {
+    return classify(error);
+  }
+  revalidatePath("/nudge", "layout");
+  return { ok: true };
 }

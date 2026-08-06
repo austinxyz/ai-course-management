@@ -790,3 +790,18 @@ export async function createNudgeEvent(input: {
   })) as ApiNudgeEvent;
   return toNudgeEvent(data);
 }
+
+/** 真实发送一封催促邮件（SMTP，固定发信账号）。`body` 是详情面板当前草稿的
+ * 原文——服务端不重新生成文案。主题由服务端按课程名固定格式生成，这里不传。 */
+export async function sendNudgeEmailApi(input: {
+  studentEmail: string;
+  courseId: string;
+  body: string;
+}): Promise<NudgeEvent> {
+  const data = (await backendWrite("/api/nudge/send-email", "POST", {
+    student_email: input.studentEmail,
+    course_id: input.courseId,
+    body: input.body,
+  })) as ApiNudgeEvent;
+  return toNudgeEvent(data);
+}

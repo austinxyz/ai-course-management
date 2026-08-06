@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 
 import { Badge, Button } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import { markNudged, skipNudge, unskipNudge } from "./actions";
+import { markNudged, sendNudgeEmail, skipNudge, unskipNudge } from "./actions";
 import type { NudgeCourse, NudgePerson } from "./types";
 
 /**
@@ -253,6 +253,7 @@ function DetailPanel({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showConfirm, setShowConfirm] = useState(false);
   const nudgedCount = person.history.filter((h) => h.type === "nudged").length;
   // 换人靠父组件的 `key={studentEmail}` 整个组件重新挂载复位，同 draft 的既有机制。
   const [templateKey, setTemplateKey] = useState<TemplateKey>(() => defaultTemplateKey(nudgedCount));
@@ -299,6 +300,15 @@ function DetailPanel({
     setBusy(true);
     setError(null);
     const outcome = await unskipNudge(person.studentEmail, person.courseId);
+    setBusy(false);
+    if (!outcome.ok) setError(outcome.message);
+  }
+
+  async function handleSendEmail() {
+    setShowConfirm(false);
+    setBusy(true);
+    setError(null);
+    const outcome = await sendNudgeEmail(person.studentEmail, person.courseId, draft);
     setBusy(false);
     if (!outcome.ok) setError(outcome.message);
   }
@@ -370,6 +380,28 @@ function DetailPanel({
           标记已催
         </Button>
       </div>
+      <Button variant="secondary" disabled={busy} onClick={() => setShowConfirm(true)}>
+        发送邮件
+      </Button>
+      {showConfirm && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-auto bg-black/30 p-8">
+          <div
+            role="dialog"
+            aria-label="确认发送邮件"
+            className="flex w-[420px] flex-col gap-3 rounded-token border border-border bg-surface p-5"
+          >
+            <p className="m-0 font-sans text-[13px] leading-relaxed text-foreground">
+              确认发送给 {person.studentEmail}？
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setShowConfirm(false)}>
+                取消
+              </Button>
+              <Button onClick={handleSendEmail}>确认发送</Button>
+            </div>
+          </div>
+        </div>
+      )}
       {person.skipped ? (
         <Button variant="ghost" size="sm" disabled={busy} onClick={handleUnskip}>
           取消跳过

@@ -10,10 +10,12 @@ vi.mock("next/navigation", () => ({ usePathname: () => "/nudge" }));
 const markNudged = vi.fn();
 const skipNudge = vi.fn();
 const unskipNudge = vi.fn().mockResolvedValue({ ok: true });
+const sendNudgeEmail = vi.fn().mockResolvedValue({ ok: true });
 vi.mock("./actions", () => ({
   markNudged: (...args: unknown[]) => markNudged(...args),
   skipNudge: (...args: unknown[]) => skipNudge(...args),
   unskipNudge: (...args: unknown[]) => unskipNudge(...args),
+  sendNudgeEmail: (...args: unknown[]) => sendNudgeEmail(...args),
 }));
 
 const COURSES: NudgeCourse[] = [
@@ -283,6 +285,70 @@ describe("文案模板 tab", () => {
     await user.click(panel.getByRole("tab", { name: "最后一次" }));
 
     expect(draft.value).toBe("我手写的内容");
+  });
+});
+
+describe("发送邮件", () => {
+  beforeEach(() => {
+    sendNudgeEmail.mockReset().mockResolvedValue({ ok: true });
+  });
+
+  it("点击发送邮件弹出确认对话框，显示目标邮箱", async () => {
+    view([person()]);
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId("nudge-alpha@example.com"));
+
+    await user.click(
+      within(screen.getByTestId("nudge-detail")).getByRole("button", { name: "发送邮件" }),
+    );
+
+    expect(screen.getByRole("dialog")).toHaveTextContent("alpha@example.com");
+  });
+
+  it("取消确认框不调用 sendNudgeEmail", async () => {
+    view([person()]);
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId("nudge-alpha@example.com"));
+    await user.click(
+      within(screen.getByTestId("nudge-detail")).getByRole("button", { name: "发送邮件" }),
+    );
+
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "取消" }));
+
+    expect(sendNudgeEmail).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("确认后调用 sendNudgeEmail，带学员邮箱/课程 id/当前草稿", async () => {
+    view([person()]);
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId("nudge-alpha@example.com"));
+    await user.click(
+      within(screen.getByTestId("nudge-detail")).getByRole("button", { name: "发送邮件" }),
+    );
+
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "确认发送" }));
+
+    expect(sendNudgeEmail).toHaveBeenCalledWith(
+      "alpha@example.com",
+      "c1",
+      expect.stringContaining("学员甲"),
+    );
+  });
+
+  it("发送失败时详情面板显示错误信息", async () => {
+    sendNudgeEmail.mockResolvedValue({ ok: false, message: "发送失败：SMTP 挂了" });
+    view([person()]);
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId("nudge-alpha@example.com"));
+    await user.click(
+      within(screen.getByTestId("nudge-detail")).getByRole("button", { name: "发送邮件" }),
+    );
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "确认发送" }));
+
+    expect(
+      within(screen.getByTestId("nudge-detail")).getByText("发送失败：SMTP 挂了"),
+    ).toBeInTheDocument();
   });
 });
 
