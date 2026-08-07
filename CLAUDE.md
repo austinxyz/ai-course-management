@@ -172,6 +172,7 @@
 - Supabase 默认给每张表开自动 REST API，代码里不用它 ≠ 关掉了它——真正的关法在 Dashboard 的 Data API 开关
 - PowerShell `Get-Content -Raw` + `Set-Content -Encoding utf8` 批量改已是 UTF-8 的文件会转两次码——中文变乱码，脚本本身不报错
 - "曾经发生过"当"当前状态"用的判据，加一个撤销动作后就不成立了——改判据要搜遍所有读取点，不能只改主路径那一处
+- Render 免费档封锁出站 SMTP 端口（587/465/25），跟凭证对不对无关——报错像防火墙问题，换密码没用；要发信选 HTTP API 型服务（如 Resend），别等部署了才发现
 
 ### 性能测量
 
