@@ -1,4 +1,4 @@
-import { getCourses, getEnrollments, getStudents } from "@/lib/api";
+import { getCourses, getEnrollments, getInteractions, getStudents } from "@/lib/api";
 import { StudentsClient } from "./StudentsClient";
 
 export default async function StudentsPage() {
@@ -9,11 +9,12 @@ export default async function StudentsPage() {
   // the database after a reload.
   // 报课与课程一起取：详情面板要列出报课，补录弹窗要选课程与场次。
   // 分成后续请求会让面板先渲染成"没有报课"再跳成有——那和真的没有分不出来。
-  const [students, archivedStudents, enrollments, courses] = await Promise.all([
+  const [students, archivedStudents, enrollments, courses, interactions] = await Promise.all([
     getStudents(),
     getStudents({ archived: true }),
     getEnrollments(),
     getCourses(),
+    getInteractions(),
   ]);
   return (
     <StudentsClient
@@ -21,6 +22,7 @@ export default async function StudentsPage() {
       archivedStudents={archivedStudents}
       enrollments={enrollments}
       courses={courses}
+      interactions={interactions}
     />
   );
 }

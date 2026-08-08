@@ -737,3 +737,31 @@ class NudgeSendEmailRequest(BaseModel):
     student_email: str
     course_id: uuid.UUID
     body: str
+
+
+class InteractionRead(BaseModel):
+    """互动记录里的一条：来自 `nudge_events`，带学员姓名与课程名一次给出——
+    调用方不需要再拿 `student_email`/`course_id` 回头查名字。"""
+
+    student_email: str
+    student_name: str
+    course_id: uuid.UUID
+    course_name: str
+    event_type: str
+    channel: str | None
+    note: str
+    at: datetime
+
+
+class InteractionListRead(BaseModel):
+    """`GET /api/interactions` 的整份响应：全量互动记录，按时间倒序。
+    不接受过滤参数——筛选全部在前端做（`interactions` design.md 决定 1）。"""
+
+    items: list[InteractionRead]
+
+
+class InteractionCountRead(BaseModel):
+    """最近 7 天互动条数。侧边栏徽标用，固定窗口、不接受参数——语义上就是
+    "最近 7 天"，不是"当前筛选条件下"。"""
+
+    total: int

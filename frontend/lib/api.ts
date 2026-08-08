@@ -9,6 +9,7 @@ import type {
   LastImport,
   ReportPreview,
 } from "@/app/(app)/homework/types";
+import type { Interaction } from "@/app/(app)/interactions/types";
 import type { NudgeEvent, NudgeList, NudgePerson } from "@/app/(app)/nudge/types";
 import type { Enrollment, Student } from "@/app/(app)/students/types";
 
@@ -804,4 +805,45 @@ export async function sendNudgeEmailApi(input: {
     body: input.body,
   })) as ApiNudgeEvent;
   return toNudgeEvent(data);
+}
+
+interface ApiInteraction {
+  student_email: string;
+  student_name: string;
+  course_id: string;
+  course_name: string;
+  event_type: string;
+  channel: string | null;
+  note: string;
+  at: string;
+}
+
+function toInteraction(api: ApiInteraction): Interaction {
+  return {
+    studentEmail: api.student_email,
+    studentName: api.student_name,
+    courseId: api.course_id,
+    courseName: api.course_name,
+    eventType: api.event_type,
+    channel: api.channel,
+    note: api.note,
+    at: api.at,
+  };
+}
+
+/** 全部互动记录，按时间倒序，学员姓名与课程名已经 JOIN 好。不接受过滤
+ * 参数——筛选全部在前端做（`interactions` design.md 决定 1）。 */
+export async function getInteractions(): Promise<Interaction[]> {
+  const res = await fetch(backendUrl("/api/interactions"), backendRequestInit());
+  if (!res.ok) throw new Error(`getInteractions failed: ${res.status}`);
+  const data: { items: ApiInteraction[] } = await res.json();
+  return data.items.map(toInteraction);
+}
+
+/** 最近 7 天互动条数。侧边栏"互动记录"徽标用。 */
+export async function getInteractionsCount(): Promise<number> {
+  const res = await fetch(backendUrl("/api/interactions/count"), backendRequestInit());
+  if (!res.ok) throw new Error(`getInteractionsCount failed: ${res.status}`);
+  const data: { total: number } = await res.json();
+  return data.total;
 }

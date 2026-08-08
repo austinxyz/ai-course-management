@@ -18,6 +18,7 @@ import { DetailPanel } from "./DetailPanel";
 import { NewStudentModal } from "./NewStudentModal";
 import { EnrollmentModal } from "./EnrollmentModal";
 import type { Course } from "@/app/(app)/courses/types";
+import type { Interaction } from "@/app/(app)/interactions/types";
 import type {
   EditableFieldKey,
   Enrollment,
@@ -32,6 +33,8 @@ interface StudentsClientProps {
   students: Student[];
   archivedStudents: Student[];
   enrollments: Enrollment[];
+  /** 可选——没传时"最近互动"卡片就是空的。默认值让既有测试不用逐个补这个 prop。 */
+  interactions?: Interaction[];
   courses: Course[];
 }
 
@@ -51,6 +54,7 @@ export function StudentsClient({
   archivedStudents,
   enrollments,
   courses,
+  interactions = [],
 }: StudentsClientProps) {
   const [scope, setScope] = useState<"active" | "archived">("active");
   const [query, setQuery] = useState("");
@@ -428,6 +432,10 @@ export function StudentsClient({
                 <DetailPanel
                   student={selectedStudent}
                   enrollments={enrollments.filter((e) => e.studentEmail === selectedStudent.email)}
+                  interactions={interactions
+                    .filter((i) => i.studentEmail === selectedStudent.email)
+                    .sort((a, b) => (a.at > b.at ? -1 : 1))
+                    .slice(0, 5)}
                   onAddEnrollment={() => setShowEnroll(true)}
                   sessionsByCourse={sessionsByCourse}
                   onChangeEnrollmentSession={changeEnrollmentSessionAction}

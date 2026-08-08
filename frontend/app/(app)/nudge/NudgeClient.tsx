@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 
 import { Badge, Button } from "@/components/ui";
 import { cn } from "@/lib/cn";
+import { channelLabel, formatAt } from "@/lib/format";
 import { markNudged, sendNudgeEmail, skipNudge, unskipNudge } from "./actions";
 import type { NudgeCourse, NudgePerson } from "./types";
 
@@ -14,25 +15,6 @@ import type { NudgeCourse, NudgePerson } from "./types";
  * 名单本身不可编辑——它是从报课+作业算出来的事实。这一页唯二的写入口是
  * "标记已催"与"跳过"，两者都只写一条 `nudge_events`，不碰报课/作业数据。
  */
-
-/** `2026-08-01T14:20:00Z` → `2026-08-01 07:20`（美西）。 */
-function formatAt(iso: string): string {
-  const when = new Date(iso);
-  if (Number.isNaN(when.getTime())) return iso;
-  return new Intl.DateTimeFormat("sv-SE", {
-    timeZone: "America/Los_Angeles",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(when);
-}
-
-/** `wechat`/`email` → 中文渠道名。 */
-function channelLabel(channel: string | null): string {
-  return channel === "wechat" ? "微信" : "邮件";
-}
 
 /** 三档固定文案模板——文案内容是固定文本，不接受配置（design.md Non-Goals）。 */
 const TEMPLATES = {
@@ -334,6 +316,13 @@ function DetailPanel({
           value={String(person.history.filter((h) => h.type === "nudged").length)}
         />
       </div>
+
+      <Link
+        href={`/interactions?student=${encodeURIComponent(person.studentEmail)}`}
+        className="font-mono text-[11px] text-primary underline"
+      >
+        查看互动记录
+      </Link>
 
       <div className="flex flex-col gap-1.5">
         <div role="tablist" className="flex gap-1">

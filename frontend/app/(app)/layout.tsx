@@ -1,6 +1,13 @@
 import { Suspense } from "react";
 
-import { getCourses, getEnrollments, getHomeworkCount, getNudgeCount, getStudents } from "@/lib/api";
+import {
+  getCourses,
+  getEnrollments,
+  getHomeworkCount,
+  getInteractionsCount,
+  getNudgeCount,
+  getStudents,
+} from "@/lib/api";
 import { Sidebar } from "./students/Sidebar";
 import { SidebarWithCount } from "./SidebarWithCount";
 import type { NavKey } from "./students/types";
@@ -40,12 +47,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     toCount(getEnrollments()),
     getHomeworkCount().catch(() => undefined),
     getNudgeCount().catch(() => undefined),
-  ]).then(([students, courses, enroll, homework, nudge]) => ({
+    getInteractionsCount().catch(() => undefined),
+  ]).then(([students, courses, enroll, homework, nudge, interactions]) => ({
     students,
     courses,
     enroll,
     homework,
     nudge,
+    interactions,
   }));
 
   return (

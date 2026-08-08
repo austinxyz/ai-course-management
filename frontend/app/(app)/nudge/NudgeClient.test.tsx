@@ -78,6 +78,28 @@ describe("详情面板", () => {
     expect(draft.value).toContain("9");
   });
 
+  it("「查看互动记录」链接跳到互动记录页并预筛选当前学员", async () => {
+    view([person()]);
+    const user = userEvent.setup();
+
+    await user.click(screen.getByTestId("nudge-alpha@example.com"));
+
+    const panel = within(screen.getByTestId("nudge-detail"));
+    const link = panel.getByRole("link", { name: "查看互动记录" });
+    expect(link).toHaveAttribute("href", "/interactions?student=alpha%40example.com");
+  });
+
+  it("邮箱带特殊字符（如 +）时链接正确编码", async () => {
+    view([person({ studentEmail: "user+tag@example.com" })]);
+    const user = userEvent.setup();
+
+    await user.click(screen.getByTestId("nudge-user+tag@example.com"));
+
+    const panel = within(screen.getByTestId("nudge-detail"));
+    const link = panel.getByRole("link", { name: "查看互动记录" });
+    expect(link).toHaveAttribute("href", "/interactions?student=user%2Btag%40example.com");
+  });
+
   it("有催促历史时按时间倒序展示", async () => {
     view([
       person({

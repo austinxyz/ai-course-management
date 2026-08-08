@@ -37,6 +37,7 @@ function panel(over: Record<string, unknown> = {}) {
       archiveError={null}
       fieldStatus={{}}
       enrollments={[]}
+      interactions={[]}
       onRetryField={noop}
       onClose={noop}
       onStartEdit={noop}

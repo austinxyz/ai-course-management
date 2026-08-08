@@ -9,13 +9,13 @@ import type { NavKey } from "./types";
 
 interface SidebarProps {
   /**
-   * Keyed by nav item — `students`/`courses`/`enroll`/`homework` all get a
-   * live total the same way. A key missing from the map (or the whole prop
+   * Keyed by nav item — `students`/`courses`/`enroll`/`homework`/`nudge`/
+   * `interactions` all get a live total the same way (`interactions` shows
+   * the last-7-days count, not a historical total, matching what its own
+   * page badge means). A key missing from the map (or the whole prop
    * omitted) shows `—` rather than 0 — a page that never counted must not
    * claim there are none. The same `—` is what shows while the count is
-   * still in flight. `students`/`courses`/`enroll`/`homework`/`nudge` all get
-   * a live total the same way. `interactions` is still a placeholder page
-   * with no backing data, so it's never in this map and always shows `—`.
+   * still in flight.
    */
   counts?: Partial<Record<NavKey, number>>;
 }

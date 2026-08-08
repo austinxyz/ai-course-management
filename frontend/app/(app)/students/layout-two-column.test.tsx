@@ -39,6 +39,7 @@ function panel() {
       archiveError={null}
       fieldStatus={{}}
       enrollments={[]}
+      interactions={[]}
       sessionsByCourse={{}}
       onRetryField={noop}
       onClose={noop}

@@ -1,14 +1,25 @@
 import { type KeyboardEvent } from "react";
 import { Badge, Button } from "@/components/ui";
+import type { Interaction } from "@/app/(app)/interactions/types";
+import { channelLabel, formatAt } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { FIELDS, LEVELS, SOURCES, TAG_COLORS, TAGS, TZ_BY_REGION } from "./vocab";
 import { EnrollmentRows } from "./EnrollmentRows";
 import type { EditableFieldKey, Enrollment, FieldStatus, Student, WritableFieldKey } from "./types";
 
+const INTERACTION_EVENT_LABEL: Record<string, string> = {
+  nudged: "已催",
+  skipped: "跳过",
+  unskipped: "取消跳过",
+};
+
 interface DetailPanelProps {
   student: Student;
   /** 该学员的报课记录。状态由服务端派生，这里只渲染。 */
   enrollments: Enrollment[];
+  /** 该学员的互动记录，已经按时间倒序、`StudentsClient` 已经切好最多 5 条——
+   * 这个组件只管渲染，不做筛选/截断（`interactions` design.md 决定 4）。 */
+  interactions: Interaction[];
   /** 每门课可选的场次，按 courseId 取。改场次时只列该课程自己的场次。 */
   sessionsByCourse: Record<string, { id: string; label: string }[]>;
   onAddEnrollment: () => void;
@@ -81,6 +92,7 @@ export function DetailPanel(props: DetailPanelProps) {
   const {
     student,
     enrollments,
+    interactions,
     sessionsByCourse,
     onAddEnrollment,
     onChangeEnrollmentSession,
@@ -390,29 +402,36 @@ export function DetailPanel(props: DetailPanelProps) {
           )}
         </div>
 
-        <div className="flex flex-col gap-2 border-t border-dashed border-border pt-3.5">
-          <div className="flex items-center gap-2">
-            <div className="font-mono text-[11px] tracking-wide text-muted-foreground">详情页 · 草图</div>
-            <Badge variant="muted">待设计</Badge>
-          </div>
-          {/* 报课记录已经是真的了，从占位块里移除——它就在下面，说的是同一个学员。
-              作业提交也移除：它现在就挂在下面每条报课记录上（student-homework-summary），
-              这里再放一块同名占位就是两处各说各话。互动记录这个能力还不存在，留标题不留数
-              ——设计稿的示例值是凭空造事实。 */}
-          {[
-            { title: "互动记录", meta: "还没做" },
-          ].map((sk) => (
-            <div key={sk.title} className="flex flex-col gap-1.5 rounded-token border border-dashed border-border bg-surface-muted/60 px-3 py-2.5">
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-sans text-[12.5px] font-medium text-foreground">{sk.title}</span>
-                <span className="font-mono text-[11px] text-muted-foreground">{sk.meta}</span>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <div className="h-1.5 w-full rounded-full bg-border" />
-                <div className="h-1.5 w-2/3 rounded-full bg-border" />
-              </div>
+        <div className="flex flex-col gap-1.5 border-t border-dashed border-border pt-3.5">
+          <span className="font-mono text-[11px] tracking-wide text-muted-foreground">
+            最近互动
+          </span>
+          {interactions.length === 0 ? (
+            <span className="font-sans text-[12px] text-muted-foreground">还没有互动记录。</span>
+          ) : (
+            <div className="flex flex-col gap-1">
+              {interactions.map((i, idx) => (
+                <div
+                  key={`${i.at}-${idx}`}
+                  data-testid={`recent-interaction-${i.at}-${idx}`}
+                  className="flex items-center justify-between gap-2 font-sans text-[12px]"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <Badge variant={i.eventType === "skipped" ? "muted" : i.eventType === "unskipped" ? "success" : "default"}>
+                      {INTERACTION_EVENT_LABEL[i.eventType] ?? i.eventType}
+                    </Badge>
+                    <span className="text-muted-foreground">
+                      {i.courseName}
+                      {i.eventType === "nudged" ? ` · ${channelLabel(i.channel)}` : ""}
+                    </span>
+                  </span>
+                  <span className="flex-none font-mono text-[11px] text-muted-foreground">
+                    {formatAt(i.at)}
+                  </span>
+                </div>
+              ))}
             </div>
-          ))}
+          )}
         </div>
 
         <div className="border-t border-border px-4 py-3.5">
