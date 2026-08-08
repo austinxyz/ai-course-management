@@ -45,9 +45,9 @@
 - [x] 2.17 GREEN — `page.tsx` 接入 `GET /api/interactions/count`，侧边栏导航项显示该数字
 - [x] 2.18 VISUAL DIFF — bring up dev stack (`npm run dev --prefix frontend`)；核对独立页面与 mock 一致（若站点 Basic Auth 挡住自动化浏览器，按既有降级方案改用组件级渲染核对并如实记录）
 - [x] 2.E EVAL — spawn evaluator subagent (haiku); reads contracts/group-2.md + spec + design + group diff; invokes superpowers:requesting-code-review (CRITICAL/HIGH = BLOCK); scores Spec/Runtime/Code; total ≥ 70 → PASS; < 70 → append FIX tasks + retry (max 3 attempts, plateau < 5pt = escalate)
-- [ ] 2.F1 FIX — `InteractionsClient.tsx:54-55`：default `preset` 不是 `"7d"` 而是 `"all"`（或 `null`），在 `PRESETS` 里新增一行 `{ key: "all", label: "全部", days: null }`；`withinPreset()` 新增分支处理 `"all"` 返回 `true` 无条件；反之在 `2.10` 的测试里验证选中时间预设才开始过滤
-- [ ] 2.F2 FIX — `InteractionsClient.tsx:35-46`：`"today"` 应过滤当天的记录而非 `Date.now()` 秒数。改为计算美西时区的"今天起始"，示例：`const now = new Date(); const laDate = new Intl.DateTimeFormat('sv-SE', {timeZone: 'America/Los_Angeles'}).format(now); const todayStart = new Date(laDate + 'T00:00:00Z').getTime();` 然后 `since = todayStart - offset...` 或直接 `return when >= todayStart && when < todayStart + 86400000`；补充测试用例验证记录时间戳在"今天"边界内外的情形
-- [ ] 2.F3 FIX — `InteractionsClient.test.tsx`：补充测试用例，用 10 天前的固定时间戳验证"最近 7 天"默认时实际显示全部（旧数据），再切换到"最近 7 天"后只剩新数据；测试"今天"预设时用"刚刚"与"昨天"两条记录分别验证包含/排除；防止 fixture 巧合在 7 天窗口内而测试给了假信号
+- [x] 2.F1 FIX — `InteractionsClient.tsx:54-55`：default `preset` 不是 `"7d"` 而是 `"all"`（或 `null`），在 `PRESETS` 里新增一行 `{ key: "all", label: "全部", days: null }`；`withinPreset()` 新增分支处理 `"all"` 返回 `true` 无条件；反之在 `2.10` 的测试里验证选中时间预设才开始过滤
+- [x] 2.F2 FIX — `InteractionsClient.tsx:35-46`：`"today"` 应过滤当天的记录而非 `Date.now()` 秒数。改为计算美西时区的"今天起始"，示例：`const now = new Date(); const laDate = new Intl.DateTimeFormat('sv-SE', {timeZone: 'America/Los_Angeles'}).format(now); const todayStart = new Date(laDate + 'T00:00:00Z').getTime();` 然后 `since = todayStart - offset...` 或直接 `return when >= todayStart && when < todayStart + 86400000`；补充测试用例验证记录时间戳在"今天"边界内外的情形
+- [x] 2.F3 FIX — `InteractionsClient.test.tsx`：补充测试用例，用 10 天前的固定时间戳验证"最近 7 天"默认时实际显示全部（旧数据），再切换到"最近 7 天"后只剩新数据；测试"今天"预设时用"刚刚"与"昨天"两条记录分别验证包含/排除；防止 fixture 巧合在 7 天窗口内而测试给了假信号
 
 ## 3. 前端：学员详情面板嵌入 + 催作业页跳转
 
