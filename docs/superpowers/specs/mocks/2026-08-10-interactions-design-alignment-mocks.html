@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>interactions-design-alignment mocks</title>
+<!-- HAS_UI_SURFACE: yes -->
+<!-- 直接翻译自权威设计稿 ClaudeAI课程学员管理页.dc.html 的 isInteractions 区块（真实内容，非重新设计），
+     token 沿用既有 mocks 文件（2026-08-07-interactions-mocks.html）的既定色板。 -->
+<style>
+  :root {
+    --border: #e4e0d8;
+    --surface: #ffffff;
+    --surface-muted: #f2efe9;
+    --bg: #f6f4f0;
+    --muted: #79736a;
+    --muted-fg: #a09a90;
+    --ink: #1a1917;
+    --rounded: 8px;
+    --primary: #9c3417;
+    --success: #2f6b4f;
+    --danger: #b3261e;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", sans-serif;
+    margin: 0; padding: 24px; background: var(--bg); color: var(--ink);
+  }
+  section { margin-bottom: 56px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p.desc { color: var(--muted); font-size: 13px; max-width: 680px; line-height: 1.6; }
+  .mono { font-family: ui-monospace, "JetBrains Mono", monospace; }
+  .card { border: 1px solid var(--border); border-radius: var(--rounded); background: var(--surface); }
+  .row { display: flex; align-items: center; gap: 8px; }
+  .between { justify-content: space-between; }
+
+  .page-header { padding: 16px 22px 13px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; }
+  .search-box { display: flex; align-items: center; gap: 7px; width: 236px; height: 34px; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--rounded); background: var(--surface); font-size: 12.5px; color: var(--muted); }
+
+  .tab-bar { padding: 11px 22px; background: #fbfaf8; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .tab-group { display: flex; padding: 2px; background: var(--surface-muted); border: 1px solid var(--border); border-radius: var(--rounded); }
+  .tab { height: 28px; padding: 0 10px; border: none; background: none; border-radius: 6px; font-size: 12.5px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .tab.active { background: var(--surface); color: var(--ink); font-weight: 500; box-shadow: 0 1px 2px rgba(0,0,0,.06); }
+  .tab .count { font-family: ui-monospace, monospace; font-size: 11px; color: var(--muted-fg); }
+  .tab.active .count { color: var(--primary); }
+
+  .toast { padding: 9px 22px; background: #f2f8f4; border-bottom: 1px solid #d6e6dc; display: flex; align-items: center; gap: 10px; }
+  .toast-badge { display: inline-flex; align-items: center; border-radius: var(--rounded); padding: 2px 8px; font-size: 11.5px; font-weight: 500; background: #e9f2ec; color: var(--success); border: 1px solid #d6e6dc; }
+
+  .interaction-row { display: flex; align-items: flex-start; gap: 12px; padding: 12px 22px; border-bottom: 1px solid var(--border); }
+  .interaction-row:last-child { border-bottom: none; }
+  .day-time { width: 88px; flex: none; display: flex; flex-direction: column; gap: 2px; }
+  .day-time .day { font-size: 11.5px; font-weight: 500; }
+  .day-time .time { font-size: 11.5px; color: var(--muted-fg); font-family: ui-monospace, monospace; }
+  .src-badge { font-size: 11px; padding: 1px 7px; border-radius: 999px; font-weight: 500; flex: none; }
+  .src-badge.auto { background: var(--surface-muted); color: var(--muted-fg); }
+  .src-badge.manual { background: #fdece7; color: var(--primary); }
+  .src-badge.signal { background: #eaf3ee; color: var(--success); }
+  .row-body { font-size: 12.5px; color: #3c3a35; margin: 4px 0 0; line-height: 1.65; }
+  .row-by { width: 96px; flex: none; text-align: right; font-size: 11px; color: var(--muted-fg); font-family: ui-monospace, monospace; }
+
+  .side-panel { width: 360px; flex: none; border-left: 1px solid var(--border); background: var(--surface); display: flex; flex-direction: column; }
+  .side-panel .block { padding: 14px 20px; display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid #eeeae2; }
+  .side-panel h2 { margin: 0; font-size: 15px; font-weight: 600; }
+  .field-label { font-family: ui-monospace, monospace; font-size: 11px; letter-spacing: .09em; color: var(--muted-fg); }
+  .field select, .field textarea { height: 34px; border-radius: var(--rounded); border: 1px solid var(--border); background: var(--surface); padding: 0 10px; font-size: 12.5px; width: 100%; }
+  .field textarea { height: auto; padding: 8px 10px; resize: vertical; }
+  .type-pills { display: flex; padding: 2px; background: var(--surface-muted); border: 1px solid var(--border); border-radius: var(--rounded); align-self: flex-start; flex-wrap: wrap; }
+  .type-pill { height: 26px; padding: 0 10px; border: none; background: none; border-radius: 6px; font-size: 12px; color: var(--muted); }
+  .type-pill.active { background: var(--primary); color: #fff; font-weight: 500; }
+  .signal-btn { height: 28px; padding: 0 10px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); font-size: 12px; color: var(--muted); }
+  .signal-btn:disabled { opacity: .4; }
+  .btn { height: 32px; padding: 0 14px; border-radius: var(--rounded); font-size: 13px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; }
+  .btn.primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+</style>
+</head>
+<body>
+
+<section id="interactions-page-desktop">
+  <h1>互动记录独立页（桌面）</h1>
+  <p class="desc">来源 tab（全部/系统自动/人工录入/参与度，各带条数）替换原来的学员下拉+时间范围预设；顶部搜索框按学员/类型/内容模糊匹配，可与 tab 叠加。列表行左侧日期时间、来源徽标区分三类来源、类型+姓名+邮箱同一行、正文换行、右侧归属列。右侧常驻"记一条"面板：学员下拉、类型四选一（不是渠道）、内容、提交；下方"参与度信号"区块，选学员后 5 个标签可点，点击立即写入。</p>
+  <div class="card" style="display:flex;overflow:hidden">
+    <div style="flex:1;min-width:0">
+      <div class="page-header">
+        <div>
+          <div class="row" style="align-items:baseline;gap:10px">
+            <h1 style="font-size:19px">互动记录</h1>
+            <span class="mono" style="font-size:12px;color:var(--muted)">共 20 条</span>
+          </div>
+        </div>
+        <div class="search-box">🔍 搜学员、类型或内容</div>
+      </div>
+      <div class="tab-bar">
+        <div class="tab-group">
+          <button class="tab active">全部 <span class="count">20</span></button>
+          <button class="tab">系统自动 <span class="count">13</span></button>
+          <button class="tab">人工录入 <span class="count">3</span></button>
+          <button class="tab">参与度 <span class="count">4</span></button>
+        </div>
+        <span style="font-size:12px;color:var(--muted)">作业提交、批改完成、催促已发、新报课由事件自动写入；1:1 沟通和参与度信号手工录。</span>
+      </div>
+      <div class="toast">
+        <span class="toast-badge">已写入</span>
+        <span style="font-size:12.5px">这条互动记录已经加进去了。</span>
+        <button class="btn" style="margin-left:auto;height:26px;font-size:12px">知道了</button>
+      </div>
+      <div>
+        <div class="interaction-row">
+          <div class="day-time"><span class="day">2026-08-01</span><span class="time">14:20</span></div>
+          <span class="src-badge manual">人工录入</span>
+          <div style="flex:1;min-width:0">
+            <div class="row" style="flex-wrap:wrap;gap:8px">
+              <span style="font-weight:500;font-size:13px">1:1 沟通</span>
+              <span style="font-size:12.5px;color:var(--muted)">陈嘉禾</span>
+              <span class="mono" style="font-size:11px;color:var(--muted-fg)">chen.jiahe@example.com</span>
+            </div>
+            <p class="row-body">聊了 25 分钟。她想把周报流程推给整个运营组，问要不要专门给组里做一次内训。答应下个月排一场 45 分钟的分享，她来准备案例。</p>
+          </div>
+          <span class="row-by">Austin</span>
+        </div>
+        <div class="interaction-row">
+          <div class="day-time"><span class="time">09:05</span></div>
+          <span class="src-badge signal">参与度</span>
+          <div style="flex:1;min-width:0">
+            <div class="row" style="flex-wrap:wrap;gap:8px">
+              <span style="font-weight:500;font-size:13px">出席直播</span>
+              <span style="font-size:12.5px;color:var(--muted)">陈嘉禾</span>
+              <span class="mono" style="font-size:11px;color:var(--muted-fg)">chen.jiahe@example.com</span>
+            </div>
+            <p class="row-body">进阶第 2 场</p>
+          </div>
+          <span class="row-by">Austin</span>
+        </div>
+        <div class="interaction-row">
+          <div class="day-time"><span class="time">23:59</span></div>
+          <span class="src-badge auto">系统自动</span>
+          <div style="flex:1;min-width:0">
+            <div class="row" style="flex-wrap:wrap;gap:8px">
+              <span style="font-weight:500;font-size:13px">批改完成</span>
+              <span style="font-size:12.5px;color:var(--muted)">郑凯</span>
+              <span class="mono" style="font-size:11px;color:var(--muted-fg)">zheng.kai@example.com</span>
+            </div>
+            <p class="row-body">Claude 进阶工作流 · 已生成分项评分与反馈</p>
+          </div>
+          <span class="row-by">homework-grader</span>
+        </div>
+      </div>
+    </div>
+
+    <aside class="side-panel">
+      <div class="block">
+        <h2>记一条</h2>
+        <span style="font-size:12px;color:var(--muted)">选人、选类型、写内容。原文原样存进流水。</span>
+      </div>
+      <div class="block">
+        <div class="field">
+          <span class="field-label">学员</span>
+          <select><option>选择学员</option><option selected>陈嘉禾</option></select>
+        </div>
+        <div class="field">
+          <span class="field-label">类型</span>
+          <div class="type-pills">
+            <button class="type-pill active">1:1 沟通</button>
+            <button class="type-pill">咨询</button>
+            <button class="type-pill">技术支持</button>
+            <button class="type-pill">作业反馈</button>
+          </div>
+        </div>
+        <div class="field">
+          <span class="field-label">内容</span>
+          <textarea rows="4" placeholder="例：聊了 25 分钟，她想把周报流程推给整个运营组，问要不要做一次内训。"></textarea>
+        </div>
+        <button class="btn primary" style="align-self:flex-start">追加这条</button>
+      </div>
+      <div class="block">
+        <div class="row between">
+          <span class="field-label">参与度信号</span>
+          <span style="font-size:11px;color:var(--muted-fg)">按人工标记</span>
+        </div>
+        <div class="row" style="flex-wrap:wrap;gap:7px">
+          <button class="signal-btn">出席直播</button>
+          <button class="signal-btn">加入兴趣小组</button>
+          <button class="signal-btn">兴趣小组长</button>
+          <button class="signal-btn">兴趣小组积极发言</button>
+          <button class="signal-btn">Demo Day 参展</button>
+        </div>
+        <span style="font-size:11.5px;color:var(--muted-fg)">标给上面识别出的那位学员。</span>
+      </div>
+      <div class="block" style="border-bottom:none">
+        <span class="field-label">这条流水的规则</span>
+        <p style="margin:0;font-size:12px;color:var(--muted);line-height:1.7">只追加。写错了就再写一条更正，旧的那条留着。</p>
+      </div>
+    </aside>
+  </div>
+</section>
+
+<section id="interactions-page-no-enrollment-desktop">
+  <h1>没有有效报课的学员（桌面）</h1>
+  <p class="desc">选中的学员没有任何未退课的报课记录——课程无法自动推出，"记一条"提交按钮和参与度信号按钮都禁用，给出说明文案，不是提交后端才报错。</p>
+  <div class="card" style="width:360px;padding:14px 20px">
+    <span class="field-label">学员</span>
+    <select style="width:100%;height:34px;margin:5px 0 10px"><option selected>林敏（没有有效报课）</option></select>
+    <p style="margin:0 0 10px;font-size:12px;color:var(--danger)">这名学员没有在读课程，没法记录互动——先给她补一条报课。</p>
+    <button class="btn" disabled style="opacity:.4">追加这条</button>
+  </div>
+</section>
+
+<section id="mobile">
+  <h1>移动端：来源 tab 收起、面板铺满宽度</h1>
+  <p class="desc">tab 横向可滚动；"记一条"面板与列表堆叠为上下两段，面板铺满宽度。</p>
+  <div style="display:flex;flex-direction:column;gap:16px;width:360px">
+    <div class="tab-bar" style="border-radius:var(--rounded)">
+      <div class="tab-group" style="overflow-x:auto">
+        <button class="tab active">全部 <span class="count">20</span></button>
+        <button class="tab">系统自动 <span class="count">13</span></button>
+        <button class="tab">人工录入 <span class="count">3</span></button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="interaction-row">
+        <span class="src-badge manual">人工录入</span>
+        <div style="flex:1;min-width:0">
+          <span style="font-weight:500;font-size:13px">1:1 沟通</span>
+          <p class="row-body">聊了 25 分钟……</p>
+        </div>
+      </div>
+    </div>
+    <aside class="side-panel" style="width:100%">
+      <div class="block"><h2>记一条</h2></div>
+      <div class="block">
+        <div class="field"><span class="field-label">学员</span><select><option>选择学员</option></select></div>
+        <div class="type-pills"><button class="type-pill active">1:1 沟通</button><button class="type-pill">咨询</button></div>
+        <textarea rows="3"></textarea>
+        <button class="btn primary">追加这条</button>
+      </div>
+    </aside>
+  </div>
+</section>
+
+</body>
+</html>
