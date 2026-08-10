@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>interactions-manual-entry mocks</title>
+<!-- HAS_UI_SURFACE: yes -->
+<style>
+  :root {
+    --border: #e4e0d8;
+    --surface: #ffffff;
+    --surface-muted: #f2efe9;
+    --bg: #f6f4f0;
+    --muted: #79736a;
+    --muted-fg: #a09a90;
+    --ink: #1a1917;
+    --rounded: 8px;
+    --primary: #9c3417;
+    --success: #4c8a63;
+    --danger: #b3261e;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", sans-serif;
+    margin: 0; padding: 24px; background: var(--bg); color: var(--ink);
+  }
+  section { margin-bottom: 56px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p.desc { color: var(--muted); font-size: 13px; max-width: 640px; line-height: 1.6; }
+  .mono { font-family: ui-monospace, "JetBrains Mono", monospace; }
+  .card { border: 1px solid var(--border); border-radius: var(--rounded); background: var(--surface); padding: 16px; }
+  .row { display: flex; align-items: center; gap: 8px; }
+  .between { justify-content: space-between; }
+
+  .section-label { font-family: ui-monospace, monospace; font-size: 11px; letter-spacing: 0.02em; color: var(--muted-fg); }
+  .link-btn { font-family: ui-monospace, monospace; font-size: 11px; color: var(--primary); background: none; border: none; cursor: pointer; padding: 0; }
+
+  .timeline-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; font-size: 12px; }
+  .event-badge { font-size: 11px; padding: 1px 7px; border-radius: 999px; font-weight: 500; flex: none; }
+  .event-badge.nudged { background: #fdece7; color: var(--primary); }
+  .event-badge.skipped { background: var(--surface-muted); color: var(--muted-fg); }
+  .event-badge.unskipped { background: #eaf3ee; color: var(--success); }
+  .event-badge.manual { background: #eaeefb; color: #3a56a8; }
+
+  .field { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; }
+  .field span.label { color: var(--muted); }
+  .field select, .field textarea, .field .radio-row { height: 36px; border-radius: var(--rounded); border: 1px solid var(--border); background: var(--bg); padding: 0 10px; font-size: 13px; }
+  .field textarea { height: auto; padding: 8px 10px; resize: vertical; }
+  .radio-row { display: flex; align-items: center; gap: 14px; height: 36px; }
+  .radio-row label { display: flex; align-items: center; gap: 5px; font-size: 13px; }
+
+  .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; }
+  .modal { width: 400px; max-width: 100%; display: flex; flex-direction: column; gap: 14px; border-radius: var(--rounded); border: 1px solid var(--border); background: var(--surface); padding: 20px; }
+  .btn { height: 32px; padding: 0 14px; border-radius: var(--rounded); font-size: 13px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; }
+  .btn.primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+</style>
+</head>
+<body>
+
+<section id="detail-panel-manual-entry-desktop">
+  <h1>学员详情面板：最近互动卡片新增"+ 手动记录"（桌面）</h1>
+  <p class="desc">卡片标题行右侧加一个文字按钮"+ 手动记录"。列表里手动记录跟已催/跳过/取消跳过混排，用新增的 manual 徽标（蓝色系，跟已有三色区分）区分来源，其余排版（时间倒序、渠道、课程名）不变。</p>
+  <div class="card" style="width:360px">
+    <div class="row between" style="margin-bottom:10px">
+      <span class="section-label">最近互动</span>
+      <button class="link-btn">+ 手动记录</button>
+    </div>
+    <div class="timeline-row" style="border-bottom:1px solid var(--border)">
+      <span class="event-badge manual">手动</span>
+      <span style="flex:1;color:var(--muted)">从零开始用 Claude 和 Cowork · 微信</span>
+      <span class="mono" style="color:var(--muted-fg)">08-09 14:02</span>
+    </div>
+    <div class="timeline-row" style="border-bottom:1px solid var(--border)">
+      <span class="event-badge nudged">已催</span>
+      <span style="flex:1;color:var(--muted)">从零开始用 Claude 和 Cowork · 邮件</span>
+      <span class="mono" style="color:var(--muted-fg)">08-06 09:12</span>
+    </div>
+    <div class="timeline-row">
+      <span class="event-badge skipped">跳过</span>
+      <span style="flex:1;color:var(--muted)">先造枪：建知识库</span>
+      <span class="mono" style="color:var(--muted-fg)">08-04 10:00</span>
+    </div>
+  </div>
+</section>
+
+<section id="manual-entry-modal-desktop">
+  <h1>手动记录弹窗（桌面）</h1>
+  <p class="desc">跟 EnrollmentModal（补录报课弹窗）同一套外观规范：440px 内、rounded-token 边框、标题+一句说明、字段纵向排列、底部靠右两个按钮。课程下拉只列该学员已报的课；渠道是单选（微信/邮件）不是下拉；内容必填，留空时"保存"按钮禁用。</p>
+  <div class="modal-backdrop" style="position:relative;height:420px">
+    <div class="modal">
+      <div>
+        <h2 style="margin:0;font-size:15px;font-weight:600">手动记录互动</h2>
+        <p style="margin:4px 0 0;font-size:12.5px;color:var(--muted)">为 学员甲 记一条。时间自动取当前时刻。</p>
+      </div>
+      <label class="field">
+        <span class="label">课程</span>
+        <select><option>选一门课</option><option selected>从零开始用 Claude 和 Cowork</option></select>
+      </label>
+      <label class="field">
+        <span class="label">渠道</span>
+        <div class="radio-row" style="border:none;height:auto">
+          <label><input type="radio" name="channel" checked> 微信</label>
+          <label><input type="radio" name="channel"> 邮件</label>
+        </div>
+      </label>
+      <label class="field">
+        <span class="label">内容</span>
+        <textarea rows="3" placeholder="必填，比如「微信里聊了下学习进度」"></textarea>
+      </label>
+      <div class="row" style="justify-content:flex-end;gap:8px">
+        <button class="btn">取消</button>
+        <button class="btn primary">保存</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="mobile">
+  <h1>移动端：卡片按钮 + 弹窗</h1>
+  <p class="desc">移动端弹窗铺满宽度（跟其余弹窗一致的响应式规则），字段纵向排列不变；卡片里的"+ 手动记录"按钮不缩小触控区域。</p>
+  <div class="row" style="align-items:flex-start;gap:20px">
+    <div class="card" style="width:320px">
+      <div class="row between" style="margin-bottom:10px">
+        <span class="section-label">最近互动</span>
+        <button class="link-btn">+ 手动记录</button>
+      </div>
+      <div class="timeline-row">
+        <span class="event-badge manual">手动</span>
+        <span style="flex:1;color:var(--muted);font-size:11.5px">从零开始用 Claude · 微信</span>
+      </div>
+    </div>
+    <div class="modal" style="width:320px">
+      <h2 style="margin:0;font-size:15px;font-weight:600">手动记录互动</h2>
+      <label class="field"><span class="label">课程</span><select><option>选一门课</option></select></label>
+      <label class="field"><span class="label">渠道</span><div class="radio-row" style="border:none;height:auto"><label><input type="radio" name="c2" checked> 微信</label><label><input type="radio" name="c2"> 邮件</label></div></label>
+      <label class="field"><span class="label">内容</span><textarea rows="3"></textarea></label>
+      <div class="row" style="justify-content:flex-end;gap:8px"><button class="btn">取消</button><button class="btn primary">保存</button></div>
+    </div>
+  </div>
+</section>
+
+</body>
+</html>
