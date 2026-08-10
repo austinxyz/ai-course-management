@@ -7,6 +7,7 @@ import {
   archiveStudentAction,
   changeEnrollmentSessionAction,
   createEnrollmentAction,
+  createManualInteractionAction,
   createStudentAction,
   deleteEnrollmentAction,
   restoreStudentAction,
@@ -17,6 +18,7 @@ import { StudentsTable, NoResultsState, EmptyDatabaseState } from "./StudentsTab
 import { DetailPanel } from "./DetailPanel";
 import { NewStudentModal } from "./NewStudentModal";
 import { EnrollmentModal } from "./EnrollmentModal";
+import { ManualInteractionModal } from "./ManualInteractionModal";
 import type { Course } from "@/app/(app)/courses/types";
 import type { Interaction } from "@/app/(app)/interactions/types";
 import type {
@@ -81,6 +83,7 @@ export function StudentsClient({
 
   const [showNew, setShowNew] = useState(false);
   const [showEnroll, setShowEnroll] = useState(false);
+  const [showManualInteraction, setShowManualInteraction] = useState(false);
   // 报课日期的默认值取**美西的今天**，与后端判断场次已上/未到用的是同一个时区。
   // 用浏览器本地日期会让美东傍晚之后录入的记录比讲师所想的早一天。
   const today = new Intl.DateTimeFormat("en-CA", {
@@ -437,6 +440,7 @@ export function StudentsClient({
                     .sort((a, b) => (a.at > b.at ? -1 : 1))
                     .slice(0, 5)}
                   onAddEnrollment={() => setShowEnroll(true)}
+                  onOpenManualInteraction={() => setShowManualInteraction(true)}
                   sessionsByCourse={sessionsByCourse}
                   onChangeEnrollmentSession={changeEnrollmentSessionAction}
                   onDeleteEnrollment={deleteEnrollmentAction}
@@ -491,6 +495,26 @@ export function StudentsClient({
             })
           }
           onClose={() => setShowEnroll(false)}
+        />
+      )}
+
+      {showManualInteraction && selectedStudent && (
+        <ManualInteractionModal
+          studentName={selectedStudent.name}
+          courses={enrollments
+            // 退课的报课记录还在，但学员已经不算"在读"这门课——手动记录的课程
+            // 下拉不该让讲师给一门已经退掉的课补记录（code review 抓到的真 bug）。
+            .filter((e) => e.studentEmail === selectedStudent.email && e.state !== "withdrawn")
+            .map((e) => ({ id: e.courseId, name: e.courseName }))}
+          onSave={(draft) =>
+            createManualInteractionAction({
+              studentEmail: selectedStudent.email,
+              courseId: draft.courseId,
+              channel: draft.channel,
+              note: draft.note,
+            })
+          }
+          onClose={() => setShowManualInteraction(false)}
         />
       )}
 

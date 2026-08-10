@@ -21,6 +21,7 @@ import { headers } from "next/headers";
 import {
   archiveStudent,
   createEnrollment,
+  createManualInteraction,
   createStudent,
   deleteEnrollment,
   updateEnrollmentSession,
@@ -28,6 +29,7 @@ import {
   updateStudent,
   BackendError,
   type NewEnrollment,
+  type NewManualInteraction,
   type NewStudent,
   type StudentPatch,
 } from "@/lib/api";
@@ -164,5 +166,28 @@ export async function deleteEnrollmentAction(
     return { ok: false, message: "没删掉。" };
   }
   revalidatePath("/students", "layout");
+  return { ok: true };
+}
+
+/**
+ * 手动录入一条互动记录。
+ *
+ * 写入后同时出现在三处消费方——详情面板（`/students` layout）、独立页
+ * （`/interactions`）、侧边栏徽标（同一份 `/students` layout 调用覆盖）。
+ * 只 revalidate `/students` 不够：`/interactions` 是另一个 route 的
+ * page-level 缓存条目，需要单独 revalidate（design.md 决定 5）。
+ */
+export async function createManualInteractionAction(
+  draft: NewManualInteraction,
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  await requireSitePassword();
+  try {
+    await createManualInteraction(draft);
+  } catch (error) {
+    if (error instanceof BackendError) return { ok: false, message: error.detail };
+    return { ok: false, message: "没保存上。" };
+  }
+  revalidatePath("/students", "layout");
+  revalidatePath("/interactions");
   return { ok: true };
 }

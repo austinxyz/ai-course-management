@@ -847,3 +847,22 @@ export async function getInteractionsCount(): Promise<number> {
   const data: { total: number } = await res.json();
   return data.total;
 }
+
+export interface NewManualInteraction {
+  studentEmail: string;
+  courseId: string;
+  channel: "wechat" | "email";
+  note: string;
+}
+
+/** 手动录入一条互动记录。`event_type` 由后端固定写 `manual`，这里不传
+ * （`interactions-manual-entry` design.md 决定 4）。 */
+export async function createManualInteraction(draft: NewManualInteraction): Promise<Interaction> {
+  const data = (await backendWrite("/api/interactions", "POST", {
+    student_email: draft.studentEmail,
+    course_id: draft.courseId,
+    channel: draft.channel,
+    note: draft.note,
+  })) as ApiInteraction;
+  return toInteraction(data);
+}

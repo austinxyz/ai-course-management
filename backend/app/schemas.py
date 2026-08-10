@@ -765,3 +765,21 @@ class InteractionCountRead(BaseModel):
     "最近 7 天"，不是"当前筛选条件下"。"""
 
     total: int
+
+
+class ManualInteractionCreate(BaseModel):
+    """手动录入一条互动记录。不含 `event_type`——服务端固定写 `manual`，
+    不接受调用方指定（`interactions-manual-entry` design.md 决定 4，防止
+    调用方伪造 `nudged`/`skipped` 混进催作业流程本该独占的语义空间）。"""
+
+    student_email: str
+    course_id: uuid.UUID
+    channel: Literal["wechat", "email"]
+    note: str
+
+    @field_validator("note")
+    @classmethod
+    def _note_not_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("内容不能为空")
+        return value

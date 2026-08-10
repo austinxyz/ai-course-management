@@ -90,6 +90,113 @@ class TestList:
         assert skipped["note"] == "已私下沟通"
 
 
+class TestCreateManual:
+    def test_creates_manual_event_near_now(self, db_session, client):
+        course = _course(db_session, "课程甲")
+        _student(db_session, "ix-delta@example.com", "学员丁")
+
+        resp = client.post(
+            "/api/interactions",
+            json={
+                "student_email": "ix-delta@example.com",
+                "course_id": str(course.id),
+                "channel": "wechat",
+                "note": "聊了下学习进度",
+            },
+        )
+
+        assert resp.status_code == 201, resp.text
+        body = resp.json()
+        assert body["event_type"] == "manual"
+        assert body["channel"] == "wechat"
+        assert body["note"] == "聊了下学习进度"
+        at = datetime.fromisoformat(body["at"].replace("Z", "+00:00"))
+        assert abs((datetime.now(UTC) - at).total_seconds()) < 10
+
+    def test_rejects_blank_note(self, db_session, client):
+        course = _course(db_session)
+        _student(db_session, "ix-echo@example.com", "学员戊")
+
+        resp = client.post(
+            "/api/interactions",
+            json={
+                "student_email": "ix-echo@example.com",
+                "course_id": str(course.id),
+                "channel": "wechat",
+                "note": "   ",
+            },
+        )
+
+        assert resp.status_code == 422
+        assert _list(client) == []
+
+    def test_rejects_unknown_channel(self, db_session, client):
+        course = _course(db_session)
+        _student(db_session, "ix-foxtrot@example.com", "学员己")
+
+        resp = client.post(
+            "/api/interactions",
+            json={
+                "student_email": "ix-foxtrot@example.com",
+                "course_id": str(course.id),
+                "channel": "phone",
+                "note": "打了个电话",
+            },
+        )
+
+        assert resp.status_code == 422
+
+    def test_rejects_unknown_student(self, db_session, client):
+        course = _course(db_session)
+
+        resp = client.post(
+            "/api/interactions",
+            json={
+                "student_email": "ix-nobody@example.com",
+                "course_id": str(course.id),
+                "channel": "wechat",
+                "note": "内容",
+            },
+        )
+
+        assert resp.status_code == 404
+        assert "学员" in resp.json()["detail"]
+
+    def test_rejects_unknown_course(self, db_session, client):
+        _student(db_session, "ix-golf@example.com", "学员庚")
+
+        resp = client.post(
+            "/api/interactions",
+            json={
+                "student_email": "ix-golf@example.com",
+                "course_id": "00000000-0000-0000-0000-000000000000",
+                "channel": "wechat",
+                "note": "内容",
+            },
+        )
+
+        assert resp.status_code == 404
+        assert "课" in resp.json()["detail"]
+
+    def test_event_type_cannot_be_overridden_by_caller(self, db_session, client):
+        course = _course(db_session)
+        _student(db_session, "ix-hotel@example.com", "学员辛")
+
+        resp = client.post(
+            "/api/interactions",
+            json={
+                "student_email": "ix-hotel@example.com",
+                "course_id": str(course.id),
+                "channel": "wechat",
+                "note": "内容",
+                "event_type": "nudged",
+            },
+        )
+
+        assert resp.status_code == 201, resp.text
+        assert resp.json()["event_type"] == "manual"
+
+
 class TestCount:
     def test_counts_only_last_7_days(self, db_session, client):
         course = _course(db_session)

@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { DetailPanel } from "./DetailPanel";
@@ -66,6 +67,7 @@ function panel(over: Record<string, unknown> = {}) {
       onArchive={noop}
       onRestore={noop}
       onAddEnrollment={noop}
+      onOpenManualInteraction={noop}
       sessionsByCourse={{}}
       onChangeEnrollmentSession={vi.fn().mockResolvedValue({ ok: true })}
       onDeleteEnrollment={vi.fn().mockResolvedValue({ ok: true })}
@@ -90,5 +92,15 @@ describe("最近互动卡片", () => {
     panel({ interactions: [] });
 
     expect(screen.getByText("还没有互动记录。")).toBeInTheDocument();
+  });
+
+  it("卡片标题行有「+ 手动记录」按钮，点击触发回调", async () => {
+    const onOpen = vi.fn();
+    panel({ interactions: [], onOpenManualInteraction: onOpen });
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "+ 手动记录" }));
+
+    expect(onOpen).toHaveBeenCalledTimes(1);
   });
 });

@@ -52,6 +52,7 @@ function panel(over: Record<string, unknown> = {}) {
       onArchive={noop}
       onRestore={noop}
       onAddEnrollment={noop}
+      onOpenManualInteraction={noop}
       sessionsByCourse={{}}
       onChangeEnrollmentSession={vi.fn().mockResolvedValue({ ok: true })}
       onDeleteEnrollment={vi.fn().mockResolvedValue({ ok: true })}
