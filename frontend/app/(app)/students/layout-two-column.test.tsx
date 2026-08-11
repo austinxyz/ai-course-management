@@ -55,7 +55,6 @@ function panel() {
       onArchive={noop}
       onRestore={noop}
       onAddEnrollment={noop}
-      onOpenManualInteraction={noop}
       onFillWechat={noop}
       onChangeEnrollmentSession={vi.fn().mockResolvedValue({ ok: true })}
       onDeleteEnrollment={vi.fn().mockResolvedValue({ ok: true })}

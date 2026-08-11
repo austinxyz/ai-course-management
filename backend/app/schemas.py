@@ -767,14 +767,19 @@ class InteractionCountRead(BaseModel):
     total: int
 
 
-class ManualInteractionCreate(BaseModel):
-    """手动录入一条互动记录。不含 `event_type`——服务端固定写 `manual`，
-    不接受调用方指定（`interactions-manual-entry` design.md 决定 4，防止
-    调用方伪造 `nudged`/`skipped` 混进催作业流程本该独占的语义空间）。"""
+ManualInteractionType = Literal["1on1", "consult", "tech_support", "hw_feedback"]
+ParticipationSignal = Literal["live", "group_join", "group_lead", "group_active", "demo_day"]
 
+
+class ManualInteractionCreate(BaseModel):
+    """手动录入一条互动记录：事情性质四选一 + 必填内容。不含 `event_type`/
+    `course_id`——服务端固定写 `event_type="manual"`，课程由服务端自动推导
+    （该学员未退课报课记录里 `enrolled_at` 最大的一条），不接受调用方指定
+    （`interactions-design-alignment` design.md 决定 1、4）。"""
+
+    kind: Literal["manual"]
     student_email: str
-    course_id: uuid.UUID
-    channel: Literal["wechat", "email"]
+    type: ManualInteractionType
     note: str
 
     @field_validator("note")
@@ -783,3 +788,19 @@ class ManualInteractionCreate(BaseModel):
         if not value.strip():
             raise ValueError("内容不能为空")
         return value
+
+
+class ParticipationSignalCreate(BaseModel):
+    """打一条参与度信号：5 个固定标签之一，立即写入，不带自由文本
+    （`interactions-design-alignment` design.md 决定 1、2）。课程同手动
+    录入一样由服务端自动推导。"""
+
+    kind: Literal["participation"]
+    student_email: str
+    signal: ParticipationSignal
+
+
+InteractionCreate = Annotated[
+    ManualInteractionCreate | ParticipationSignalCreate,
+    Field(discriminator="kind"),
+]

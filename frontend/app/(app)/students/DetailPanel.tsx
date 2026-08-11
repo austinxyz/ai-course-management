@@ -31,7 +31,6 @@ interface DetailPanelProps {
   /** 每门课可选的场次，按 courseId 取。改场次时只列该课程自己的场次。 */
   sessionsByCourse: Record<string, { id: string; label: string }[]>;
   onAddEnrollment: () => void;
-  onOpenManualInteraction: () => void;
   onChangeEnrollmentSession: (id: string, sessionId: string | null) => Promise<{ ok: boolean; message?: string }>;
   onDeleteEnrollment: (id: string) => Promise<{ ok: boolean; message?: string }>;
   isArchived: boolean;
@@ -104,7 +103,6 @@ export function DetailPanel(props: DetailPanelProps) {
     interactions,
     sessionsByCourse,
     onAddEnrollment,
-    onOpenManualInteraction,
     onChangeEnrollmentSession,
     onDeleteEnrollment, isArchived, editKey, editValue, tagEditing, askArchive,
     archivePending, archiveError, fieldStatus, onRetryField,
@@ -413,18 +411,9 @@ export function DetailPanel(props: DetailPanelProps) {
         </div>
 
         <div className="flex flex-col gap-1.5 border-t border-dashed border-border pt-3.5">
-          <div className="flex items-center justify-between">
-            <span className="font-mono text-[11px] tracking-wide text-muted-foreground">
-              最近互动
-            </span>
-            <button
-              type="button"
-              onClick={onOpenManualInteraction}
-              className="font-mono text-[11px] text-primary underline"
-            >
-              + 手动记录
-            </button>
-          </div>
+          <span className="font-mono text-[11px] tracking-wide text-muted-foreground">
+            最近互动
+          </span>
           {interactions.length === 0 ? (
             <span className="font-sans text-[12px] text-muted-foreground">还没有互动记录。</span>
           ) : (

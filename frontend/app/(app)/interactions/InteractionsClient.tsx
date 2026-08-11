@@ -4,171 +4,194 @@ import { useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import { channelLabel, formatAt } from "@/lib/format";
+import { formatAt, channelLabel } from "@/lib/format";
+import { ManualEntryPanel, type ManualEntryEnrollment, type ManualEntryStudentOption } from "./ManualEntryPanel";
+import { SOURCE_LABEL, sourceCategory, typeLabel, type ManualType, type ParticipationSignal } from "./labels";
 import type { Interaction } from "./types";
 
-/** 全部互动记录页——纯只读聚合视图，数据一次性整体取回，筛选全部在客户端
- * 完成（design.md 决定 1）。不做分页——当前数据量级不需要（design.md
- * Non-Goals）。 */
+/** 互动记录独立页——来源 tab + 搜索框筛选（design.md 决定 3），常驻"记一条"
+ * 面板手动录入 + 参与度信号（design.md 决定 5、7）。不做分页——当前数据量级
+ * 不需要（`interactions` design.md Non-Goals）。 */
 
-type Preset = "today" | "7d" | "30d" | "custom";
+type SourceTab = "all" | "auto" | "manual" | "participation";
 
-const PRESETS: { key: Preset; label: string }[] = [
-  { key: "today", label: "今天" },
-  { key: "7d", label: "最近 7 天" },
-  { key: "30d", label: "最近 30 天" },
-  { key: "custom", label: "自定义" },
+const TABS: { key: SourceTab; label: string }[] = [
+  { key: "all", label: "全部" },
+  { key: "auto", label: "系统自动" },
+  { key: "manual", label: "人工录入" },
+  { key: "participation", label: "参与度" },
 ];
 
-const EVENT_LABEL: Record<string, string> = {
-  nudged: "已催",
-  skipped: "跳过",
-  unskipped: "取消跳过",
-};
-
-function eventBadgeVariant(eventType: string): "default" | "muted" | "success" {
-  if (eventType === "skipped") return "muted";
-  if (eventType === "unskipped") return "success";
+function sourceBadgeVariant(cat: ReturnType<typeof sourceCategory>): "muted" | "default" | "success" {
+  if (cat === "auto") return "muted";
+  if (cat === "participation") return "success";
   return "default";
 }
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-/** 今天的本地零点——"今天"预设是"从今天零点到现在"，不是"过去 0 天"
- * （那样算出来的窗口起点等于现在，会把今天所有已发生的事件都排除掉，
- * 独立评审在 group-2 抓到的真 bug）。 */
-function startOfToday(): number {
-  const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+/** 归属列——手动录入与参与度信号固定"Austin"（design.md 决定），系统自动
+ * 事件里"已催"沿用既有渠道展示，跳过/取消跳过没有渠道可展示。 */
+function byFor(i: Interaction): string {
+  const cat = sourceCategory(i.eventType);
+  if (cat === "manual" || cat === "participation") return "Austin";
+  if (i.eventType === "nudged") return channelLabel(i.channel);
+  return "—";
 }
 
-function withinPreset(at: string, preset: Preset | null, from: string, to: string): boolean {
-  if (preset === null) return true;
-  const when = new Date(at).getTime();
-  if (preset === "custom") {
-    const fromTime = from ? new Date(from).getTime() : -Infinity;
-    // 结束日期是"含当天"，所以取到那天的最后一刻。
-    const toTime = to ? new Date(to).getTime() + DAY_MS : Infinity;
-    return when >= fromTime && when < toTime;
-  }
-  const since = preset === "today" ? startOfToday() : Date.now() - (preset === "7d" ? 7 : 30) * DAY_MS;
-  return when >= since;
+function matchesQuery(i: Interaction, query: string): boolean {
+  if (!query) return true;
+  const q = query.toLowerCase();
+  return (
+    i.studentName.toLowerCase().includes(q) ||
+    i.studentEmail.toLowerCase().includes(q) ||
+    typeLabel(i.eventType, i.channel).toLowerCase().includes(q) ||
+    i.note.toLowerCase().includes(q)
+  );
 }
 
 interface InteractionsClientProps {
   interactions: Interaction[];
-  initialStudent?: string;
+  students?: ManualEntryStudentOption[];
+  enrollments?: ManualEntryEnrollment[];
+  initialQuery?: string;
+  onSubmitManual?: (draft: { studentEmail: string; type: ManualType; note: string }) => Promise<{
+    ok: boolean;
+    message?: string;
+  }>;
+  onSubmitSignal?: (draft: { studentEmail: string; signal: ParticipationSignal }) => Promise<{
+    ok: boolean;
+    message?: string;
+  }>;
 }
 
-export function InteractionsClient({ interactions, initialStudent }: InteractionsClientProps) {
-  const [student, setStudent] = useState(initialStudent ?? "");
-  // 默认不筛选——spec 明确要求"不做任何筛选"时展示全部学员的互动记录，
-  // 不是预选中某个时间预设（独立评审在 group-2 抓到的真 bug：曾经默认选中
-  // "最近 7 天"，讲师第一次打开页面看到的就不是"全部"）。
-  const [preset, setPreset] = useState<Preset | null>(null);
-  const [customFrom, setCustomFrom] = useState("");
-  const [customTo, setCustomTo] = useState("");
+async function noopWrite() {
+  return { ok: false, message: "没配置写入口" };
+}
 
-  const studentOptions = useMemo(() => {
-    const byEmail = new Map<string, string>();
-    for (const i of interactions) byEmail.set(i.studentEmail, i.studentName);
-    return [...byEmail.entries()].map(([email, name]) => ({ email, name }));
+export function InteractionsClient({
+  interactions,
+  students = [],
+  enrollments = [],
+  initialQuery,
+  onSubmitManual = noopWrite,
+  onSubmitSignal = noopWrite,
+}: InteractionsClientProps) {
+  const [tab, setTab] = useState<SourceTab>("all");
+  const [query, setQuery] = useState(initialQuery ?? "");
+  const [toast, setToast] = useState<string | null>(null);
+
+  const counts = useMemo(() => {
+    const result: Record<SourceTab, number> = { all: interactions.length, auto: 0, manual: 0, participation: 0 };
+    for (const i of interactions) result[sourceCategory(i.eventType)]++;
+    return result;
   }, [interactions]);
 
   const filtered = useMemo(() => {
     return interactions
-      .filter((i) => !student || i.studentEmail === student)
-      .filter((i) => withinPreset(i.at, preset, customFrom, customTo))
+      .filter((i) => tab === "all" || sourceCategory(i.eventType) === tab)
+      .filter((i) => matchesQuery(i, query))
       .sort((a, b) => (a.at > b.at ? -1 : 1));
-  }, [interactions, student, preset, customFrom, customTo]);
+  }, [interactions, tab, query]);
+
+  function handleWritten() {
+    setToast("这条互动记录已经加进去了。");
+  }
 
   return (
-    <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
-      <header className="flex flex-none flex-col gap-2.5 border-b border-border bg-surface px-[22px] pb-[13px] pt-4">
-        <h1 className="m-0 font-sans text-[19px] font-semibold tracking-tight">互动记录</h1>
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="flex items-center gap-1.5 font-sans text-xs text-muted">
-            按学员筛选
-            <select
-              aria-label="按学员筛选"
-              value={student}
-              onChange={(e) => setStudent(e.target.value)}
-              className="h-[30px] rounded-token border border-border bg-surface px-2.5 font-sans text-[12.5px]"
-            >
-              <option value="">全部学员</option>
-              {studentOptions.map((s) => (
-                <option key={s.email} value={s.email}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
+    <div className="flex min-w-0 flex-1 overflow-hidden">
+      <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <header className="flex flex-none items-end justify-between gap-5 border-b border-border bg-surface px-[22px] pb-[13px] pt-4">
+          <h1 className="m-0 font-sans text-[19px] font-semibold tracking-tight">互动记录</h1>
+          <label className="flex h-[34px] w-[236px] flex-none items-center gap-1.5 rounded-token border border-border bg-surface px-2.5">
+            <span className="sr-only">搜学员、类型或内容</span>
+            <input
+              aria-label="搜学员、类型或内容"
+              type="text"
+              placeholder="搜学员、类型或内容"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="w-full bg-transparent font-sans text-[12.5px] outline-none"
+            />
           </label>
-          <div className="flex gap-1">
-            {PRESETS.map((p) => (
+        </header>
+
+        <div className="flex flex-none flex-wrap items-center gap-3 border-b border-border bg-surface-muted px-[22px] py-2.5">
+          <div className="flex gap-0.5 rounded-token border border-border bg-surface-muted p-0.5">
+            {TABS.map((t) => (
               <button
-                key={p.key}
+                key={t.key}
                 type="button"
-                onClick={() => setPreset(p.key)}
+                aria-pressed={tab === t.key}
+                onClick={() => setTab(t.key)}
                 className={cn(
-                  "h-[26px] rounded-full border px-2.5 font-sans text-xs",
-                  preset === p.key
-                    ? "border-primary bg-primary font-medium text-primary-foreground"
-                    : "border-border bg-surface text-muted",
+                  "flex h-[28px] items-center gap-1.5 rounded px-2.5 font-sans text-xs",
+                  tab === t.key ? "bg-surface font-medium text-foreground shadow-sm" : "text-muted",
                 )}
               >
-                {p.label}
+                {t.label}
+                <span className="font-mono text-[11px] text-muted-foreground">{counts[t.key]}</span>
               </button>
             ))}
           </div>
-          {preset === "custom" && (
-            <div className="flex items-center gap-1.5">
-              <input
-                aria-label="起始日期"
-                type="date"
-                value={customFrom}
-                onChange={(e) => setCustomFrom(e.target.value)}
-                className="h-[30px] rounded-token border border-border bg-surface px-2 font-mono text-[12px]"
-              />
-              <span className="text-muted">–</span>
-              <input
-                aria-label="结束日期"
-                type="date"
-                value={customTo}
-                onChange={(e) => setCustomTo(e.target.value)}
-                className="h-[30px] rounded-token border border-border bg-surface px-2 font-mono text-[12px]"
-              />
-            </div>
-          )}
+          <span className="max-w-[520px] font-sans text-xs text-muted">
+            作业提交、批改完成、催促已发、新报课由事件自动写入；1:1 沟通和参与度信号手工录。
+          </span>
         </div>
-      </header>
 
-      <div className="flex-1 overflow-y-auto bg-background p-[22px]">
-        {filtered.length === 0 ? (
-          <p className="m-0 font-sans text-[13px] leading-relaxed text-muted">
-            这段时间没有互动记录。
-          </p>
-        ) : (
-          <div className="flex flex-col overflow-hidden rounded-token border border-border bg-surface">
-            {filtered.map((i, idx) => (
-              <div
-                key={`${i.studentEmail}-${i.at}-${idx}`}
-                data-testid={`interaction-row-${i.studentEmail}-${i.at}`}
-                className="flex items-center gap-3 border-b border-border px-3 py-2.5 font-sans text-[12.5px] last:border-b-0"
-              >
-                <Badge variant={eventBadgeVariant(i.eventType)}>
-                  {EVENT_LABEL[i.eventType] ?? i.eventType}
-                </Badge>
-                <span className="w-20 flex-none font-medium">{i.studentName}</span>
-                <span className="flex-none text-muted">{i.courseName}</span>
-                <span className="flex-1 text-muted-foreground">
-                  {i.eventType === "nudged" ? channelLabel(i.channel) : i.note || "—"}
-                </span>
-                <span className="flex-none font-mono text-muted-foreground">{formatAt(i.at)}</span>
-              </div>
-            ))}
+        {toast && (
+          <div className="flex flex-none items-center gap-2.5 border-b border-[#d6e6dc] bg-[#f2f8f4] px-[22px] py-2.5">
+            <Badge variant="success">已写入</Badge>
+            <span className="font-sans text-[12.5px]">{toast}</span>
+            <button
+              type="button"
+              onClick={() => setToast(null)}
+              className="ml-auto h-[26px] rounded-token border border-[#d6e6dc] bg-surface px-2.5 font-sans text-xs text-muted"
+            >
+              知道了
+            </button>
           </div>
         )}
-      </div>
-    </main>
+
+        <div className="flex-1 overflow-y-auto bg-surface">
+          {filtered.length === 0 ? (
+            <p className="m-0 p-[22px] font-sans text-[13px] leading-relaxed text-muted">
+              没有符合条件的记录。
+            </p>
+          ) : (
+            filtered.map((i, idx) => {
+              const cat = sourceCategory(i.eventType);
+              return (
+                <div
+                  key={`${i.studentEmail}-${i.at}-${idx}`}
+                  data-testid={`interaction-row-${i.studentEmail}-${i.at}`}
+                  className="flex items-start gap-3 border-b border-border px-[22px] py-3 font-sans text-[12.5px]"
+                >
+                  <Badge variant={sourceBadgeVariant(cat)}>{SOURCE_LABEL[cat]}</Badge>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-medium">{typeLabel(i.eventType, i.channel)}</span>
+                      <span className="text-muted">{i.studentName}</span>
+                      <span className="font-mono text-[11px] text-muted-foreground">{i.studentEmail}</span>
+                    </div>
+                    {i.note && <p className="m-0 mt-1 leading-relaxed text-foreground">{i.note}</p>}
+                  </div>
+                  <div className="flex w-[110px] flex-none flex-col items-end gap-0.5">
+                    <span className="font-mono text-[11px] text-muted-foreground">{formatAt(i.at)}</span>
+                    <span className="font-mono text-[11px] text-muted-foreground">{byFor(i)}</span>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </main>
+
+      <ManualEntryPanel
+        students={students}
+        enrollments={enrollments}
+        onSubmitManual={onSubmitManual}
+        onSubmitSignal={onSubmitSignal}
+        onWritten={handleWritten}
+      />
+    </div>
   );
 }

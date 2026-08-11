@@ -67,7 +67,6 @@ function panel(over: Record<string, unknown> = {}) {
       onArchive={noop}
       onRestore={noop}
       onAddEnrollment={noop}
-      onOpenManualInteraction={noop}
       sessionsByCourse={{}}
       onChangeEnrollmentSession={vi.fn().mockResolvedValue({ ok: true })}
       onDeleteEnrollment={vi.fn().mockResolvedValue({ ok: true })}
@@ -94,13 +93,11 @@ describe("最近互动卡片", () => {
     expect(screen.getByText("还没有互动记录。")).toBeInTheDocument();
   });
 
-  it("卡片标题行有「+ 手动记录」按钮，点击触发回调", async () => {
-    const onOpen = vi.fn();
-    panel({ interactions: [], onOpenManualInteraction: onOpen });
-    const user = userEvent.setup();
+  // 手动录入搬到了互动记录独立页常驻面板（interactions-design-alignment
+  // design.md 决定 7），这里不再有入口。
+  it("不再有「+ 手动记录」入口", () => {
+    panel({ interactions: [] });
 
-    await user.click(screen.getByRole("button", { name: "+ 手动记录" }));
-
-    expect(onOpen).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: "+ 手动记录" })).not.toBeInTheDocument();
   });
 });

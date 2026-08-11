@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { StudentsClient } from "./StudentsClient";
-import type { Enrollment, Student } from "./types";
+import type { Student } from "./types";
 
 vi.mock("next/navigation", () => ({ usePathname: () => "/students" }));
 
@@ -67,43 +67,16 @@ describe("最近互动卡片收到按学员过滤、最多 5 条、时间倒序�
   });
 });
 
-function enrollment(over: Partial<Enrollment> = {}): Enrollment {
-  return {
-    id: "e1",
-    studentEmail: "alpha@example.com",
-    courseId: "c1",
-    courseName: "课程甲",
-    sessionId: null,
-    sessionDate: null,
-    enrolledAt: "2026-06-01",
-    state: "enrolled",
-    source: "manual",
-    note: "",
-    homeworkTotal: null,
-    ...over,
-  };
-}
-
-describe("手动记录弹窗的课程下拉排除退课的报课记录", () => {
-  it("只列出该学员在读的课程，不含已退课的", async () => {
+describe("学员详情面板不再有手动录入入口", () => {
+  // 手动录入搬到了互动记录独立页常驻面板（interactions-design-alignment
+  // design.md 决定 7），学员详情面板不再渲染 ManualInteractionModal。
+  it("详情面板没有「+ 手动记录」按钮", () => {
     const alpha = student({ email: "alpha@example.com", name: "学员甲" });
-    const enrolled = enrollment({ id: "e1", courseId: "c1", courseName: "在读课", state: "enrolled" });
-    const withdrawn = enrollment({ id: "e2", courseId: "c2", courseName: "已退课", state: "withdrawn" });
 
     render(
-      <StudentsClient
-        students={[alpha]}
-        archivedStudents={[]}
-        enrollments={[enrolled, withdrawn]}
-        courses={[]}
-      />,
+      <StudentsClient students={[alpha]} archivedStudents={[]} enrollments={[]} courses={[]} />,
     );
-    const user = userEvent.setup();
 
-    await user.click(screen.getByRole("button", { name: "+ 手动记录" }));
-
-    const options = screen.getAllByRole("option").map((o) => o.textContent);
-    expect(options).toContain("在读课");
-    expect(options).not.toContain("已退课");
+    expect(screen.queryByRole("button", { name: "+ 手动记录" })).not.toBeInTheDocument();
   });
 });

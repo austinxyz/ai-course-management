@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { InteractionsClient } from "./InteractionsClient";
 import type { Interaction } from "./types";
@@ -19,14 +19,27 @@ function interaction(over: Partial<Interaction> = {}): Interaction {
   };
 }
 
+function baseProps(over: Record<string, unknown> = {}) {
+  return {
+    interactions: [],
+    students: [],
+    enrollments: [],
+    onSubmitManual: vi.fn().mockResolvedValue({ ok: true }),
+    onSubmitSignal: vi.fn().mockResolvedValue({ ok: true }),
+    ...over,
+  };
+}
+
 describe("默认展示", () => {
-  it("按时间倒序展示全部互动记录", () => {
+  it("按时间倒序展示全部互动记录，来源 tab 停在“全部”", () => {
     render(
       <InteractionsClient
-        interactions={[
-          interaction({ studentName: "学员甲", at: "2026-08-05T00:00:00Z" }),
-          interaction({ studentName: "学员乙", at: "2026-08-06T00:00:00Z" }),
-        ]}
+        {...baseProps({
+          interactions: [
+            interaction({ studentName: "学员甲", at: "2026-08-05T00:00:00Z" }),
+            interaction({ studentName: "学员乙", at: "2026-08-06T00:00:00Z" }),
+          ],
+        })}
       />,
     );
 
@@ -34,102 +47,144 @@ describe("默认展示", () => {
     expect(rows).toHaveLength(2);
     expect(rows[0]).toHaveTextContent("学员乙");
     expect(rows[1]).toHaveTextContent("学员甲");
-  });
-
-  it("默认不筛选时间——很久以前的记录也照常展示", () => {
-    // 回归测试：曾经默认预选中"最近 7 天"，导致刚打开页面就已经在筛选，
-    // 违反 spec"不做任何筛选时展示全部学员的互动记录"这条要求。
-    const longAgo = new Date(Date.now() - 100 * 24 * 60 * 60 * 1000).toISOString();
-    render(<InteractionsClient interactions={[interaction({ studentName: "很久以前", at: longAgo })]} />);
-
-    expect(screen.getAllByTestId(/^interaction-row-/)).toHaveLength(1);
+    expect(screen.getByRole("button", { name: /全部/ })).toHaveAttribute("aria-pressed", "true");
   });
 });
 
-describe("按学员过滤", () => {
-  it("选中某学员后只显示这个人的记录", async () => {
+describe("按来源 tab 筛选", () => {
+  it("来源 tab 数字与列表条数一致", () => {
     render(
       <InteractionsClient
-        interactions={[
-          interaction({ studentEmail: "alpha@example.com", studentName: "学员甲" }),
-          interaction({ studentEmail: "bravo@example.com", studentName: "学员乙" }),
-        ]}
+        {...baseProps({
+          interactions: [
+            interaction({ eventType: "nudged" }),
+            interaction({ eventType: "skipped" }),
+            interaction({ eventType: "manual", channel: "1on1", note: "内容" }),
+            interaction({ eventType: "participation", channel: "live", note: "" }),
+          ],
+        })}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: /全部.*4/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /系统自动.*2/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /人工录入.*1/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /参与度.*1/ })).toBeInTheDocument();
+  });
+
+  it("点击「人工录入」后只显示人工录入类型的记录", async () => {
+    render(
+      <InteractionsClient
+        {...baseProps({
+          interactions: [
+            interaction({ eventType: "nudged", studentName: "学员甲" }),
+            interaction({ eventType: "manual", channel: "1on1", note: "内容", studentName: "学员乙" }),
+          ],
+        })}
       />,
     );
     const user = userEvent.setup();
 
-    await user.selectOptions(screen.getByLabelText("按学员筛选"), "alpha@example.com");
+    await user.click(screen.getByRole("button", { name: /人工录入/ }));
+
+    const rows = screen.getAllByTestId(/^interaction-row-/);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toHaveTextContent("学员乙");
+  });
+});
+
+describe("按搜索词筛选", () => {
+  it("搜索框按学员姓名匹配", async () => {
+    render(
+      <InteractionsClient
+        {...baseProps({
+          interactions: [
+            interaction({ studentEmail: "alpha@example.com", studentName: "学员甲" }),
+            interaction({ studentEmail: "bravo@example.com", studentName: "学员乙" }),
+          ],
+        })}
+      />,
+    );
+    const user = userEvent.setup();
+
+    await user.type(screen.getByLabelText("搜学员、类型或内容"), "学员甲");
 
     const rows = screen.getAllByTestId(/^interaction-row-/);
     expect(rows).toHaveLength(1);
     expect(rows[0]).toHaveTextContent("学员甲");
   });
 
-  it("学员筛选器只列出实际有过互动记录的学员", () => {
+  it("来源 tab 与搜索词可以叠加", async () => {
     render(
       <InteractionsClient
-        interactions={[
-          interaction({ studentEmail: "alpha@example.com", studentName: "学员甲" }),
-          interaction({ studentEmail: "alpha@example.com", studentName: "学员甲" }),
-        ]}
-      />,
-    );
-
-    const options = screen.getAllByRole("option");
-    // "全部学员" + 一个去重后的学员，不是两条重复选项
-    expect(options).toHaveLength(2);
-  });
-});
-
-describe("按时间范围过滤", () => {
-  it("今天预设保留今天已经发生的记录，不是全部排除", async () => {
-    // 回归测试：曾经"今天"用"过去 0 天"算窗口起点，等价于 Date.now()，
-    // 于是今天已经发生的事件全部被判定为"不在窗口内"，筛不出任何结果。
-    const earlierToday = new Date();
-    earlierToday.setHours(0, 30, 0, 0);
-    render(
-      <InteractionsClient
-        interactions={[interaction({ studentName: "今天早些时候", at: earlierToday.toISOString() })]}
+        {...baseProps({
+          interactions: [
+            interaction({ eventType: "participation", channel: "live", studentName: "学员甲" }),
+            interaction({ eventType: "participation", channel: "live", studentName: "学员乙" }),
+            interaction({ eventType: "nudged", studentName: "学员甲" }),
+          ],
+        })}
       />,
     );
     const user = userEvent.setup();
 
-    await user.click(screen.getByRole("button", { name: "今天" }));
-
-    expect(screen.getAllByTestId(/^interaction-row-/)).toHaveLength(1);
-  });
-
-  it("最近 7 天预设只保留 7 天内的记录", async () => {
-    const now = new Date();
-    const within = new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString();
-    const outside = new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000).toISOString();
-    render(
-      <InteractionsClient
-        interactions={[
-          interaction({ studentName: "近期", at: within }),
-          interaction({ studentName: "很久以前", at: outside }),
-        ]}
-      />,
-    );
-    const user = userEvent.setup();
-
-    await user.click(screen.getByRole("button", { name: "最近 7 天" }));
+    await user.click(screen.getByRole("button", { name: /参与度/ }));
+    await user.type(screen.getByLabelText("搜学员、类型或内容"), "学员甲");
 
     const rows = screen.getAllByTestId(/^interaction-row-/);
     expect(rows).toHaveLength(1);
-    expect(rows[0]).toHaveTextContent("近期");
+    expect(rows[0]).toHaveTextContent("学员甲");
+  });
+});
+
+describe("深链接预填搜索框", () => {
+  it("initialQuery 存在时搜索框初始值就是它", () => {
+    render(
+      <InteractionsClient
+        {...baseProps({
+          interactions: [interaction({ studentEmail: "alpha@example.com" })],
+          initialQuery: "alpha@example.com",
+        })}
+      />,
+    );
+
+    expect(screen.getByLabelText("搜学员、类型或内容")).toHaveValue("alpha@example.com");
   });
 });
 
 describe("空结果", () => {
   it("筛选组合下没有记录时显示说明文案", async () => {
-    render(<InteractionsClient interactions={[interaction({ studentName: "学员甲" })]} />);
+    render(<InteractionsClient {...baseProps({ interactions: [interaction({ studentName: "学员甲" })] })} />);
     const user = userEvent.setup();
 
-    await user.selectOptions(screen.getByLabelText("按学员筛选"), "alpha@example.com");
-    await user.click(screen.getByRole("button", { name: "今天" }));
+    await user.type(screen.getByLabelText("搜学员、类型或内容"), "不存在的学员");
 
-    // 固定的 mock 数据时间戳不在"今天"，所以筛出空结果
-    expect(screen.getByText("这段时间没有互动记录。")).toBeInTheDocument();
+    expect(screen.getByText("没有符合条件的记录。")).toBeInTheDocument();
+  });
+});
+
+describe("写入成功后的提示条", () => {
+  it("手动录入成功后显示“已写入”，点“知道了”后消失", async () => {
+    const onSubmitManual = vi.fn().mockResolvedValue({ ok: true });
+    render(
+      <InteractionsClient
+        {...baseProps({
+          interactions: [],
+          students: [{ email: "alpha@example.com", name: "学员甲" }],
+          enrollments: [{ studentEmail: "alpha@example.com", state: "enrolled" }],
+          onSubmitManual,
+        })}
+      />,
+    );
+    const user = userEvent.setup();
+
+    await user.selectOptions(screen.getByLabelText("学员"), "alpha@example.com");
+    await user.click(screen.getByRole("button", { name: "1:1 沟通" }));
+    await user.type(screen.getByLabelText("内容"), "聊了下学习进度");
+    await user.click(screen.getByRole("button", { name: "追加这条" }));
+
+    expect(await screen.findByText("已写入")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "知道了" }));
+    expect(screen.queryByText("已写入")).not.toBeInTheDocument();
   });
 });

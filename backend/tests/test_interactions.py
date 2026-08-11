@@ -8,7 +8,7 @@ from datetime import UTC, date, datetime, timedelta
 
 from sqlmodel import Session
 
-from app.models import Course, NudgeEvent, Student
+from app.models import Course, Enrollment, NudgeEvent, Student
 
 
 def _student(session: Session, email: str, name: str = "学员") -> Student:
@@ -42,6 +42,24 @@ def _event(
         channel=channel,
         note=note,
         created_at=created_at or datetime.now(UTC),
+    )
+    session.add(row)
+    session.commit()
+    return row
+
+
+def _enrollment(
+    session: Session,
+    email: str,
+    course: Course,
+    enrolled_at: date,
+    status: str = "enrolled",
+) -> Enrollment:
+    row = Enrollment(
+        student_email=email,
+        course_id=course.id,
+        enrolled_at=enrolled_at,
+        status=status,
     )
     session.add(row)
     session.commit()
@@ -91,16 +109,17 @@ class TestList:
 
 
 class TestCreateManual:
-    def test_creates_manual_event_near_now(self, db_session, client):
+    def test_creates_manual_event_with_latest_active_course(self, db_session, client):
         course = _course(db_session, "课程甲")
         _student(db_session, "ix-delta@example.com", "学员丁")
+        _enrollment(db_session, "ix-delta@example.com", course, date(2026, 6, 1))
 
         resp = client.post(
             "/api/interactions",
             json={
+                "kind": "manual",
                 "student_email": "ix-delta@example.com",
-                "course_id": str(course.id),
-                "channel": "wechat",
+                "type": "1on1",
                 "note": "聊了下学习进度",
             },
         )
@@ -108,86 +127,85 @@ class TestCreateManual:
         assert resp.status_code == 201, resp.text
         body = resp.json()
         assert body["event_type"] == "manual"
-        assert body["channel"] == "wechat"
+        assert body["channel"] == "1on1"
         assert body["note"] == "聊了下学习进度"
+        assert body["course_id"] == str(course.id)
         at = datetime.fromisoformat(body["at"].replace("Z", "+00:00"))
         assert abs((datetime.now(UTC) - at).total_seconds()) < 10
+
+    def test_picks_the_enrollment_with_latest_enrolled_at(self, db_session, client):
+        older_course = _course(db_session, "旧课")
+        newer_course = _course(db_session, "新课")
+        _student(db_session, "ix-india@example.com", "学员壬")
+        _enrollment(db_session, "ix-india@example.com", older_course, date(2026, 5, 1))
+        _enrollment(db_session, "ix-india@example.com", newer_course, date(2026, 7, 1))
+
+        resp = client.post(
+            "/api/interactions",
+            json={"kind": "manual", "student_email": "ix-india@example.com", "type": "consult", "note": "内容"},
+        )
+
+        assert resp.status_code == 201, resp.text
+        assert resp.json()["course_id"] == str(newer_course.id)
 
     def test_rejects_blank_note(self, db_session, client):
         course = _course(db_session)
         _student(db_session, "ix-echo@example.com", "学员戊")
+        _enrollment(db_session, "ix-echo@example.com", course, date(2026, 6, 1))
 
         resp = client.post(
             "/api/interactions",
-            json={
-                "student_email": "ix-echo@example.com",
-                "course_id": str(course.id),
-                "channel": "wechat",
-                "note": "   ",
-            },
+            json={"kind": "manual", "student_email": "ix-echo@example.com", "type": "1on1", "note": "   "},
         )
 
         assert resp.status_code == 422
         assert _list(client) == []
 
-    def test_rejects_unknown_channel(self, db_session, client):
+    def test_rejects_unknown_type(self, db_session, client):
         course = _course(db_session)
         _student(db_session, "ix-foxtrot@example.com", "学员己")
+        _enrollment(db_session, "ix-foxtrot@example.com", course, date(2026, 6, 1))
 
         resp = client.post(
             "/api/interactions",
-            json={
-                "student_email": "ix-foxtrot@example.com",
-                "course_id": str(course.id),
-                "channel": "phone",
-                "note": "打了个电话",
-            },
+            json={"kind": "manual", "student_email": "ix-foxtrot@example.com", "type": "phone", "note": "内容"},
         )
 
         assert resp.status_code == 422
 
-    def test_rejects_unknown_student(self, db_session, client):
-        course = _course(db_session)
-
+    def test_rejects_unknown_student(self, client):
         resp = client.post(
             "/api/interactions",
-            json={
-                "student_email": "ix-nobody@example.com",
-                "course_id": str(course.id),
-                "channel": "wechat",
-                "note": "内容",
-            },
+            json={"kind": "manual", "student_email": "ix-nobody@example.com", "type": "1on1", "note": "内容"},
         )
 
         assert resp.status_code == 404
         assert "学员" in resp.json()["detail"]
 
-    def test_rejects_unknown_course(self, db_session, client):
+    def test_rejects_when_no_active_enrollment(self, db_session, client):
+        course = _course(db_session)
         _student(db_session, "ix-golf@example.com", "学员庚")
+        _enrollment(db_session, "ix-golf@example.com", course, date(2026, 6, 1), status="withdrawn")
 
         resp = client.post(
             "/api/interactions",
-            json={
-                "student_email": "ix-golf@example.com",
-                "course_id": "00000000-0000-0000-0000-000000000000",
-                "channel": "wechat",
-                "note": "内容",
-            },
+            json={"kind": "manual", "student_email": "ix-golf@example.com", "type": "1on1", "note": "内容"},
         )
 
-        assert resp.status_code == 404
-        assert "课" in resp.json()["detail"]
+        assert resp.status_code == 422
+        assert "有效报课" in resp.json()["detail"]
 
     def test_event_type_cannot_be_overridden_by_caller(self, db_session, client):
         course = _course(db_session)
         _student(db_session, "ix-hotel@example.com", "学员辛")
+        _enrollment(db_session, "ix-hotel@example.com", course, date(2026, 6, 1))
 
         resp = client.post(
             "/api/interactions",
             json={
+                "kind": "manual",
                 "student_email": "ix-hotel@example.com",
-                "course_id": str(course.id),
-                "channel": "wechat",
+                "type": "1on1",
                 "note": "内容",
                 "event_type": "nudged",
             },
@@ -195,6 +213,48 @@ class TestCreateManual:
 
         assert resp.status_code == 201, resp.text
         assert resp.json()["event_type"] == "manual"
+
+
+class TestCreateParticipation:
+    def test_creates_participation_event(self, db_session, client):
+        course = _course(db_session, "课程甲")
+        _student(db_session, "ix-juliet@example.com", "学员癸")
+        _enrollment(db_session, "ix-juliet@example.com", course, date(2026, 6, 1))
+
+        resp = client.post(
+            "/api/interactions",
+            json={"kind": "participation", "student_email": "ix-juliet@example.com", "signal": "live"},
+        )
+
+        assert resp.status_code == 201, resp.text
+        body = resp.json()
+        assert body["event_type"] == "participation"
+        assert body["channel"] == "live"
+        assert body["note"] == ""
+        assert body["course_id"] == str(course.id)
+
+    def test_rejects_unknown_signal(self, db_session, client):
+        course = _course(db_session)
+        _student(db_session, "ix-kilo@example.com", "学员甲乙")
+        _enrollment(db_session, "ix-kilo@example.com", course, date(2026, 6, 1))
+
+        resp = client.post(
+            "/api/interactions",
+            json={"kind": "participation", "student_email": "ix-kilo@example.com", "signal": "unknown"},
+        )
+
+        assert resp.status_code == 422
+
+    def test_rejects_when_no_active_enrollment(self, db_session, client):
+        _student(db_session, "ix-lima@example.com", "学员甲丙")
+
+        resp = client.post(
+            "/api/interactions",
+            json={"kind": "participation", "student_email": "ix-lima@example.com", "signal": "live"},
+        )
+
+        assert resp.status_code == 422
+        assert "有效报课" in resp.json()["detail"]
 
 
 class TestCount:

@@ -848,21 +848,32 @@ export async function getInteractionsCount(): Promise<number> {
   return data.total;
 }
 
+export type ManualInteractionType = "1on1" | "consult" | "tech_support" | "hw_feedback";
+export type ParticipationSignal = "live" | "group_join" | "group_lead" | "group_active" | "demo_day";
+
 export interface NewManualInteraction {
+  kind: "manual";
   studentEmail: string;
-  courseId: string;
-  channel: "wechat" | "email";
+  type: ManualInteractionType;
   note: string;
 }
 
-/** 手动录入一条互动记录。`event_type` 由后端固定写 `manual`，这里不传
- * （`interactions-manual-entry` design.md 决定 4）。 */
-export async function createManualInteraction(draft: NewManualInteraction): Promise<Interaction> {
-  const data = (await backendWrite("/api/interactions", "POST", {
-    student_email: draft.studentEmail,
-    course_id: draft.courseId,
-    channel: draft.channel,
-    note: draft.note,
-  })) as ApiInteraction;
+export interface NewParticipationSignal {
+  kind: "participation";
+  studentEmail: string;
+  signal: ParticipationSignal;
+}
+
+export type NewInteractionWrite = NewManualInteraction | NewParticipationSignal;
+
+/** 手动录入一条互动记录，或打一条参与度信号——由 `draft.kind` 区分。课程
+ * 由后端自动推导，`event_type` 由后端固定写死，这里都不传
+ * （`interactions-design-alignment` design.md 决定 1、4、5）。 */
+export async function createInteraction(draft: NewInteractionWrite): Promise<Interaction> {
+  const body =
+    draft.kind === "manual"
+      ? { kind: "manual", student_email: draft.studentEmail, type: draft.type, note: draft.note }
+      : { kind: "participation", student_email: draft.studentEmail, signal: draft.signal };
+  const data = (await backendWrite("/api/interactions", "POST", body)) as ApiInteraction;
   return toInteraction(data);
 }

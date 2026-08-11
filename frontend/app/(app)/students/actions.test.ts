@@ -12,7 +12,6 @@ const api = vi.hoisted(() => ({
   createStudent: vi.fn(),
   archiveStudent: vi.fn(),
   restoreStudent: vi.fn(),
-  createManualInteraction: vi.fn(),
 }));
 vi.mock("@/lib/api", async () => {
   const actual = await vi.importActual<typeof import("@/lib/api")>("@/lib/api");
@@ -195,64 +194,5 @@ describe("create refusals are returned, not thrown", () => {
     for (const call of calls) {
       expect(call[1]).toBe("layout");
     }
-  });
-});
-
-describe("createManualInteractionAction", () => {
-  beforeEach(() => {
-    process.env.SITE_PASSWORD = PASSWORD;
-    vi.clearAllMocks();
-    withAuthorization(basic(PASSWORD));
-  });
-
-  it("revalidates both /students (layout) and /interactions after a successful write", async () => {
-    // 手动记录同时出现在三处消费方——详情面板（/students layout）、独立页
-    // （/interactions）、侧边栏徽标（同一份 /students layout 调用覆盖）。
-    // 只 revalidate 一处会让另一处显示旧数据（interactions-manual-entry
-    // design.md 决定 5）。
-    const { revalidatePath } = await import("next/cache");
-    const { createManualInteractionAction } = await import("./actions");
-    api.createManualInteraction.mockResolvedValue(undefined);
-
-    await createManualInteractionAction({
-      studentEmail: "alpha@example.com",
-      courseId: "c1",
-      channel: "wechat",
-      note: "聊了下学习进度",
-    });
-
-    const calls = vi.mocked(revalidatePath).mock.calls;
-    expect(calls).toContainEqual(["/students", "layout"]);
-    expect(calls).toContainEqual(["/interactions"]);
-  });
-
-  it("returns a failure value instead of throwing on a backend error", async () => {
-    const { createManualInteractionAction } = await import("./actions");
-    const { BackendError } = await import("@/lib/api");
-    api.createManualInteraction.mockRejectedValue(new BackendError(422, "内容不能为空"));
-
-    await expect(
-      createManualInteractionAction({
-        studentEmail: "alpha@example.com",
-        courseId: "c1",
-        channel: "wechat",
-        note: "",
-      }),
-    ).resolves.toEqual({ ok: false, message: "内容不能为空" });
-  });
-
-  it("refuses an unauthenticated call without touching the backend", async () => {
-    const { createManualInteractionAction } = await import("./actions");
-    withAuthorization(null);
-
-    await expect(
-      createManualInteractionAction({
-        studentEmail: "alpha@example.com",
-        courseId: "c1",
-        channel: "wechat",
-        note: "聊了下学习进度",
-      }),
-    ).rejects.toThrow();
-    expect(api.createManualInteraction).not.toHaveBeenCalled();
   });
 });
