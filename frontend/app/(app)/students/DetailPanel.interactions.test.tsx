@@ -100,4 +100,26 @@ describe("最近互动卡片", () => {
 
     expect(screen.queryByRole("button", { name: "+ 手动记录" })).not.toBeInTheDocument();
   });
+
+  // 回归测试：interactions-design-alignment 把手动录入的类型从渠道改成
+  // 事情性质、新增了参与度信号来源，但 DetailPanel 的渲染逻辑没跟着更新——
+  // 生产上表现为徽标显示裸的 "participation"、正文显示课程名而不是信号名。
+  it("参与度信号显示中文来源徽标和信号名，不是裸的 event_type", () => {
+    panel({
+      interactions: [interaction({ eventType: "participation", channel: "live", note: "" })],
+    });
+
+    expect(screen.getByText("参与度")).toBeInTheDocument();
+    expect(screen.getByText(/出席直播/)).toBeInTheDocument();
+    expect(screen.queryByText("participation")).not.toBeInTheDocument();
+  });
+
+  it("人工录入显示事情性质类型，不是固定的「手动」", () => {
+    panel({
+      interactions: [interaction({ eventType: "manual", channel: "1on1", note: "聊了下学习进度" })],
+    });
+
+    expect(screen.getByText("人工录入")).toBeInTheDocument();
+    expect(screen.getByText(/1:1 沟通/)).toBeInTheDocument();
+  });
 });

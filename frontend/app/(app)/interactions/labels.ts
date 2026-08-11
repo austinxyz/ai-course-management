@@ -48,6 +48,17 @@ export const SOURCE_LABEL: Record<ReturnType<typeof sourceCategory>, string> = {
   participation: "参与度",
 };
 
+/** 来源徽标的配色——独立页列表与学员详情面板"最近互动"卡片共用同一套
+ * 判断，不各自维护一份（避免两处的映射跟着后端 event_type 演进走散，
+ * 这正是 DetailPanel 出现"裸 event_type 文本"这个 bug 的根因）。 */
+export function sourceBadgeVariant(
+  cat: ReturnType<typeof sourceCategory>,
+): "muted" | "default" | "success" {
+  if (cat === "auto") return "muted";
+  if (cat === "participation") return "success";
+  return "default";
+}
+
 /** 一条记录的"类型"展示文案——系统自动事件用既有的已催/跳过/取消跳过，
  * 人工录入用四类型 label，参与度信号用五标签 label。未知 key 原样显示，
  * 不因为查不到映射就报错或留空（design.md Risks）。 */

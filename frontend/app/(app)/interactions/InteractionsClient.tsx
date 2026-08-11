@@ -9,7 +9,15 @@ import type { NewInteractionWrite } from "@/lib/api";
 import { ManualEntryPanel, type ManualEntryEnrollment, type ManualEntryStudentOption } from "./ManualEntryPanel";
 import { SignalConfirmDialog } from "./SignalConfirmDialog";
 import { DeleteConfirmDialog } from "./DeleteConfirmDialog";
-import { SOURCE_LABEL, sourceCategory, typeLabel, SIGNAL_LABEL, type ManualType, type ParticipationSignal } from "./labels";
+import {
+  SOURCE_LABEL,
+  sourceBadgeVariant,
+  sourceCategory,
+  typeLabel,
+  SIGNAL_LABEL,
+  type ManualType,
+  type ParticipationSignal,
+} from "./labels";
 import type { Interaction } from "./types";
 
 /** 互动记录独立页——来源 tab + 搜索框筛选（design.md 决定 3），常驻"记一条"
@@ -24,12 +32,6 @@ const TABS: { key: SourceTab; label: string }[] = [
   { key: "manual", label: "人工录入" },
   { key: "participation", label: "参与度" },
 ];
-
-function sourceBadgeVariant(cat: ReturnType<typeof sourceCategory>): "muted" | "default" | "success" {
-  if (cat === "auto") return "muted";
-  if (cat === "participation") return "success";
-  return "default";
-}
 
 /** 归属列——手动录入与参与度信号固定"Austin"（design.md 决定），系统自动
  * 事件里"已催"沿用既有渠道展示，跳过/取消跳过没有渠道可展示。 */

@@ -1,24 +1,15 @@
 import { type KeyboardEvent } from "react";
 import { Badge, Button } from "@/components/ui";
 import type { Interaction } from "@/app/(app)/interactions/types";
-import { channelLabel, formatAt } from "@/lib/format";
+import { SOURCE_LABEL, sourceBadgeVariant, sourceCategory, typeLabel } from "@/app/(app)/interactions/labels";
+import { formatAt } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { FIELDS, LEVELS, SOURCES, TAG_COLORS, TAGS, TZ_BY_REGION } from "./vocab";
 import { EnrollmentRows } from "./EnrollmentRows";
 import type { EditableFieldKey, Enrollment, FieldStatus, Student, WritableFieldKey } from "./types";
 
-const INTERACTION_EVENT_LABEL: Record<string, string> = {
-  nudged: "已催",
-  skipped: "跳过",
-  unskipped: "取消跳过",
-  manual: "手动",
-};
-
-function interactionBadgeVariant(eventType: string): "default" | "muted" | "success" | "info" {
-  if (eventType === "skipped") return "muted";
-  if (eventType === "unskipped") return "success";
-  if (eventType === "manual") return "info";
-  return "default";
+function interactionBadgeVariant(eventType: string): "muted" | "default" | "success" {
+  return sourceBadgeVariant(sourceCategory(eventType));
 }
 
 interface DetailPanelProps {
@@ -426,12 +417,10 @@ export function DetailPanel(props: DetailPanelProps) {
                 >
                   <span className="flex items-center gap-1.5">
                     <Badge variant={interactionBadgeVariant(i.eventType)}>
-                      {INTERACTION_EVENT_LABEL[i.eventType] ?? i.eventType}
+                      {SOURCE_LABEL[sourceCategory(i.eventType)]}
                     </Badge>
-                    <span className="text-muted-foreground">
-                      {i.courseName}
-                      {i.eventType === "nudged" ? ` · ${channelLabel(i.channel)}` : ""}
-                    </span>
+                    <span className="font-medium">{typeLabel(i.eventType, i.channel)}</span>
+                    <span className="text-muted-foreground">{i.courseName}</span>
                   </span>
                   <span className="flex-none font-mono text-[11px] text-muted-foreground">
                     {formatAt(i.at)}
