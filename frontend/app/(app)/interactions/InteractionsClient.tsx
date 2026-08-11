@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { formatAt, channelLabel } from "@/lib/format";
+import type { NewInteractionWrite } from "@/lib/api";
 import { ManualEntryPanel, type ManualEntryEnrollment, type ManualEntryStudentOption } from "./ManualEntryPanel";
 import { SOURCE_LABEL, sourceCategory, typeLabel, type ManualType, type ParticipationSignal } from "./labels";
 import type { Interaction } from "./types";
@@ -48,22 +49,23 @@ function matchesQuery(i: Interaction, query: string): boolean {
   );
 }
 
+type WriteResult = { ok: boolean; message?: string };
+
 interface InteractionsClientProps {
   interactions: Interaction[];
   students?: ManualEntryStudentOption[];
   enrollments?: ManualEntryEnrollment[];
   initialQuery?: string;
-  onSubmitManual?: (draft: { studentEmail: string; type: ManualType; note: string }) => Promise<{
-    ok: boolean;
-    message?: string;
-  }>;
-  onSubmitSignal?: (draft: { studentEmail: string; signal: ParticipationSignal }) => Promise<{
-    ok: boolean;
-    message?: string;
-  }>;
+  /** 直接传入的 Server Action 引用（不是包一层的闭包）——服务端组件只能把
+   * "use server" 导出的函数本体传给客户端组件，包一层箭头函数会在运行时
+   * 报"Event handlers cannot be passed to Client Components"（这个组件已经
+   * 是 "use client"，箭头函数在这里定义没有跨服务端/客户端边界，是安全的）。 */
+  onCreateInteraction?: (draft: NewInteractionWrite) => Promise<WriteResult>;
+  onSubmitManual?: (draft: { studentEmail: string; type: ManualType; note: string }) => Promise<WriteResult>;
+  onSubmitSignal?: (draft: { studentEmail: string; signal: ParticipationSignal }) => Promise<WriteResult>;
 }
 
-async function noopWrite() {
+async function noopWrite(): Promise<WriteResult> {
   return { ok: false, message: "没配置写入口" };
 }
 
@@ -72,9 +74,22 @@ export function InteractionsClient({
   students = [],
   enrollments = [],
   initialQuery,
-  onSubmitManual = noopWrite,
-  onSubmitSignal = noopWrite,
+  onCreateInteraction,
+  onSubmitManual,
+  onSubmitSignal,
 }: InteractionsClientProps) {
+  const submitManual =
+    onSubmitManual ??
+    (onCreateInteraction
+      ? (draft: { studentEmail: string; type: ManualType; note: string }) =>
+          onCreateInteraction({ kind: "manual", ...draft })
+      : noopWrite);
+  const submitSignal =
+    onSubmitSignal ??
+    (onCreateInteraction
+      ? (draft: { studentEmail: string; signal: ParticipationSignal }) =>
+          onCreateInteraction({ kind: "participation", ...draft })
+      : noopWrite);
   const [tab, setTab] = useState<SourceTab>("all");
   const [query, setQuery] = useState(initialQuery ?? "");
   const [toast, setToast] = useState<string | null>(null);
@@ -188,8 +203,8 @@ export function InteractionsClient({
       <ManualEntryPanel
         students={students}
         enrollments={enrollments}
-        onSubmitManual={onSubmitManual}
-        onSubmitSignal={onSubmitSignal}
+        onSubmitManual={submitManual}
+        onSubmitSignal={submitSignal}
         onWritten={handleWritten}
       />
     </div>

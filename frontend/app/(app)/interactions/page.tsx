@@ -27,8 +27,7 @@ export default async function InteractionsPage({
       students={students.map((s) => ({ email: s.email, name: s.name }))}
       enrollments={enrollments.map((e) => ({ studentEmail: e.studentEmail, state: e.state }))}
       initialQuery={student}
-      onSubmitManual={(draft) => createInteractionAction({ kind: "manual", ...draft })}
-      onSubmitSignal={(draft) => createInteractionAction({ kind: "participation", ...draft })}
+      onCreateInteraction={createInteractionAction}
     />
   );
 }
