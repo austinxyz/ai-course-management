@@ -30,8 +30,12 @@ interface ManualEntryPanelProps {
   /** 只需要 `studentEmail`/`state` 两个字段来判断"该学员有没有有效报课"。 */
   enrollments: ManualEntryEnrollment[];
   onSubmitManual: (draft: { studentEmail: string; type: ManualType; note: string }) => Promise<WriteResult>;
-  onSubmitSignal: (draft: { studentEmail: string; signal: ParticipationSignal }) => Promise<WriteResult>;
-  /** 写入成功后调用——父组件用来弹"已写入"提示条。 */
+  /** 点信号按钮不直接写入——把"待确认"这个意图抛给父组件，父组件弹确认
+   * 弹窗，确认后才真正调用写入接口（`interactions-confirm-and-undo`
+   * design.md 决定 5）。 */
+  onRequestSignal: (draft: { studentEmail: string; signal: ParticipationSignal }) => void;
+  /** 写入成功后调用——父组件用来弹"已写入"提示条。手动录入还是在这个
+   * 组件里直接写入（不用确认），信号的写入结果由父组件另外触发。 */
   onWritten: () => void;
 }
 
@@ -44,7 +48,7 @@ export function ManualEntryPanel({
   students,
   enrollments,
   onSubmitManual,
-  onSubmitSignal,
+  onRequestSignal,
   onWritten,
 }: ManualEntryPanelProps) {
   const [studentEmail, setStudentEmail] = useState("");
@@ -52,14 +56,13 @@ export function ManualEntryPanel({
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [signalBusy, setSignalBusy] = useState(false);
 
   const hasActiveEnrollment = enrollments.some(
     (e) => e.studentEmail === studentEmail && e.state !== "withdrawn",
   );
   const noValidCourse = !!studentEmail && !hasActiveEnrollment;
   const canSave = !!studentEmail && hasActiveEnrollment && note.trim().length > 0 && !busy;
-  const signalsDisabled = !studentEmail || !hasActiveEnrollment || signalBusy;
+  const signalsDisabled = !studentEmail || !hasActiveEnrollment;
 
   async function submit() {
     if (!canSave) return;
@@ -75,14 +78,9 @@ export function ManualEntryPanel({
     }
   }
 
-  async function clickSignal(signal: ParticipationSignal) {
+  function clickSignal(signal: ParticipationSignal) {
     if (signalsDisabled) return;
-    setSignalBusy(true);
-    setError(null);
-    const result = await onSubmitSignal({ studentEmail, signal });
-    setSignalBusy(false);
-    if (result.ok) onWritten();
-    else setError(result.message ?? "没保存上。");
+    onRequestSignal({ studentEmail, signal });
   }
 
   return (

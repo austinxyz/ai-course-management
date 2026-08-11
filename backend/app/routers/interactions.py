@@ -10,6 +10,7 @@
 design.md 决定 1、2、5）。
 """
 
+import uuid
 from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -56,6 +57,7 @@ def list_interactions(session: Session = Depends(get_session)) -> InteractionLis
     )
     items = [
         InteractionRead(
+            id=event.id,
             student_email=event.student_email,
             student_name=student.name,
             course_id=event.course_id,
@@ -116,6 +118,7 @@ def create_interaction(
     session.commit()
     session.refresh(event)
     return InteractionRead(
+        id=event.id,
         student_email=event.student_email,
         student_name=student.name,
         course_id=event.course_id,
@@ -125,3 +128,24 @@ def create_interaction(
         note=event.note,
         at=event.created_at,
     )
+
+
+DELETABLE_EVENT_TYPES = {"manual", "participation"}
+
+
+@router.delete("/{interaction_id}", status_code=204)
+def delete_interaction(
+    interaction_id: uuid.UUID,
+    session: Session = Depends(get_session),
+) -> None:
+    """删除一条互动记录——只允许 `manual`/`participation` 两类，`nudged`/
+    `skipped`/`unskipped` 是催作业流程的历史事实，删了会改写"已催次数"等
+    派生统计，这道校验不能只在前端做（不出删除按钮），接口本身也要挡
+    （design.md 决定 2）。"""
+    event = session.get(NudgeEvent, interaction_id)
+    if event is None:
+        raise HTTPException(status_code=404, detail="没有这条互动记录")
+    if event.event_type not in DELETABLE_EVENT_TYPES:
+        raise HTTPException(status_code=422, detail="这类记录不能删除")
+    session.delete(event)
+    session.commit()

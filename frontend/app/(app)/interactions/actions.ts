@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 
-import { BackendError, createInteraction, type NewInteractionWrite } from "@/lib/api";
+import { BackendError, createInteraction, deleteInteraction, type NewInteractionWrite } from "@/lib/api";
 import { checkSitePassword } from "@/lib/site-password";
 
 /** 每个入口先过这里。理由同 `students/actions.ts` 的 `requireSitePassword`。 */
@@ -31,6 +31,26 @@ export async function createInteractionAction(
   } catch (error) {
     if (error instanceof BackendError) return { ok: false, message: error.detail };
     return { ok: false, message: "没保存上。" };
+  }
+  revalidatePath("/interactions", "layout");
+  revalidatePath("/students", "layout");
+  return { ok: true };
+}
+
+/**
+ * 删除一条人工录入/参与度信号记录。后端会拒绝其余类型
+ * （design.md 决定 2），这里只透传返回值，不重复做前端侧的类型判断。
+ * 刷新逻辑跟写入共用同一套两次 `revalidatePath`。
+ */
+export async function deleteInteractionAction(
+  id: string,
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  await requireSitePassword();
+  try {
+    await deleteInteraction(id);
+  } catch (error) {
+    if (error instanceof BackendError) return { ok: false, message: error.detail };
+    return { ok: false, message: "没删掉。" };
   }
   revalidatePath("/interactions", "layout");
   revalidatePath("/students", "layout");

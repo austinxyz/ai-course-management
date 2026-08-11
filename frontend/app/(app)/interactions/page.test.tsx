@@ -13,6 +13,7 @@ vi.mock("@/lib/api", () => ({
 }));
 vi.mock("./actions", () => ({
   createInteractionAction: vi.fn(),
+  deleteInteractionAction: vi.fn(),
 }));
 
 import InteractionsPage from "./page";

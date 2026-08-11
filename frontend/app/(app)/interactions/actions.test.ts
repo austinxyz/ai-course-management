@@ -9,6 +9,7 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 const api = vi.hoisted(() => ({
   createInteraction: vi.fn(),
+  deleteInteraction: vi.fn(),
 }));
 vi.mock("@/lib/api", async () => {
   const actual = await vi.importActual<typeof import("@/lib/api")>("@/lib/api");
@@ -92,5 +93,49 @@ describe("createInteractionAction", () => {
       }),
     ).rejects.toThrow();
     expect(api.createInteraction).not.toHaveBeenCalled();
+  });
+});
+
+describe("deleteInteractionAction", () => {
+  beforeEach(() => {
+    process.env.SITE_PASSWORD = PASSWORD;
+    vi.clearAllMocks();
+    withAuthorization(basic(PASSWORD));
+  });
+
+  afterEach(() => {
+    delete process.env.SITE_PASSWORD;
+  });
+
+  it("revalidates both /interactions (layout) and /students (layout) after a successful delete", async () => {
+    const { revalidatePath } = await import("next/cache");
+    const { deleteInteractionAction } = await import("./actions");
+    api.deleteInteraction.mockResolvedValue(undefined);
+
+    await deleteInteractionAction("i1");
+
+    expect(api.deleteInteraction).toHaveBeenCalledWith("i1");
+    const calls = vi.mocked(revalidatePath).mock.calls;
+    expect(calls).toContainEqual(["/interactions", "layout"]);
+    expect(calls).toContainEqual(["/students", "layout"]);
+  });
+
+  it("returns a failure value instead of throwing on a backend error", async () => {
+    const { deleteInteractionAction } = await import("./actions");
+    const { BackendError } = await import("@/lib/api");
+    api.deleteInteraction.mockRejectedValue(new BackendError(422, "这类记录不能删除"));
+
+    await expect(deleteInteractionAction("i1")).resolves.toEqual({
+      ok: false,
+      message: "这类记录不能删除",
+    });
+  });
+
+  it("refuses an unauthenticated call without touching the backend", async () => {
+    const { deleteInteractionAction } = await import("./actions");
+    withAuthorization(null);
+
+    await expect(deleteInteractionAction("i1")).rejects.toThrow();
+    expect(api.deleteInteraction).not.toHaveBeenCalled();
   });
 });

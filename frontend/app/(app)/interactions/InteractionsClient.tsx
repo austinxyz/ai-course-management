@@ -7,7 +7,9 @@ import { cn } from "@/lib/cn";
 import { formatAt, channelLabel } from "@/lib/format";
 import type { NewInteractionWrite } from "@/lib/api";
 import { ManualEntryPanel, type ManualEntryEnrollment, type ManualEntryStudentOption } from "./ManualEntryPanel";
-import { SOURCE_LABEL, sourceCategory, typeLabel, type ManualType, type ParticipationSignal } from "./labels";
+import { SignalConfirmDialog } from "./SignalConfirmDialog";
+import { DeleteConfirmDialog } from "./DeleteConfirmDialog";
+import { SOURCE_LABEL, sourceCategory, typeLabel, SIGNAL_LABEL, type ManualType, type ParticipationSignal } from "./labels";
 import type { Interaction } from "./types";
 
 /** 互动记录独立页——来源 tab + 搜索框筛选（design.md 决定 3），常驻"记一条"
@@ -63,11 +65,20 @@ interface InteractionsClientProps {
   onCreateInteraction?: (draft: NewInteractionWrite) => Promise<WriteResult>;
   onSubmitManual?: (draft: { studentEmail: string; type: ManualType; note: string }) => Promise<WriteResult>;
   onSubmitSignal?: (draft: { studentEmail: string; signal: ParticipationSignal }) => Promise<WriteResult>;
+  onDeleteInteraction?: (id: string) => Promise<WriteResult>;
 }
 
 async function noopWrite(): Promise<WriteResult> {
   return { ok: false, message: "没配置写入口" };
 }
+
+/** 待确认的动作——参与度信号点击和删除都先落在这里，弹窗确认后才真正
+ * 调写入/删除接口。两种确认弹窗集中在这一个组件里管理，不是各自散落在
+ * `ManualEntryPanel`/列表行里，方便复用同一套开关逻辑
+ * （`interactions-confirm-and-undo` design.md 决定 5）。 */
+type PendingAction =
+  | { kind: "signal"; studentEmail: string; studentName: string; signal: ParticipationSignal }
+  | { kind: "delete"; id: string; summary: string };
 
 export function InteractionsClient({
   interactions,
@@ -77,6 +88,7 @@ export function InteractionsClient({
   onCreateInteraction,
   onSubmitManual,
   onSubmitSignal,
+  onDeleteInteraction = noopWrite,
 }: InteractionsClientProps) {
   const submitManual =
     onSubmitManual ??
@@ -92,6 +104,9 @@ export function InteractionsClient({
       : noopWrite);
   const [tab, setTab] = useState<SourceTab>("all");
   const [query, setQuery] = useState(initialQuery ?? "");
+  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
+  const [actionBusy, setActionBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
   const counts = useMemo(() => {
@@ -109,6 +124,43 @@ export function InteractionsClient({
 
   function handleWritten() {
     setToast("这条互动记录已经加进去了。");
+  }
+
+  function handleRequestSignal(draft: { studentEmail: string; signal: ParticipationSignal }) {
+    const studentName = students.find((s) => s.email === draft.studentEmail)?.name ?? draft.studentEmail;
+    setActionError(null);
+    setPendingAction({ kind: "signal", studentName, ...draft });
+  }
+
+  function handleRequestDelete(i: Interaction) {
+    setActionError(null);
+    setPendingAction({
+      kind: "delete",
+      id: i.id,
+      summary: `${i.studentName} · ${typeLabel(i.eventType, i.channel)} · ${formatAt(i.at)}`,
+    });
+  }
+
+  function cancelPendingAction() {
+    setPendingAction(null);
+    setActionError(null);
+  }
+
+  async function confirmPendingAction() {
+    if (!pendingAction) return;
+    setActionBusy(true);
+    setActionError(null);
+    const result =
+      pendingAction.kind === "signal"
+        ? await submitSignal({ studentEmail: pendingAction.studentEmail, signal: pendingAction.signal })
+        : await onDeleteInteraction(pendingAction.id);
+    setActionBusy(false);
+    if (result.ok) {
+      setPendingAction(null);
+      setToast(pendingAction.kind === "signal" ? "这条互动记录已经加进去了。" : "这条记录已经删除了。");
+    } else {
+      setActionError(result.message ?? "没保存上。");
+    }
   }
 
   return (
@@ -193,6 +245,16 @@ export function InteractionsClient({
                     <span className="font-mono text-[11px] text-muted-foreground">{formatAt(i.at)}</span>
                     <span className="font-mono text-[11px] text-muted-foreground">{byFor(i)}</span>
                   </div>
+                  {(cat === "manual" || cat === "participation") && (
+                    <button
+                      type="button"
+                      aria-label="删除这条记录"
+                      onClick={() => handleRequestDelete(i)}
+                      className="flex h-6 w-6 flex-none items-center justify-center rounded text-muted-foreground hover:bg-danger/10 hover:text-danger"
+                    >
+                      ×
+                    </button>
+                  )}
                 </div>
               );
             })
@@ -200,11 +262,31 @@ export function InteractionsClient({
         </div>
       </main>
 
+      {pendingAction?.kind === "signal" && (
+        <SignalConfirmDialog
+          studentName={pendingAction.studentName}
+          signalLabel={SIGNAL_LABEL[pendingAction.signal]}
+          busy={actionBusy}
+          error={actionError}
+          onConfirm={confirmPendingAction}
+          onCancel={cancelPendingAction}
+        />
+      )}
+      {pendingAction?.kind === "delete" && (
+        <DeleteConfirmDialog
+          summary={pendingAction.summary}
+          busy={actionBusy}
+          error={actionError}
+          onConfirm={confirmPendingAction}
+          onCancel={cancelPendingAction}
+        />
+      )}
+
       <ManualEntryPanel
         students={students}
         enrollments={enrollments}
         onSubmitManual={submitManual}
-        onSubmitSignal={submitSignal}
+        onRequestSignal={handleRequestSignal}
         onWritten={handleWritten}
       />
     </div>

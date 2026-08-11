@@ -11,19 +11,19 @@ const STUDENTS = [
 
 function panel(over: Record<string, unknown> = {}) {
   const onSubmitManual = vi.fn().mockResolvedValue({ ok: true });
-  const onSubmitSignal = vi.fn().mockResolvedValue({ ok: true });
+  const onRequestSignal = vi.fn();
   const onWritten = vi.fn();
   render(
     <ManualEntryPanel
       students={STUDENTS}
       enrollments={[{ studentEmail: "alpha@example.com", state: "enrolled" }]}
       onSubmitManual={onSubmitManual}
-      onSubmitSignal={onSubmitSignal}
+      onRequestSignal={onRequestSignal}
       onWritten={onWritten}
       {...over}
     />,
   );
-  return { onSubmitManual, onSubmitSignal, onWritten };
+  return { onSubmitManual, onRequestSignal, onWritten };
 }
 
 describe("参与度信号", () => {
@@ -35,16 +35,15 @@ describe("参与度信号", () => {
     }
   });
 
-  it("选中有有效报课的学员后，点击信号立即写入，不需要额外确认", async () => {
-    const { onSubmitSignal, onWritten } = panel();
+  it("选中有有效报课的学员后，点击信号只抛出待确认请求，不直接写入", async () => {
+    const { onRequestSignal, onWritten } = panel();
     const user = userEvent.setup();
 
     await user.selectOptions(screen.getByLabelText("学员"), "alpha@example.com");
     await user.click(screen.getByRole("button", { name: "出席直播" }));
 
-    expect(onSubmitSignal).toHaveBeenCalledWith({ studentEmail: "alpha@example.com", signal: "live" });
-    expect(await screen.findByText("Demo Day 参展")).toBeInTheDocument();
-    expect(onWritten).toHaveBeenCalledTimes(1);
+    expect(onRequestSignal).toHaveBeenCalledWith({ studentEmail: "alpha@example.com", signal: "live" });
+    expect(onWritten).not.toHaveBeenCalled();
   });
 
   it("选中没有有效报课的学员时，信号按钮保持禁用并显示说明文案", async () => {

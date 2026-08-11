@@ -808,6 +808,7 @@ export async function sendNudgeEmailApi(input: {
 }
 
 interface ApiInteraction {
+  id: string;
   student_email: string;
   student_name: string;
   course_id: string;
@@ -820,6 +821,7 @@ interface ApiInteraction {
 
 function toInteraction(api: ApiInteraction): Interaction {
   return {
+    id: api.id,
     studentEmail: api.student_email,
     studentName: api.student_name,
     courseId: api.course_id,
@@ -876,4 +878,10 @@ export async function createInteraction(draft: NewInteractionWrite): Promise<Int
       : { kind: "participation", student_email: draft.studentEmail, signal: draft.signal };
   const data = (await backendWrite("/api/interactions", "POST", body)) as ApiInteraction;
   return toInteraction(data);
+}
+
+/** 只能删 `manual`/`participation` 两类——后端会拒绝其余类型
+ * （`interactions-confirm-and-undo` design.md 决定 2）。 */
+export async function deleteInteraction(id: string): Promise<void> {
+  await backendWrite(`/api/interactions/${id}`, "DELETE");
 }

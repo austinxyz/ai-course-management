@@ -107,6 +107,15 @@ class TestList:
         assert skipped["channel"] is None
         assert skipped["note"] == "已私下沟通"
 
+    def test_each_item_carries_its_own_id(self, db_session, client):
+        course = _course(db_session)
+        _student(db_session, "ix-mike@example.com", "学员甲乙丙")
+        row = _event(db_session, "ix-mike@example.com", course)
+
+        items = _list(client)
+
+        assert items[0]["id"] == str(row.id)
+
 
 class TestCreateManual:
     def test_creates_manual_event_with_latest_active_course(self, db_session, client):
@@ -255,6 +264,71 @@ class TestCreateParticipation:
 
         assert resp.status_code == 422
         assert "有效报课" in resp.json()["detail"]
+
+
+class TestDeleteInteraction:
+    def test_deletes_a_manual_record(self, db_session, client):
+        course = _course(db_session)
+        _student(db_session, "ix-november@example.com", "学员甲丁")
+        _enrollment(db_session, "ix-november@example.com", course, date(2026, 6, 1))
+        created = client.post(
+            "/api/interactions",
+            json={"kind": "manual", "student_email": "ix-november@example.com", "type": "1on1", "note": "内容"},
+        ).json()
+
+        resp = client.delete(f"/api/interactions/{created['id']}")
+
+        assert resp.status_code == 204, resp.text
+        assert _list(client) == []
+
+    def test_deletes_a_participation_record(self, db_session, client):
+        course = _course(db_session)
+        _student(db_session, "ix-oscar@example.com", "学员甲戊")
+        _enrollment(db_session, "ix-oscar@example.com", course, date(2026, 6, 1))
+        created = client.post(
+            "/api/interactions",
+            json={"kind": "participation", "student_email": "ix-oscar@example.com", "signal": "live"},
+        ).json()
+
+        resp = client.delete(f"/api/interactions/{created['id']}")
+
+        assert resp.status_code == 204, resp.text
+        assert _list(client) == []
+
+    def test_rejects_deleting_an_auto_event(self, db_session, client):
+        course = _course(db_session)
+        _student(db_session, "ix-papa@example.com", "学员甲己")
+        row = _event(db_session, "ix-papa@example.com", course, event_type="nudged")
+
+        resp = client.delete(f"/api/interactions/{row.id}")
+
+        assert resp.status_code == 422
+        assert len(_list(client)) == 1
+
+    def test_rejects_deleting_a_skipped_event(self, db_session, client):
+        course = _course(db_session)
+        _student(db_session, "ix-quebec@example.com", "学员甲庚")
+        row = _event(db_session, "ix-quebec@example.com", course, event_type="skipped", channel=None)
+
+        resp = client.delete(f"/api/interactions/{row.id}")
+
+        assert resp.status_code == 422
+        assert len(_list(client)) == 1
+
+    def test_rejects_deleting_an_unskipped_event(self, db_session, client):
+        course = _course(db_session)
+        _student(db_session, "ix-romeo@example.com", "学员甲辛")
+        row = _event(db_session, "ix-romeo@example.com", course, event_type="unskipped", channel=None)
+
+        resp = client.delete(f"/api/interactions/{row.id}")
+
+        assert resp.status_code == 422
+        assert len(_list(client)) == 1
+
+    def test_returns_404_for_unknown_id(self, client):
+        resp = client.delete("/api/interactions/00000000-0000-0000-0000-000000000000")
+
+        assert resp.status_code == 404
 
 
 class TestCount:

@@ -1,5 +1,5 @@
 import { getEnrollments, getInteractions, getStudents } from "@/lib/api";
-import { createInteractionAction } from "./actions";
+import { createInteractionAction, deleteInteractionAction } from "./actions";
 import { InteractionsClient } from "./InteractionsClient";
 
 /**
@@ -28,6 +28,7 @@ export default async function InteractionsPage({
       enrollments={enrollments.map((e) => ({ studentEmail: e.studentEmail, state: e.state }))}
       initialQuery={student}
       onCreateInteraction={createInteractionAction}
+      onDeleteInteraction={deleteInteractionAction}
     />
   );
 }

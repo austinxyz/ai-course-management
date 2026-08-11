@@ -741,8 +741,11 @@ class NudgeSendEmailRequest(BaseModel):
 
 class InteractionRead(BaseModel):
     """互动记录里的一条：来自 `nudge_events`，带学员姓名与课程名一次给出——
-    调用方不需要再拿 `student_email`/`course_id` 回头查名字。"""
+    调用方不需要再拿 `student_email`/`course_id` 回头查名字。`id` 是删除时
+    唯一安全的定位符——不能靠"学员+时间+类型"这种组合，可能撞车
+    （`interactions-confirm-and-undo` design.md 决定 1）。"""
 
+    id: uuid.UUID
     student_email: str
     student_name: str
     course_id: uuid.UUID

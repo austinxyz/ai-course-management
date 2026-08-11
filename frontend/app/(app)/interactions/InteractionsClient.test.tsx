@@ -7,6 +7,7 @@ import type { Interaction } from "./types";
 
 function interaction(over: Partial<Interaction> = {}): Interaction {
   return {
+    id: "i0",
     studentEmail: "alpha@example.com",
     studentName: "学员甲",
     courseId: "c1",
@@ -26,6 +27,7 @@ function baseProps(over: Record<string, unknown> = {}) {
     enrollments: [],
     onSubmitManual: vi.fn().mockResolvedValue({ ok: true }),
     onSubmitSignal: vi.fn().mockResolvedValue({ ok: true }),
+    onDeleteInteraction: vi.fn().mockResolvedValue({ ok: true }),
     ...over,
   };
 }
@@ -186,5 +188,140 @@ describe("写入成功后的提示条", () => {
     expect(await screen.findByText("已写入")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "知道了" }));
     expect(screen.queryByText("已写入")).not.toBeInTheDocument();
+  });
+});
+
+describe("参与度信号确认", () => {
+  function withSignalSetup(over: Record<string, unknown> = {}) {
+    const onSubmitSignal = vi.fn().mockResolvedValue({ ok: true });
+    render(
+      <InteractionsClient
+        {...baseProps({
+          interactions: [],
+          students: [{ email: "alpha@example.com", name: "学员甲" }],
+          enrollments: [{ studentEmail: "alpha@example.com", state: "enrolled" }],
+          onSubmitSignal,
+          ...over,
+        })}
+      />,
+    );
+    return { onSubmitSignal };
+  }
+
+  it("点信号先弹确认框，此时还没有写入", async () => {
+    const { onSubmitSignal } = withSignalSetup();
+    const user = userEvent.setup();
+
+    await user.selectOptions(screen.getByLabelText("学员"), "alpha@example.com");
+    await user.click(screen.getByRole("button", { name: "出席直播" }));
+
+    expect(screen.getByText(/给学员甲标记「出席直播」/)).toBeInTheDocument();
+    expect(onSubmitSignal).not.toHaveBeenCalled();
+  });
+
+  it("确认后才真正写入并显示已写入", async () => {
+    const { onSubmitSignal } = withSignalSetup();
+    const user = userEvent.setup();
+
+    await user.selectOptions(screen.getByLabelText("学员"), "alpha@example.com");
+    await user.click(screen.getByRole("button", { name: "出席直播" }));
+    await user.click(screen.getByRole("button", { name: "确认" }));
+
+    expect(onSubmitSignal).toHaveBeenCalledWith({ studentEmail: "alpha@example.com", signal: "live" });
+    expect(await screen.findByText("已写入")).toBeInTheDocument();
+  });
+
+  it("写入失败时 inline 显示错误，弹窗不关闭", async () => {
+    withSignalSetup({ onSubmitSignal: vi.fn().mockResolvedValue({ ok: false, message: "没保存上。" }) });
+    const user = userEvent.setup();
+
+    await user.selectOptions(screen.getByLabelText("学员"), "alpha@example.com");
+    await user.click(screen.getByRole("button", { name: "出席直播" }));
+    await user.click(screen.getByRole("button", { name: "确认" }));
+
+    expect(await screen.findByText("没保存上。")).toBeInTheDocument();
+    expect(screen.getByText(/给学员甲标记「出席直播」/)).toBeInTheDocument();
+  });
+
+  it("取消不写入，弹窗关闭", async () => {
+    const { onSubmitSignal } = withSignalSetup();
+    const user = userEvent.setup();
+
+    await user.selectOptions(screen.getByLabelText("学员"), "alpha@example.com");
+    await user.click(screen.getByRole("button", { name: "出席直播" }));
+    await user.click(screen.getByRole("button", { name: "取消" }));
+
+    expect(onSubmitSignal).not.toHaveBeenCalled();
+    expect(screen.queryByText(/给学员甲标记/)).not.toBeInTheDocument();
+  });
+});
+
+describe("删除人工录入/参与度信号记录", () => {
+  it("只有 manual/participation 类型的行有删除按钮", () => {
+    render(
+      <InteractionsClient
+        {...baseProps({
+          interactions: [
+            interaction({ id: "i1", eventType: "manual", channel: "1on1", note: "内容" }),
+            interaction({ id: "i2", eventType: "participation", channel: "live" }),
+            interaction({ id: "i3", eventType: "nudged" }),
+          ],
+        })}
+      />,
+    );
+
+    expect(screen.getAllByRole("button", { name: "删除这条记录" })).toHaveLength(2);
+  });
+
+  it("点删除先弹确认框，确认后才调用删除、弹窗关闭并显示已删除提示", async () => {
+    // 删除跟手动录入一样不在客户端本地摘除这一行——`interactions` 是从
+    // 服务端拉下来的 prop，真正的移除靠 revalidatePath 触发的服务端重新
+    // 取数（跟"写入成功后不立刻本地插入新行，只弹 toast"是同一套架构）。
+    const onDeleteInteraction = vi.fn().mockResolvedValue({ ok: true });
+    render(
+      <InteractionsClient
+        {...baseProps({
+          interactions: [
+            interaction({
+              id: "i1",
+              eventType: "manual",
+              channel: "1on1",
+              note: "内容",
+              studentName: "学员甲",
+            }),
+          ],
+          onDeleteInteraction,
+        })}
+      />,
+    );
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "删除这条记录" }));
+    expect(onDeleteInteraction).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "删除" }));
+
+    expect(onDeleteInteraction).toHaveBeenCalledWith("i1");
+    expect(await screen.findByText("这条记录已经删除了。")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "删除这条记录" })).not.toBeInTheDocument();
+  });
+
+  it("取消不删除", async () => {
+    const onDeleteInteraction = vi.fn().mockResolvedValue({ ok: true });
+    render(
+      <InteractionsClient
+        {...baseProps({
+          interactions: [interaction({ id: "i1", eventType: "manual", channel: "1on1", note: "内容" })],
+          onDeleteInteraction,
+        })}
+      />,
+    );
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "删除这条记录" }));
+    await user.click(screen.getByRole("button", { name: "取消" }));
+
+    expect(onDeleteInteraction).not.toHaveBeenCalled();
+    expect(screen.getAllByTestId(/^interaction-row-/)).toHaveLength(1);
   });
 });
