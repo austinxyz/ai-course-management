@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>interactions-confirm-and-undo mocks</title>
+<!-- HAS_UI_SURFACE: yes -->
+<style>
+  :root {
+    --border: #e4e0d8;
+    --surface: #ffffff;
+    --surface-muted: #f2efe9;
+    --bg: #f6f4f0;
+    --muted: #79736a;
+    --muted-fg: #a09a90;
+    --ink: #1a1917;
+    --rounded: 8px;
+    --primary: #9c3417;
+    --success: #2f6b4f;
+    --danger: #b3261e;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", sans-serif;
+    margin: 0; padding: 24px; background: var(--bg); color: var(--ink);
+  }
+  section { margin-bottom: 56px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p.desc { color: var(--muted); font-size: 13px; max-width: 680px; line-height: 1.6; }
+  .row { display: flex; align-items: center; gap: 8px; }
+
+  .interaction-row { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--border); font-size: 12.5px; background: var(--surface); }
+  .badge { font-size: 11px; padding: 1px 7px; border-radius: 999px; font-weight: 500; flex: none; }
+  .badge.manual { background: #fdece7; color: var(--primary); }
+  .badge.participation { background: #eaf3ee; color: var(--success); }
+  .delete-btn { flex: none; height: 24px; width: 24px; display: flex; align-items: center; justify-content: center; border-radius: 6px; border: 1px solid transparent; background: none; color: var(--muted-fg); cursor: pointer; }
+  .delete-btn:hover { border-color: var(--danger); color: var(--danger); background: #fbeceb; }
+
+  .modal-backdrop { position: relative; height: 260px; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.3); border-radius: var(--rounded); }
+  .modal { width: 380px; display: flex; flex-direction: column; gap: 14px; border-radius: var(--rounded); border: 1px solid var(--border); background: var(--surface); padding: 20px; }
+  .btn { height: 32px; padding: 0 14px; border-radius: var(--rounded); font-size: 13px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; }
+  .btn.primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .btn.danger { background: var(--danger); color: #fff; border-color: var(--danger); }
+</style>
+</head>
+<body>
+
+<section id="signal-confirm-modal-desktop">
+  <h1>参与度信号确认弹窗（桌面）</h1>
+  <p class="desc">点信号按钮不再立即写入——先弹这个确认框。外观对齐既有弹窗规范（EnrollmentModal 那一套）：标题 + 一句话确认文案 + 取消/确认两个按钮。确认按钮用 primary 色（不是 danger——这不是删除，是正常写入操作）。</p>
+  <div class="modal-backdrop">
+    <div class="modal">
+      <div>
+        <h2 style="margin:0;font-size:15px;font-weight:600">确认标记参与度信号</h2>
+        <p style="margin:4px 0 0;font-size:12.5px;color:var(--muted)">给 陈嘉禾 标记「出席直播」？</p>
+      </div>
+      <div class="row" style="justify-content:flex-end;gap:8px">
+        <button class="btn">取消</button>
+        <button class="btn primary">确认</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="delete-confirm-modal-desktop">
+  <h1>删除记录确认弹窗（桌面）</h1>
+  <p class="desc">只有人工录入/参与度信号的行才有删除按钮。确认按钮用 danger 色——这是不可逆操作，颜色要跟"确认标记"区分开。</p>
+  <div class="modal-backdrop">
+    <div class="modal">
+      <div>
+        <h2 style="margin:0;font-size:15px;font-weight:600">删除这条记录？</h2>
+        <p style="margin:4px 0 0;font-size:12.5px;color:var(--muted)">陈嘉禾 · 出席直播 · 2026-08-10 09:12。删除后不能恢复。</p>
+      </div>
+      <div class="row" style="justify-content:flex-end;gap:8px">
+        <button class="btn">取消</button>
+        <button class="btn danger">删除</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="list-row-delete-button-desktop">
+  <h1>列表行内删除按钮（桌面）</h1>
+  <p class="desc">只有 event_type 是 manual/participation 的行才有删除按钮（行末的 × 图标）；系统自动事件的行没有这个按钮。</p>
+  <div style="width:640px;border:1px solid var(--border);border-radius:var(--rounded);overflow:hidden">
+    <div class="interaction-row">
+      <span class="badge manual">人工录入</span>
+      <span style="flex:1">1:1 沟通 · 陈嘉禾</span>
+      <button class="delete-btn" aria-label="删除这条记录">×</button>
+    </div>
+    <div class="interaction-row">
+      <span class="badge participation">参与度</span>
+      <span style="flex:1">出席直播 · 陈嘉禾</span>
+      <button class="delete-btn" aria-label="删除这条记录">×</button>
+    </div>
+    <div class="interaction-row" style="border-bottom:none">
+      <span class="badge" style="background:var(--surface-muted);color:var(--muted-fg)">系统自动</span>
+      <span style="flex:1;color:var(--muted-fg)">批改完成 · 郑凯（没有删除按钮）</span>
+    </div>
+  </div>
+</section>
+
+<section id="mobile">
+  <h1>移动端：弹窗铺满宽度，删除按钮触控区不缩小</h1>
+  <div style="display:flex;flex-direction:column;gap:16px;width:340px">
+    <div class="modal" style="width:100%">
+      <h2 style="margin:0;font-size:15px;font-weight:600">确认标记参与度信号</h2>
+      <p style="margin:0;font-size:12.5px;color:var(--muted)">给 陈嘉禾 标记「出席直播」？</p>
+      <div class="row" style="justify-content:flex-end;gap:8px">
+        <button class="btn">取消</button>
+        <button class="btn primary">确认</button>
+      </div>
+    </div>
+    <div style="border:1px solid var(--border);border-radius:var(--rounded);overflow:hidden">
+      <div class="interaction-row">
+        <span class="badge manual">人工录入</span>
+        <span style="flex:1;font-size:11.5px">1:1 沟通</span>
+        <button class="delete-btn" aria-label="删除这条记录">×</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+</body>
+</html>
