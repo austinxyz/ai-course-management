@@ -31,8 +31,6 @@
 - [x] 2.1 MOCK — open docs/superpowers/specs/mocks/2026-08-10-interactions-confirm-and-undo-mocks.html#signal-confirm-modal-desktop 与 #delete-confirm-modal-desktop 与 #list-row-delete-button-desktop 与 #mobile；记录两个弹窗的文案与按钮配色（信号确认用 primary 确认按钮，删除确认用 danger 确认按钮）、删除按钮样式与位置（行末 × 图标）
 - [x] 2.2 RED — `frontend/app/(app)/interactions/ManualEntryPanel.test.tsx`：更新既有"点击信号立即写入"用例为"点击信号先触发待确认回调，不直接调用 `onSubmitSignal`"；此时点击直接调用 `onSubmitSignal`，断言应失败
 - [x] 2.3 GREEN — `ManualEntryPanel.tsx` 新增 `onRequestSignal` prop，信号按钮点击调用它而不是直接调 `onSubmitSignal`
-- [ ] 2.4 RED — `frontend/app/(app)/interactions/InteractionsClient.test.tsx`：新增用例，点击信号按钮后断言出现确认弹窗（文案包含学员名与信号名），此时还没有调用写入；点"确认"后才调用写入并显示"已写入"；此时没有确认弹窗，测试应失败
-- [ ] 2.5 GREEN — 新建 `SignalConfirmDialog.tsx`；`InteractionsClient.tsx` 用 `pendingAction` 状态接住 `ManualEntryPanel` 的 `onRequestSignal`，渲染确认弹窗，确认后才调用 `onSubmitSignal`
 - [x] 2.4 RED — `frontend/app/(app)/interactions/InteractionsClient.test.tsx`：新增用例，点击信号按钮后断言出现确认弹窗（文案包含学员名与信号名），此时还没有调用写入；点"确认"后才调用写入并显示"已写入"；此时没有确认弹窗，测试应失败
 - [x] 2.5 GREEN — 新建 `SignalConfirmDialog.tsx`；`InteractionsClient.tsx` 用 `pendingAction` 状态接住 `ManualEntryPanel` 的 `onRequestSignal`，渲染确认弹窗，确认后才调用 `onSubmitSignal`
 - [x] 2.6 RED — 新增用例：点确认弹窗的"取消"，断言没有调用写入，弹窗关闭
